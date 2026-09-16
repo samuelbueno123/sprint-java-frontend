@@ -1,0 +1,27 @@
+services:
+  flutter:
+    image: ghcr.io/cirruslabs/flutter:3.44.0
+
+    env_file:
+      - .env
+
+    working_dir: /app
+
+    volumes:
+      - .:/app
+
+    ports:
+      - "5500:5500"
+
+    command: >
+      bash -c "flutter pub get &&
+      flutter run
+      -d web-server
+      --web-hostname 0.0.0.0
+      --web-port 5500
+      --dart-define=API_BASE_URL=$$API_BASE_URL
+      --dart-define=GOOGLE_WEB_CLIENT_ID=$$GOOGLE_WEB_CLIENT_ID
+      --dart-define=GOOGLE_SERVER_CLIENT_ID=$$GOOGLE_SERVER_CLIENT_ID"
+
+    stdin_open: true
+    tty: true
