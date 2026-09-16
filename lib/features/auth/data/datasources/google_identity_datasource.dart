@@ -6,17 +6,20 @@ import '../../../../core/config/app_config.dart';
 /// Isola as particularidades do SDK Google por plataforma fora da UI e da feature.
 class GoogleIdentityDataSource {
   GoogleIdentityDataSource()
-      : _googleSignIn = GoogleSignIn(
-          scopes: const ['email', 'profile'],
-          clientId: kIsWeb
-              ? AppConfig.googleWebClientId
-              : defaultTargetPlatform == TargetPlatform.iOS
-              ? AppConfig.googleIosClientId
-              : null,
-          serverClientId: AppConfig.googleServerClientId,
-        );
+    : _googleSignIn = GoogleSignIn(
+        scopes: const ['email', 'profile', 'openid'],
+        clientId: kIsWeb
+            ? AppConfig.googleWebClientId
+            : defaultTargetPlatform == TargetPlatform.iOS
+            ? AppConfig.googleIosClientId
+            : null,
+        serverClientId: kIsWeb ? null : AppConfig.googleServerClientId,
+      );
 
   final GoogleSignIn _googleSignIn;
+
+  Stream<GoogleSignInAccount?> get onCurrentUserChanged =>
+      _googleSignIn.onCurrentUserChanged;
 
   bool get isConfigured {
     if (AppConfig.googleServerClientId.isEmpty) return false;

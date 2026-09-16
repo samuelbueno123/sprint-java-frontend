@@ -31,7 +31,24 @@ class AppConfig {
     return uri != null && uri.hasScheme && uri.hasAuthority;
   }
 
-  /// A feature de autenticação conhece somente esta rota relativa.
+  /// Rotas da API.
   static Uri get googleAuthenticationEndpoint =>
       Uri.parse(apiBaseUrl).resolve('/api/auth/google');
+
+  static Uri get homeEndpoint => Uri.parse(apiBaseUrl).resolve('/api/home');
+
+  static Uri get logoutEndpoint =>
+      Uri.parse(apiBaseUrl).resolve('/api/auth/logout');
+
+  static Uri studentByGoogleIdEndpoint(String googleId) =>
+      Uri.parse(apiBaseUrl).resolve('/api/students/google/$googleId');
+
+  static Uri studentByEmailEndpoint(String email) =>
+      Uri.parse(apiBaseUrl).resolve('/api/students/email/$email');
+
+  static Uri teacherByGoogleIdEndpoint(String googleId) =>
+      Uri.parse(apiBaseUrl).resolve('/api/teachers/google/$googleId');
+
+  static Uri teacherByEmailEndpoint(String email) =>
+      Uri.parse(apiBaseUrl).resolve('/api/teachers/email/$email');
 }

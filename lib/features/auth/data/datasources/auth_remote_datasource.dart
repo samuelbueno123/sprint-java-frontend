@@ -13,8 +13,8 @@ class AuthRemoteDataSource {
     required String role,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
-      AppConfig.googleAuthenticationEndpoint.path,
-      data: {'idToken': idToken, 'role': role},
+      AppConfig.googleAuthenticationEndpoint.toString(),
+      data: {'credential': idToken},
     );
     return BackendAuthSessionModel.fromJson(response.data ?? const {});
   }
