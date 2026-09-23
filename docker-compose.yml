@@ -1,6 +1,6 @@
 services:
   flutter:
-    image: ghcr.io/cirruslabs/flutter:3.44.0
+    image: ghcr.io/cirruslabs/flutter:latest
 
     env_file:
       - .env
