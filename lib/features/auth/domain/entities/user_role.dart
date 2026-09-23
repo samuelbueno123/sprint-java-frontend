@@ -1,9 +1,16 @@
 enum UserRole {
-  student('STUDENT', 'aluno(a)'),
-  teacher('TEACHER', 'professor(a)');
+  user,
+  student,
+  teacher;
 
-  const UserRole(this.apiValue, this.label);
-
-  final String apiValue;
-  final String label;
+  static UserRole fromApiValue(String? value) {
+    switch (value?.toUpperCase()) {
+      case 'STUDENT':
+        return UserRole.student;
+      case 'TEACHER':
+        return UserRole.teacher;
+      default:
+        return UserRole.user;
+    }
+  }
 }

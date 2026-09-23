@@ -11,6 +11,7 @@ class HomeResponseModel {
 
   factory HomeResponseModel.fromJson(Map<String, dynamic> json) {
     final userJson = json['user'] as Map<String, dynamic>? ?? const {};
+    final role = json['profileType'] as String?;
 
     return HomeResponseModel(
       success: json['success'] == true,
@@ -18,10 +19,14 @@ class HomeResponseModel {
         googleId: userJson['googleId']?.toString() ?? '',
         email: userJson['email'] as String? ?? '',
         name: userJson['name'] as String? ?? '',
-        picture: userJson['picture'] as String?,
+        picture:
+            userJson['profilePicture'] as String? ??
+            userJson['picture'] as String?,
       ),
-      profileType: UserProfileType.fromString(json['profileType'] as String?),
-      profileCompleted: json['profileCompleted'] == true,
+      profileType: UserProfileType.fromString(role),
+      profileCompleted:
+          json['profileCompleted'] == true ||
+          (role != null && role.toUpperCase() != 'USER'),
     );
   }
 

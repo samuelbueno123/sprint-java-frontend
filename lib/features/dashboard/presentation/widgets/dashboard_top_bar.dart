@@ -23,9 +23,9 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
   Color get _roleColor {
     switch (data.profileType) {
       case UserProfileType.student:
-        return const Color(0xFF58CC02);
+        return const Color(0xFF3579E8);
       case UserProfileType.teacher:
-        return const Color(0xFF1CB0F6);
+        return const Color(0xFF7651C8);
       case UserProfileType.user:
         return Colors.grey.shade700;
     }
@@ -37,14 +37,11 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
         : 'U';
 
     Widget fallback() => Center(
-          child: Text(
-            initial,
-            style: TextStyle(
-              color: _roleColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        );
+      child: Text(
+        initial,
+        style: TextStyle(color: _roleColor, fontWeight: FontWeight.bold),
+      ),
+    );
 
     return ClipOval(
       child: Container(
@@ -66,10 +63,7 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final avatarUrl =
-        data.user.picture ??
-        data.studentProfile?.profilePicture ??
-        data.teacherProfile?.profilePicture;
+    final avatarUrl = data.user.picture;
 
     return Container(
       height: preferredSize.height,

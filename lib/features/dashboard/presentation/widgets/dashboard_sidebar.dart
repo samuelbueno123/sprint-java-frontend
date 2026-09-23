@@ -17,9 +17,9 @@ class DashboardSidebar extends StatelessWidget {
   Color get _accentColor {
     switch (profileType) {
       case UserProfileType.student:
-        return const Color(0xFF58CC02);
+        return const Color(0xFF3579E8);
       case UserProfileType.teacher:
-        return const Color(0xFF1CB0F6);
+        return const Color(0xFF7651C8);
       case UserProfileType.user:
         return Colors.blueGrey;
     }
@@ -43,17 +43,18 @@ class DashboardSidebar extends StatelessWidget {
             accentColor: _accentColor,
             onTap: () => onSectionSelected('home'),
           ),
-          _NavItem(
-            icon: profileType == UserProfileType.teacher
-                ? Icons.menu_book_rounded
-                : Icons.language_rounded,
-            label: profileType == UserProfileType.teacher
-                ? 'Ensino & Idiomas'
-                : 'Meus Idiomas',
-            isSelected: activeSection == 'languages',
-            accentColor: _accentColor,
-            onTap: () => onSectionSelected('languages'),
-          ),
+          if (profileType != UserProfileType.user)
+            _NavItem(
+              icon: profileType == UserProfileType.teacher
+                  ? Icons.menu_book_rounded
+                  : Icons.language_rounded,
+              label: profileType == UserProfileType.teacher
+                  ? 'Ensino & Idiomas'
+                  : 'Meus Idiomas',
+              isSelected: activeSection == 'languages',
+              accentColor: _accentColor,
+              onTap: () => onSectionSelected('languages'),
+            ),
           _NavItem(
             icon: Icons.person_outline_rounded,
             label: 'Meu Perfil',

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/dashboard_data.dart';
-import 'info_stat_card.dart';
 
 class UserDashboardView extends StatelessWidget {
   const UserDashboardView({
@@ -14,134 +13,91 @@ class UserDashboardView extends StatelessWidget {
   final String activeSection;
 
   @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Banner
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.blueGrey.shade700, Colors.blueGrey.shade900],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+  Widget build(BuildContext context) => SingleChildScrollView(
+    padding: const EdgeInsets.all(24),
+    child: Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 760),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(26),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF5869D8), Color(0xFF7651C8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
               ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Bem-vindo(a), ${data.user.name.split(' ').first}! 👋',
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Sua conta está autenticada com sucesso no Duolinfo.',
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: Color(0xE6FFFFFF),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                const Icon(
-                  Icons.person_pin_rounded,
-                  color: Colors.white,
-                  size: 48,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Setup Profile Action Notice
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.blue.shade200),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_rounded, color: Colors.blue.shade800, size: 28),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Conclua a Seleção de Perfil',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: Colors.blue.shade900,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Sua conta no momento possui perfil geral de usuário. Escolha se deseja cadastrar-se como Aluno ou Professor para acessar todos os recursos.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.blue.shade900,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // User Info Card
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth > 700;
-              return Flex(
-                direction: isWide ? Axis.horizontal : Axis.vertical,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    flex: isWide ? 1 : 0,
-                    child: InfoStatCard(
-                      title: 'CONTA AUTENTICADA',
-                      value: data.user.email,
-                      icon: Icons.mark_email_read_rounded,
-                      accentColor: Colors.blue,
+                  const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Bem-vindo, ${data.user.name.split(' ').first}!',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 25,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  SizedBox(width: isWide ? 16 : 0, height: isWide ? 0 : 12),
-                  Expanded(
-                    flex: isWide ? 1 : 0,
-                    child: InfoStatCard(
-                      title: 'SITUAÇÃO DO PERFIL',
-                      value: 'Usuário Geral',
-                      icon: Icons.pending_rounded,
-                      accentColor: Colors.orange,
-                      subtitle: 'Selecione Aluno ou Professor',
-                    ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Esta conta está autenticada, mas não possui um perfil de estudante ou professor associado.',
+                    style: TextStyle(color: Color(0xEFFFFFFF), height: 1.45),
                   ),
                 ],
-              );
-            },
-          ),
-        ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: const BorderSide(color: Color(0xFFE5E8EF)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      activeSection == 'profile'
+                          ? 'Meu perfil'
+                          : 'Conta autenticada',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF252A3D),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      data.user.name,
+                      style: const TextStyle(
+                        color: Color(0xFF252A3D),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      data.user.email,
+                      style: const TextStyle(color: Color(0xFF73788B)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-    );
-  }
+    ),
+  );
 }

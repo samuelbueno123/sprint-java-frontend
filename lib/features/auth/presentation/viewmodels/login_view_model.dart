@@ -1,61 +1,56 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/entities/auth_session.dart';
-import '../../domain/entities/user_role.dart';
 import '../../domain/usecases/sign_in_with_google.dart';
-import '../../domain/usecases/sign_out_from_google.dart';
+import '../../domain/usecases/sign_in_with_password.dart';
 
 /// Estado e ações da tela. Não depende de BuildContext ou widgets.
 class LoginViewModel extends ChangeNotifier {
-  LoginViewModel({
-    required this._role,
-    required this._signInWithGoogle,
-    required this._signOutFromGoogle,
-  }) {
-    if (kIsWeb) {
-      _userSubscription = _signInWithGoogle.onCurrentUserChanged.listen((
-        account,
-      ) async {
-        if (account != null) {
-          try {
-            final auth = await account.authentication;
-            if (auth.idToken != null) {
-              await signInWithIdToken(auth.idToken!);
-            }
-          } catch (e) {
-            _errorMessage = authenticationErrorMessage(e);
-            notifyListeners();
-          }
-        }
-      });
-    }
-  }
+  LoginViewModel(this._signInWithPassword, this._signInWithGoogle);
 
-  final UserRole _role;
+  final SignInWithPassword _signInWithPassword;
   final SignInWithGoogle _signInWithGoogle;
-  final SignOutFromGoogle _signOutFromGoogle;
-
-  StreamSubscription? _userSubscription;
 
   bool _isLoading = false;
   String? _errorMessage;
   AuthSession? _session;
+  StreamSubscription<GoogleSignInAccount?>? _googleUserSubscription;
 
-  UserRole get role => _role;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   AuthSession? get session => _session;
 
-  Future<void> signInWithIdToken(String idToken) async {
-    if (_isLoading) return;
+  /// The GIS button owns the web popup, so web sign-in completes through this
+  /// account stream instead of calling GoogleSignIn.signIn().
+  void listenForGoogleWebSignIn() {
+    _googleUserSubscription ??= _signInWithGoogle.onCurrentUserChanged.listen(
+      _onGoogleUserChanged,
+      onError: _onGoogleSignInError,
+    );
+  }
+
+  void _onGoogleUserChanged(GoogleSignInAccount? account) {
+    if (account == null || _isLoading || _session != null) return;
+    unawaited(_exchangeGoogleIdToken(account));
+  }
+
+  Future<void> _exchangeGoogleIdToken(GoogleSignInAccount account) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      _session = await _signInWithGoogle.withIdToken(idToken, _role);
+      final idToken = (await account.authentication).idToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw const AuthException(
+          'O Google não retornou um token de identidade.',
+        );
+      }
+      _session = await _signInWithGoogle.withIdToken(idToken);
     } catch (error) {
       _errorMessage = authenticationErrorMessage(error);
     } finally {
@@ -64,14 +59,20 @@ class LoginViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> signIn() async {
-    if (_isLoading) return;
+  void _onGoogleSignInError(Object error) {
+    _errorMessage = authenticationErrorMessage(error);
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> signInWithPassword(String email, String password) async {
+    if (_isLoading || _session != null) return;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      _session = await _signInWithGoogle(_role);
+      _session = await _signInWithPassword(email, password);
     } catch (error) {
       _errorMessage = authenticationErrorMessage(error);
     } finally {
@@ -80,16 +81,26 @@ class LoginViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> signOut() async {
-    await _signOutFromGoogle();
-    _session = null;
+  Future<void> signInWithGoogle() async {
+    if (_isLoading || _session != null) return;
+    _isLoading = true;
     _errorMessage = null;
     notifyListeners();
+
+    try {
+      _session = await _signInWithGoogle();
+    } catch (error) {
+      _errorMessage = authenticationErrorMessage(error);
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   @override
   void dispose() {
-    _userSubscription?.cancel();
+    final subscription = _googleUserSubscription;
+    if (subscription != null) unawaited(subscription.cancel());
     super.dispose();
   }
 }

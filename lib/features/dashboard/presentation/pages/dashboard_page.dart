@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../access/presentation/pages/access_selection_page.dart';
+import '../../../auth/presentation/pages/login_page.dart';
 import '../../dashboard_dependencies.dart';
 import '../viewmodels/dashboard_state.dart';
 import '../viewmodels/dashboard_view_model.dart';
@@ -30,10 +30,14 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _handleLogout() async {
-    await _viewModel.performLogout();
+    try {
+      await _viewModel.performLogout();
+    } catch (_) {
+      // A saída local deve continuar disponível mesmo se a rede falhar.
+    }
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const AccessSelectionPage()),
+      MaterialPageRoute(builder: (_) => const LoginPage()),
       (route) => false,
     );
   }

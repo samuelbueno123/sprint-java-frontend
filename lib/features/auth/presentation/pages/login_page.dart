@@ -1,27 +1,17 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../auth_dependencies.dart';
-import '../../domain/entities/user_role.dart';
+import '../../domain/entities/auth_session.dart';
 import '../viewmodels/login_view_model.dart';
-import '../widgets/google_account_card.dart';
-import '../widgets/google_sign_in_button_stub.dart'
-    if (dart.library.html) '../widgets/google_sign_in_button_web.dart';
-
+import '../widgets/auth_page_frame.dart';
+import '../widgets/google_sign_in_button.dart' as google_sign_in_button;
+import 'registration_choice_page.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({
-    super.key,
-    required this.role,
-    required this.primaryColor,
-    required this.icon,
-  });
-
-  final UserRole role;
-  final Color primaryColor;
-  final IconData icon;
+  const LoginPage({super.key});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -29,122 +19,277 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   late final LoginViewModel _viewModel;
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
+  AuthSession? _handledSession;
 
   @override
   void initState() {
     super.initState();
-    _viewModel = AuthDependencies.createLoginViewModel(widget.role);
+    _viewModel = AuthDependencies.createLoginViewModel();
     _viewModel.addListener(_onViewModelChanged);
+    if (kIsWeb &&
+        AppConfig.googleWebClientId.isNotEmpty &&
+        AppConfig.hasValidApiBaseUrl) {
+      _viewModel.listenForGoogleWebSignIn();
+    }
   }
 
   void _onViewModelChanged() {
-    if (_viewModel.session != null && mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const DashboardPage()),
-        (route) => false,
-      );
+    final session = _viewModel.session;
+    if (session == null || identical(session, _handledSession) || !mounted) {
+      return;
     }
+    _handledSession = session;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const DashboardPage()),
+      (route) => false,
+    );
   }
 
   @override
   void dispose() {
     _viewModel.removeListener(_onViewModelChanged);
     _viewModel.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _submitPassword() async {
+    if (!_formKey.currentState!.validate() || _viewModel.isLoading) return;
+    await _viewModel.signInWithPassword(
+      _emailController.text,
+      _passwordController.text,
+    );
+  }
+
+  Future<void> _submitGoogle() async {
+    if (_viewModel.isLoading || !AppConfig.hasValidApiBaseUrl) return;
+    await _viewModel.signInWithGoogle();
+  }
+
+  Widget _buildGoogleButton() {
+    if (_viewModel.isLoading) {
+      return const Center(
+        child: SizedBox.square(
+          dimension: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    if (kIsWeb &&
+        AppConfig.googleWebClientId.isNotEmpty &&
+        AppConfig.hasValidApiBaseUrl) {
+      return google_sign_in_button.buildGoogleSignInWebButton();
+    }
+
+    return OutlinedButton.icon(
+      onPressed: !AppConfig.hasValidApiBaseUrl ? null : _submitGoogle,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFF303442),
+        side: const BorderSide(color: Color(0xFFDDE1EA)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      icon: const _GoogleGlyph(),
+      label: const Text('Continuar com Google'),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _viewModel,
-      builder: (context, _) => Scaffold(
-        appBar: AppBar(backgroundColor: Colors.transparent),
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: _viewModel.session == null
-                    ? _loginCard()
-                    : GoogleAccountCard(
-                        user: _viewModel.session!.user,
-                        color: widget.primaryColor,
-                        onSignOut: _viewModel.signOut,
-                      ),
+      builder: (context, _) => AuthPageFrame(
+        title: 'Entrar',
+        subtitle: 'Acesse sua conta com email, senha ou Google.',
+        accentColor: const Color(0xFF5869D8),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [
+                  AutofillHints.username,
+                  AutofillHints.email,
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  hintText: 'seu@email.com',
+                  prefixIcon: Icon(Icons.mail_outline_rounded),
+                ),
+                validator: (value) {
+                  final email = value?.trim() ?? '';
+                  if (email.isEmpty) return 'Informe seu email.';
+                  if (!email.contains('@') || !email.contains('.')) {
+                    return 'Informe um email válido.';
+                  }
+                  return null;
+                },
               ),
-            ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                textInputAction: TextInputAction.done,
+                autofillHints: const [AutofillHints.password],
+                onFieldSubmitted: (_) => _submitPassword(),
+                decoration: InputDecoration(
+                  labelText: 'Senha',
+                  hintText: 'Sua senha',
+                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                  suffixIcon: IconButton(
+                    tooltip: _obscurePassword
+                        ? 'Mostrar senha'
+                        : 'Ocultar senha',
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
+                  ),
+                ),
+                validator: (value) =>
+                    (value?.isEmpty ?? true) ? 'Informe sua senha.' : null,
+              ),
+              if (!AppConfig.hasValidApiBaseUrl) ...[
+                const SizedBox(height: 14),
+                const _InlineMessage(
+                  message: 'A API ainda não está configurada neste ambiente.',
+                  isError: true,
+                ),
+              ],
+              if (_viewModel.errorMessage != null) ...[
+                const SizedBox(height: 14),
+                _InlineMessage(
+                  message: _viewModel.errorMessage!,
+                  isError: true,
+                ),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 50,
+                child: FilledButton.icon(
+                  onPressed:
+                      _viewModel.isLoading || !AppConfig.hasValidApiBaseUrl
+                      ? null
+                      : _submitPassword,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF5869D8),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: _viewModel.isLoading
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.login_rounded, size: 19),
+                  label: Text(_viewModel.isLoading ? 'Entrando…' : 'Entrar'),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Row(
+                children: [
+                  Expanded(child: Divider(color: Color(0xFFE7E9F0))),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'ou continue com',
+                      style: TextStyle(color: Color(0xFF8A8FA1), fontSize: 12),
+                    ),
+                  ),
+                  Expanded(child: Divider(color: Color(0xFFE7E9F0))),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SizedBox(height: 50, child: _buildGoogleButton()),
+              const SizedBox(height: 20),
+              Center(
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Text(
+                      'Ainda não tem perfil? ',
+                      style: TextStyle(color: Color(0xFF73788B), fontSize: 13),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const RegistrationChoicePage(),
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF5869D8),
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text(
+                        'Cadastre-se',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _loginCard() => Card(
-    elevation: 0,
-    child: Padding(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Icon(widget.icon, color: widget.primaryColor, size: 64),
-          const SizedBox(height: 20),
-          Text(
-            'Entrar como ${widget.role.label}',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Continue com Google. A identidade, o perfil e as permissões são validados pelo backend.',
-            textAlign: TextAlign.center,
-          ),
-          if (!AppConfig.hasValidApiBaseUrl) ...[
-            const SizedBox(height: 20),
-            const Text(
-              'Defina API_BASE_URL para este ambiente antes de autenticar.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.red),
-            ),
-          ],
-          if (_viewModel.errorMessage != null) ...[
-            const SizedBox(height: 20),
-            Text(
-              _viewModel.errorMessage!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.red),
-            ),
-          ],
-          const SizedBox(height: 28),
-          kIsWeb
-              ? Center(child: buildGoogleSignInWebButton())
-              : FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: widget.primaryColor,
-                    minimumSize: const Size.fromHeight(52),
-                  ),
-                  onPressed:
-                      _viewModel.isLoading || !AppConfig.hasValidApiBaseUrl
-                      ? null
-                      : _viewModel.signIn,
-                  icon: _viewModel.isLoading
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text(
-                          'G',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                  label: Text(
-                    _viewModel.isLoading
-                        ? 'AUTENTICANDO...'
-                        : 'CONTINUAR COM GOOGLE',
-                  ),
-                ),
-        ],
+class _GoogleGlyph extends StatelessWidget {
+  const _GoogleGlyph();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(
+    width: 20,
+    child: Text(
+      'G',
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        color: Color(0xFF4285F4),
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
       ),
     ),
   );
+}
+
+class _InlineMessage extends StatelessWidget {
+  const _InlineMessage({required this.message, required this.isError});
+
+  final String message;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isError ? const Color(0xFFB42318) : const Color(0xFF21845A);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .07),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: .18)),
+      ),
+      child: Text(message, style: TextStyle(color: color, fontSize: 13)),
+    );
+  }
 }

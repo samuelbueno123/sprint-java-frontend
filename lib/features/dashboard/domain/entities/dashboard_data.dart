@@ -1,4 +1,6 @@
 import 'student_profile.dart';
+import 'student_enrollment.dart';
+import 'teacher_class_assignment.dart';
 import 'teacher_profile.dart';
 import 'user_profile_type.dart';
 
@@ -14,6 +16,13 @@ class DashboardUser {
   final String email;
   final String name;
   final String? picture;
+
+  DashboardUser copyWith({String? name}) => DashboardUser(
+    googleId: googleId,
+    email: email,
+    name: name ?? this.name,
+    picture: picture,
+  );
 }
 
 class DashboardData {
@@ -23,6 +32,8 @@ class DashboardData {
     required this.profileCompleted,
     this.studentProfile,
     this.teacherProfile,
+    this.studentEnrollments = const [],
+    this.teacherAssignments = const [],
   });
 
   final DashboardUser user;
@@ -30,4 +41,6 @@ class DashboardData {
   final bool profileCompleted;
   final StudentProfile? studentProfile;
   final TeacherProfile? teacherProfile;
+  final List<StudentEnrollment> studentEnrollments;
+  final List<TeacherClassAssignment> teacherAssignments;
 }

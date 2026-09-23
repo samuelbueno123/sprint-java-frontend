@@ -1,5 +1,4 @@
 import '../../core/network/api_client.dart';
-import '../auth/data/datasources/google_identity_datasource.dart';
 import 'data/datasources/dashboard_remote_datasource.dart';
 import 'data/repositories/dashboard_repository_impl.dart';
 import 'domain/usecases/get_home_data.dart';
@@ -11,11 +10,7 @@ class DashboardDependencies {
 
   static DashboardViewModel createDashboardViewModel() {
     final remoteDataSource = DashboardRemoteDataSource(ApiClient().dio);
-    final googleIdentityDataSource = GoogleIdentityDataSource();
-    final repository = DashboardRepositoryImpl(
-      remoteDataSource,
-      googleIdentityDataSource,
-    );
+    final repository = DashboardRepositoryImpl(remoteDataSource);
 
     return DashboardViewModel(
       getHomeData: GetHomeData(repository),
