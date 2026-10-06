@@ -62,6 +62,13 @@ class DashboardSidebar extends StatelessWidget {
             accentColor: _accentColor,
             onTap: () => onSectionSelected('profile'),
           ),
+          _NavItem(
+            icon: Icons.settings_rounded,
+            label: 'Configurações',
+            isSelected: activeSection == 'settings',
+            accentColor: _accentColor,
+            onTap: () => onSectionSelected('settings'),
+          ),
         ],
       ),
     );

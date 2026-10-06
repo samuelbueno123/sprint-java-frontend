@@ -41,6 +41,7 @@ class _DashboardShellState extends State<DashboardShell> {
           appBar: DashboardTopBar(
             data: widget.data,
             onLogout: widget.onLogout,
+            onOpenSettings: () => widget.onSectionSelected('settings'),
             isDesktop: isDesktop,
             onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
@@ -87,16 +88,22 @@ class _DashboardShellState extends State<DashboardShell> {
         return StudentDashboardView(
           data: widget.data,
           activeSection: widget.activeSection,
+          onSectionSelected: widget.onSectionSelected,
+          onLogout: widget.onLogout,
         );
       case UserProfileType.teacher:
         return TeacherDashboardView(
           data: widget.data,
           activeSection: widget.activeSection,
+          onSectionSelected: widget.onSectionSelected,
+          onLogout: widget.onLogout,
         );
       case UserProfileType.user:
         return UserDashboardView(
           data: widget.data,
           activeSection: widget.activeSection,
+          onSectionSelected: widget.onSectionSelected,
+          onLogout: widget.onLogout,
         );
     }
   }

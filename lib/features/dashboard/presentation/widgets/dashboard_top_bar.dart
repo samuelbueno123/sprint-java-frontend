@@ -8,12 +8,14 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     required this.data,
     required this.onLogout,
+    this.onOpenSettings,
     this.onMenuPressed,
     this.isDesktop = true,
   });
 
   final DashboardData data;
   final VoidCallback onLogout;
+  final VoidCallback? onOpenSettings;
   final VoidCallback? onMenuPressed;
   final bool isDesktop;
 
@@ -129,7 +131,11 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
           const SizedBox(width: 16),
           PopupMenuButton<String>(
             onSelected: (value) {
-              if (value == 'logout') onLogout();
+              if (value == 'settings') {
+                onOpenSettings?.call();
+              } else if (value == 'logout') {
+                onLogout();
+              }
             },
             offset: const Offset(0, 50),
             shape: RoundedRectangleBorder(
@@ -170,6 +176,21 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
                         color: Colors.grey.shade600,
                       ),
                     ),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.settings_rounded,
+                      color: Colors.black87,
+                      size: 20,
+                    ),
+                    SizedBox(width: 10),
+                    Text('Configurações'),
                   ],
                 ),
               ),
