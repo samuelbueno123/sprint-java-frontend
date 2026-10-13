@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/config/app_config.dart';
 import '../../auth_dependencies.dart';
 import '../../domain/entities/auth_session.dart';
+import '../../domain/entities/user_role.dart';
 import '../viewmodels/login_view_model.dart';
 import '../widgets/auth_page_frame.dart';
 import '../widgets/google_sign_in_button.dart' as google_sign_in_button;
@@ -43,10 +44,23 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
     _handledSession = session;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const DashboardPage()),
-      (route) => false,
-    );
+
+    if (session.profileType == UserRole.user) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => RegistrationChoicePage(
+            initialEmail: session.user.email,
+            initialName: session.user.name,
+          ),
+        ),
+        (route) => false,
+      );
+    } else {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const DashboardPage()),
+        (route) => false,
+      );
+    }
   }
 
   @override

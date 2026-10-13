@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/user_profile_type.dart';
+import 'app_user_avatar.dart';
 
 class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
   const DashboardTopBar({
@@ -34,32 +35,12 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   Widget _buildAvatar(String? avatarUrl) {
-    final initial = data.user.name.isNotEmpty
-        ? data.user.name[0].toUpperCase()
-        : 'U';
-
-    Widget fallback() => Center(
-      child: Text(
-        initial,
-        style: TextStyle(color: _roleColor, fontWeight: FontWeight.bold),
-      ),
-    );
-
-    return ClipOval(
-      child: Container(
-        width: 36,
-        height: 36,
-        color: _roleColor.withValues(alpha: 0.2),
-        child: (avatarUrl != null && avatarUrl.isNotEmpty)
-            ? Image.network(
-                avatarUrl,
-                width: 36,
-                height: 36,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => fallback(),
-              )
-            : fallback(),
-      ),
+    return AppUserAvatar(
+      name: data.user.name,
+      pictureUrl: avatarUrl,
+      radius: 18,
+      backgroundColor: _roleColor.withValues(alpha: 0.2),
+      textColor: _roleColor,
     );
   }
 

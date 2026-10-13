@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/network/api_client.dart';
+import '../../data/datasources/dashboard_remote_datasource.dart';
 import '../../domain/entities/dashboard_data.dart';
+import 'app_user_avatar.dart';
+import 'local_image_picker_helper.dart';
 
 class StudentSettingsView extends StatefulWidget {
   const StudentSettingsView({
@@ -34,6 +38,13 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
   late final TextEditingController _firstNameController;
   late final TextEditingController _lastNameController;
   late final TextEditingController _emailController;
+  final _currentPasswordController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  bool _isSavingProfile = false;
+  bool _isChangingPassword = false;
+  bool _isUpdatingPicture = false;
 
   @override
   void initState() {
@@ -52,7 +63,119 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _emailController.dispose();
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAndUploadLocalImage() async {
+    try {
+      final dataUrl = await LocalImagePickerHelper.pickLocalImage();
+      if (dataUrl == null) return;
+
+      setState(() => _isUpdatingPicture = true);
+      final ds = DashboardRemoteDataSource(ApiClient().dio);
+      await ds.updateUser(
+        userId: widget.data.user.id,
+        name: widget.data.user.name,
+        email: widget.data.user.email,
+        googleId: widget.data.user.googleId,
+        profilePicture: dataUrl,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Foto de perfil alterada com sucesso!')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro na foto: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isUpdatingPicture = false);
+    }
+  }
+
+  Future<void> _saveProfileData() async {
+    final fullName = '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'.trim();
+    if (fullName.isEmpty) return;
+
+    setState(() => _isSavingProfile = true);
+    try {
+      final ds = DashboardRemoteDataSource(ApiClient().dio);
+      await ds.updateUser(
+        userId: widget.data.user.id,
+        name: fullName,
+        email: _emailController.text.trim(),
+        googleId: widget.data.user.googleId,
+        profilePicture: widget.data.user.picture,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Perfil do estudante atualizado com sucesso!')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao atualizar perfil: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSavingProfile = false);
+    }
+  }
+
+  Future<void> _changePassword() async {
+    final currentPass = _currentPasswordController.text;
+    final newPass = _newPasswordController.text;
+    final confirmPass = _confirmPasswordController.text;
+
+    if (currentPass.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Informe a senha atual.')),
+      );
+      return;
+    }
+    if (newPass.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A nova senha deve ter pelo menos 6 caracteres.')),
+      );
+      return;
+    }
+    if (newPass != confirmPass) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('As senhas não coincidem.')),
+      );
+      return;
+    }
+
+    setState(() => _isChangingPassword = true);
+    try {
+      final ds = DashboardRemoteDataSource(ApiClient().dio);
+      await ds.updateUser(
+        userId: widget.data.user.id,
+        name: widget.data.user.name,
+        email: widget.data.user.email,
+        googleId: widget.data.user.googleId,
+        profilePicture: widget.data.user.picture,
+        currentPassword: currentPass,
+        password: newPass,
+      );
+      if (!mounted) return;
+      _currentPasswordController.clear();
+      _newPasswordController.clear();
+      _confirmPasswordController.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Senha alterada com sucesso!')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao alterar senha: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isChangingPassword = false);
+    }
   }
 
   @override
@@ -122,31 +245,37 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                   children: [
                     Row(
                       children: [
-                        Stack(
-                          children: [
-                            CircleAvatar(
-                              radius: 36,
-                              backgroundColor: blueColor.withValues(alpha: 0.15),
-                              backgroundImage: widget.data.user.picture != null && widget.data.user.picture!.isNotEmpty
-                                  ? NetworkImage(widget.data.user.picture!)
-                                  : null,
-                              child: (widget.data.user.picture == null || widget.data.user.picture!.isEmpty)
-                                  ? Text(
-                                      widget.data.user.name.isNotEmpty ? widget.data.user.name[0].toUpperCase() : 'A',
-                                      style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: blueColor),
-                                    )
-                                  : null,
-                            ),
-                            Positioned(
-                              right: 0,
-                              bottom: 0,
-                              child: CircleAvatar(
-                                radius: 14,
-                                backgroundColor: blueColor,
-                                child: const Icon(Icons.camera_alt_rounded, size: 14, color: Colors.white),
+                        GestureDetector(
+                          onTap: _isUpdatingPicture ? null : _pickAndUploadLocalImage,
+                          child: Stack(
+                            children: [
+                              AppUserAvatar(
+                                name: widget.data.user.name,
+                                pictureUrl: widget.data.user.picture,
+                                radius: 36,
+                                backgroundColor: blueColor.withValues(alpha: 0.15),
+                                textColor: blueColor,
                               ),
-                            ),
-                          ],
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: blueColor,
+                                  child: _isUpdatingPicture
+                                      ? const SizedBox.square(
+                                          dimension: 12,
+                                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                        )
+                                      : const Icon(
+                                          Icons.camera_alt_rounded,
+                                          size: 14,
+                                          color: Colors.white,
+                                        ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -160,6 +289,20 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                               Text(
                                 widget.data.user.email,
                                 style: const TextStyle(color: Color(0xFF73788B), fontSize: 13),
+                              ),
+                              const SizedBox(height: 4),
+                              TextButton.icon(
+                                onPressed: _isUpdatingPicture ? null : _pickAndUploadLocalImage,
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                icon: const Icon(Icons.upload_file_rounded, size: 14, color: blueColor),
+                                label: const Text(
+                                  'Escolher foto local (JPG/PNG <= 1024x1024)',
+                                  style: TextStyle(fontSize: 12, color: blueColor, fontWeight: FontWeight.w600),
+                                ),
                               ),
                             ],
                           ),
@@ -207,35 +350,40 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                     ),
                     const SizedBox(height: 18),
                     ElevatedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Perfil atualizado com sucesso!')),
-                        );
-                      },
+                      onPressed: _isSavingProfile ? null : _saveProfileData,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: blueColor,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('Salvar Alterações', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: _isSavingProfile
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Text('Salvar Alterações', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
 
-              // Card 2: Segurança
+              // Card 2: Segurança e Senha (sem decoration fake com "••••••••")
               _SettingsCard(
                 icon: Icons.shield_outlined,
-                title: 'Segurança',
+                title: 'Segurança e Senha',
                 iconColor: blueColor,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('Senha Atual', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
                     const SizedBox(height: 6),
-                    TextField(obscureText: true, decoration: _inputDecoration('••••••••')),
+                    TextField(
+                      controller: _currentPasswordController,
+                      obscureText: true,
+                      decoration: _inputDecoration('Digite sua senha atual'),
+                    ),
                     const SizedBox(height: 14),
                     Row(
                       children: [
@@ -245,7 +393,11 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                             children: [
                               const Text('Nova Senha', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
                               const SizedBox(height: 6),
-                              TextField(obscureText: true, decoration: _inputDecoration('••••••••')),
+                              TextField(
+                                controller: _newPasswordController,
+                                obscureText: true,
+                                decoration: _inputDecoration('Digite a nova senha'),
+                              ),
                             ],
                           ),
                         ),
@@ -254,9 +406,13 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Confirmar Senha', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
+                              const Text('Confirmar Nova Senha', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
                               const SizedBox(height: 6),
-                              TextField(obscureText: true, decoration: _inputDecoration('••••••••')),
+                              TextField(
+                                controller: _confirmPasswordController,
+                                obscureText: true,
+                                decoration: _inputDecoration('Confirme a nova senha'),
+                              ),
                             ],
                           ),
                         ),
@@ -264,18 +420,19 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                     ),
                     const SizedBox(height: 18),
                     OutlinedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Solicitação de alteração de senha enviada.')),
-                        );
-                      },
+                      onPressed: _isChangingPassword ? null : _changePassword,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: blueColor,
                         side: const BorderSide(color: blueColor),
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('Alterar Senha', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: _isChangingPassword
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Alterar Senha', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),

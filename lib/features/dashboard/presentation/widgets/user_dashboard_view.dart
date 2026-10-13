@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../auth/presentation/pages/student_signup_page.dart';
+import '../../../auth/presentation/pages/teacher_signup_page.dart';
 import '../../domain/entities/dashboard_data.dart';
+import 'app_user_avatar.dart';
 import 'user_settings_view.dart';
 
 class UserDashboardView extends StatelessWidget {
@@ -28,7 +31,7 @@ class UserDashboardView extends StatelessWidget {
     }
 
     if (activeSection == 'profile') {
-      return _buildUserProfileView();
+      return _buildUserProfileView(context);
     }
 
     return SingleChildScrollView(
@@ -68,13 +71,46 @@ class UserDashboardView extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Esta conta está autenticada, mas ainda não possui um perfil de estudante ou professor associado.',
+                      'Sua conta foi autenticada com sucesso! Para começar a usar a plataforma, escolha se você deseja continuar como Estudante ou Professor.',
                       style: TextStyle(color: Color(0xEFFFFFFF), height: 1.45),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
+              const Text(
+                'Escolha o tipo de perfil:',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF252A3D),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _PendingProfileCard(
+                      title: 'Sou Estudante',
+                      description: 'Cadastre seus idiomas e acesse cursos.',
+                      icon: Icons.school_rounded,
+                      color: const Color(0xFF3579E8),
+                      onTap: () => _openStudentSignup(context),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: _PendingProfileCard(
+                      title: 'Sou Professor',
+                      description: 'Vincule sua instituição e turmas.',
+                      icon: Icons.co_present_rounded,
+                      color: const Color(0xFF7651C8),
+                      onTap: () => _openTeacherSignup(context),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
               Card(
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -87,14 +123,14 @@ class UserDashboardView extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Conta Autenticada',
+                        'Informações da Conta Autenticada',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF252A3D),
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       Row(
                         children: [
                           const Icon(
@@ -112,7 +148,7 @@ class UserDashboardView extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           const Icon(
@@ -138,7 +174,29 @@ class UserDashboardView extends StatelessWidget {
     );
   }
 
-  Widget _buildUserProfileView() {
+  void _openStudentSignup(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StudentSignupPage(
+          initialEmail: data.user.email,
+          initialName: data.user.name,
+        ),
+      ),
+    );
+  }
+
+  void _openTeacherSignup(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TeacherSignupPage(
+          initialEmail: data.user.email,
+          initialName: data.user.name,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserProfileView(BuildContext context) {
     final initial =
         data.user.name.isNotEmpty ? data.user.name[0].toUpperCase() : 'U';
 
@@ -183,7 +241,10 @@ class UserDashboardView extends StatelessWidget {
                         ),
                         IconButton(
                           onPressed: () => onSectionSelected?.call('settings'),
-                          icon: const Icon(Icons.settings_rounded, color: Colors.white),
+                          icon: const Icon(
+                            Icons.settings_rounded,
+                            color: Colors.white,
+                          ),
                           tooltip: 'Configurações',
                         ),
                       ],
@@ -191,17 +252,12 @@ class UserDashboardView extends StatelessWidget {
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        CircleAvatar(
+                        AppUserAvatar(
+                          name: data.user.name,
+                          pictureUrl: data.user.picture,
                           radius: 36,
                           backgroundColor: Colors.white.withValues(alpha: 0.2),
-                          child: Text(
-                            initial,
-                            style: const TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
+                          textColor: Colors.white,
                         ),
                         const SizedBox(width: 20),
                         Expanded(
@@ -235,7 +291,7 @@ class UserDashboardView extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Text(
-                                  'Usuário Autenticado',
+                                  'Pendente de Perfil',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
@@ -305,36 +361,59 @@ class UserDashboardView extends StatelessWidget {
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: const Color(0xFFD4E3FC)),
                 ),
-                child: const Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.assignment_ind_rounded,
-                      color: Color(0xFF3579E8),
-                      size: 28,
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.assignment_ind_rounded,
+                          color: Color(0xFF3579E8),
+                          size: 28,
+                        ),
+                        SizedBox(width: 14),
+                        Text(
+                          'Complete seu cadastro',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF245FB8),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
                     ),
-                    SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Complete seu cadastro',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF245FB8),
-                              fontSize: 15,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Vincule um perfil de estudante ou professor para desbloquear recursos completos de turmas e idiomas.',
-                            style: TextStyle(
-                              color: Color(0xFF4D5365),
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Vincule um perfil de estudante ou professor para desbloquear recursos completos de turmas e idiomas.',
+                      style: TextStyle(
+                        color: Color(0xFF4D5365),
+                        fontSize: 13,
+                        height: 1.4,
                       ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () => _openStudentSignup(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF3579E8),
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.school_rounded, size: 18),
+                          label: const Text('Estudante'),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          onPressed: () => _openTeacherSignup(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF7651C8),
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.co_present_rounded, size: 18),
+                          label: const Text('Professor'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -345,6 +424,71 @@ class UserDashboardView extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PendingProfileCard extends StatelessWidget {
+  const _PendingProfileCard({
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String title;
+  final String description;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: color.withValues(alpha: .06),
+    borderRadius: BorderRadius.circular(16),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: .22)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: .14),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: TextStyle(
+                color: color,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: const TextStyle(
+                color: Color(0xFF73788B),
+                fontSize: 12,
+                height: 1.35,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _DetailRow extends StatelessWidget {
@@ -376,4 +520,3 @@ class _DetailRow extends StatelessWidget {
     ),
   );
 }
-

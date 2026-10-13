@@ -6,22 +6,30 @@ import 'user_profile_type.dart';
 
 class DashboardUser {
   const DashboardUser({
+    this.id = '',
     required this.googleId,
     required this.email,
     required this.name,
     this.picture,
   });
 
+  final String id;
   final String googleId;
   final String email;
   final String name;
   final String? picture;
 
-  DashboardUser copyWith({String? name}) => DashboardUser(
+  DashboardUser copyWith({
+    String? id,
+    String? name,
+    String? email,
+    String? picture,
+  }) => DashboardUser(
+    id: id ?? this.id,
     googleId: googleId,
-    email: email,
+    email: email ?? this.email,
     name: name ?? this.name,
-    picture: picture,
+    picture: picture ?? this.picture,
   );
 }
 

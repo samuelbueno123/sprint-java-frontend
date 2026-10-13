@@ -16,6 +16,7 @@ class HomeResponseModel {
     return HomeResponseModel(
       success: json['success'] == true,
       user: DashboardUser(
+        id: userJson['id']?.toString() ?? '',
         googleId: userJson['googleId']?.toString() ?? '',
         email: userJson['email'] as String? ?? '',
         name: userJson['name'] as String? ?? '',

@@ -87,4 +87,14 @@ class AppConfig {
   static Uri teacherByEmailEndpoint(String email) => Uri.parse(
     apiBaseUrl,
   ).resolve('/api/teachers/email/${Uri.encodeComponent(email)}');
+
+  static Uri get institutionsEndpoint =>
+      Uri.parse(apiBaseUrl).resolve('/api/institutions');
+
+  static Uri institutionSearchByNameEndpoint(String name) => Uri.parse(
+    apiBaseUrl,
+  ).resolve('/api/institutions/name/${Uri.encodeComponent(name)}');
+
+  static Uri userUpdateEndpoint(String id) =>
+      Uri.parse(apiBaseUrl).resolve('/api/users/$id');
 }

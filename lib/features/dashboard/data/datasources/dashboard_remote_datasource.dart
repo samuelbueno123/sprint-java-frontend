@@ -115,6 +115,32 @@ class DashboardRemoteDataSource {
         .toList();
   }
 
+  Future<void> updateUser({
+    String? userId,
+    required String name,
+    required String email,
+    String? googleId,
+    String? profilePicture,
+    String? currentPassword,
+    String? password,
+  }) async {
+    final endpoint = (userId != null && userId.isNotEmpty)
+        ? AppConfig.userUpdateEndpoint(userId).toString()
+        : AppConfig.authenticatedUserEndpoint.toString();
+
+    await _dio.put<void>(
+      endpoint,
+      data: {
+        'name': name.trim(),
+        'email': email.trim().toLowerCase(),
+        'googleId': googleId,
+        'profilePicture': profilePicture,
+        'currentPassword': currentPassword,
+        'password': password,
+      },
+    );
+  }
+
   Future<void> logout() async {
     await _dio.post<Map<String, dynamic>>(AppConfig.logoutEndpoint.toString());
   }

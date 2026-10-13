@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/network/session_store.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
+import '../../data/models/institution_model.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/user_role.dart';
 
@@ -21,6 +22,24 @@ class RegistrationViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
+  Future<List<InstitutionModel>> searchInstitutions([String? query]) async {
+    try {
+      if (!AppConfig.hasValidApiBaseUrl) return const [];
+      return await _remote.fetchInstitutions(query);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<InstitutionModel?> createInstitution(String name) async {
+    try {
+      if (!AppConfig.hasValidApiBaseUrl || name.trim().isEmpty) return null;
+      return await _remote.createInstitution(name);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<AuthSession> registerStudent({
     required String name,
     required String email,
@@ -33,6 +52,7 @@ class RegistrationViewModel extends ChangeNotifier {
       await _remote.createStudent(
         name: name,
         email: email,
+        password: password,
         googleId: '',
         languages: languages,
       );
@@ -61,6 +81,7 @@ class RegistrationViewModel extends ChangeNotifier {
       await _remote.createTeacher(
         name: name,
         email: email,
+        password: password,
         googleId: '',
         institutionId: institutionId,
         taughtLanguages: taughtLanguages,

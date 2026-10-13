@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/student_enrollment.dart';
+import 'app_user_avatar.dart';
 import 'dashboard_empty_state.dart';
 import 'info_stat_card.dart';
 import 'student_settings_view.dart';
@@ -336,26 +337,12 @@ class StudentDashboardView extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            CircleAvatar(
+                            AppUserAvatar(
+                              name: name,
+                              pictureUrl: data.user.picture,
                               radius: 42,
-                              backgroundColor:
-                                  Colors.white.withValues(alpha: 0.25),
-                              backgroundImage:
-                                  (data.user.picture != null &&
-                                          data.user.picture!.isNotEmpty)
-                                      ? NetworkImage(data.user.picture!)
-                                      : null,
-                              child: (data.user.picture == null ||
-                                      data.user.picture!.isEmpty)
-                                  ? Text(
-                                      initial,
-                                      style: const TextStyle(
-                                        fontSize: 34,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : null,
+                              backgroundColor: Colors.white.withValues(alpha: 0.25),
+                              textColor: Colors.white,
                             ),
                             Positioned(
                               bottom: 0,
