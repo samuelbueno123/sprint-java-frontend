@@ -44,7 +44,7 @@ class RegistrationViewModel extends ChangeNotifier {
     required String name,
     required String email,
     required String password,
-    required List<String> languages,
+    required List<dynamic> languages,
   }) async {
     late AuthSession result;
     await _run(() async {
@@ -74,6 +74,7 @@ class RegistrationViewModel extends ChangeNotifier {
     required List<String> taughtLanguages,
     required List<String> specializationAreas,
     required String bibliography,
+    List<dynamic>? documents,
   }) async {
     late AuthSession result;
     await _run(() async {
@@ -87,6 +88,7 @@ class RegistrationViewModel extends ChangeNotifier {
         taughtLanguages: taughtLanguages,
         specializationAreas: specializationAreas,
         bibliography: bibliography,
+        documents: documents,
       );
       result = await _authenticate(email, password);
       if (result.profileType != UserRole.teacher) {

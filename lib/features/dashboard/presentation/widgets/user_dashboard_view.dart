@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../auth/presentation/pages/student_signup_page.dart';
 import '../../../auth/presentation/pages/teacher_signup_page.dart';
+import '../../../auth/presentation/widgets/registration_choice_dialog.dart';
 import '../../domain/entities/dashboard_data.dart';
 import 'app_user_avatar.dart';
 import 'user_settings_view.dart';

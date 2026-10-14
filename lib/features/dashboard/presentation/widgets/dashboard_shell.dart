@@ -28,6 +28,7 @@ class DashboardShell extends StatefulWidget {
 
 class _DashboardShellState extends State<DashboardShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _isSidebarExpanded = true;
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +44,13 @@ class _DashboardShellState extends State<DashboardShell> {
             onLogout: widget.onLogout,
             onOpenSettings: () => widget.onSectionSelected('settings'),
             isDesktop: isDesktop,
-            onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            onMenuPressed: () {
+              if (isDesktop) {
+                setState(() => _isSidebarExpanded = !_isSidebarExpanded);
+              } else {
+                _scaffoldKey.currentState?.openDrawer();
+              }
+            },
           ),
           drawer: isDesktop
               ? null
@@ -66,6 +73,10 @@ class _DashboardShellState extends State<DashboardShell> {
                   profileType: widget.data.profileType,
                   activeSection: widget.activeSection,
                   onSectionSelected: widget.onSectionSelected,
+                  isCollapsed: !_isSidebarExpanded,
+                  onToggleCollapse: () {
+                    setState(() => _isSidebarExpanded = !_isSidebarExpanded);
+                  },
                 ),
               Expanded(
                 child: Center(

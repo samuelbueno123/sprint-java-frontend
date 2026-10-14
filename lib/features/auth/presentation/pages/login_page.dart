@@ -8,6 +8,7 @@ import '../../domain/entities/user_role.dart';
 import '../viewmodels/login_view_model.dart';
 import '../widgets/auth_page_frame.dart';
 import '../widgets/google_sign_in_button.dart' as google_sign_in_button;
+import '../widgets/registration_choice_dialog.dart';
 import 'registration_choice_page.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 
@@ -48,13 +49,20 @@ class _LoginPageState extends State<LoginPage> {
     if (session.profileType == UserRole.user) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => RegistrationChoicePage(
-            initialEmail: session.user.email,
-            initialName: session.user.name,
-          ),
+          builder: (_) => const DashboardPage(),
         ),
         (route) => false,
       );
+      Future.microtask(() {
+        final navigator = Navigator.of(context);
+        if (navigator.mounted) {
+          RegistrationChoiceDialog.show(
+            navigator.context,
+            initialEmail: session.user.email,
+            initialName: session.user.name,
+          );
+        }
+      });
     } else {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const DashboardPage()),

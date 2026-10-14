@@ -57,9 +57,10 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          if (!isDesktop && onMenuPressed != null) ...[
+          if (onMenuPressed != null) ...[
             IconButton(
               icon: const Icon(Icons.menu_rounded),
+              tooltip: 'Menu lateral',
               onPressed: onMenuPressed,
             ),
             const SizedBox(width: 8),

@@ -66,7 +66,7 @@ class AuthRemoteDataSource {
     required String email,
     required String password,
     required String googleId,
-    required List<String> languages,
+    required List<dynamic> languages,
   }) async {
     await _dio.post<Map<String, dynamic>>(
       AppConfig.studentsEndpoint.toString(),
@@ -90,6 +90,7 @@ class AuthRemoteDataSource {
     required List<String> taughtLanguages,
     required List<String> specializationAreas,
     required String bibliography,
+    List<dynamic>? documents,
   }) async {
     await _dio.post<Map<String, dynamic>>(
       AppConfig.teachersEndpoint.toString(),
@@ -102,6 +103,7 @@ class AuthRemoteDataSource {
         'taughtLanguages': taughtLanguages,
         'specializationAreas': specializationAreas,
         'bibliography': bibliography.trim(),
+        'documents': documents,
       },
     );
   }

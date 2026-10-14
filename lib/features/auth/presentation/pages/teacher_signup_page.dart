@@ -1,10 +1,41 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../auth_dependencies.dart';
 import '../../data/models/institution_model.dart';
-import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../viewmodels/registration_view_model.dart';
 import '../widgets/auth_page_frame.dart';
+
+class _TeacherDocumentItem {
+  _TeacherDocumentItem({
+    required this.fileName,
+    required this.contentType,
+    required this.fileSize,
+    required this.fileBytes,
+  });
+
+  final String fileName;
+  final String contentType;
+  final int fileSize;
+  final Uint8List fileBytes;
+
+  String get formattedSize {
+    if (fileSize < 1024) return '$fileSize B';
+    if (fileSize < 1024 * 1024) return '${(fileSize / 1024).toStringAsFixed(1)} KB';
+    return '${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  Map<String, dynamic> toJson() => {
+    'fileName': fileName,
+    'contentType': contentType,
+    'fileSize': fileSize,
+    'fileData': base64Encode(fileBytes),
+  };
+}
 
 class TeacherSignupPage extends StatefulWidget {
   const TeacherSignupPage({super.key, this.initialEmail, this.initialName});
@@ -17,7 +48,7 @@ class TeacherSignupPage extends StatefulWidget {
 }
 
 class _TeacherSignupPageState extends State<TeacherSignupPage> {
-  static const _languages = [
+  static const _availableLanguages = [
     'Inglês',
     'Espanhol',
     'Francês',
@@ -35,7 +66,9 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
   final _confirmPasswordController = TextEditingController();
   final _specializationController = TextEditingController();
   final _biographyController = TextEditingController();
-  final Set<String> _selectedLanguages = {};
+  final List<String> _selectedLanguages = [];
+  String? _selectedLanguageDropdown;
+  final List<_TeacherDocumentItem> _attachedDocuments = [];
   InstitutionModel? _selectedInstitution;
   bool _obscurePassword = true;
   bool _obscureConfirmation = true;
@@ -66,6 +99,42 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
       return;
     }
     setState(() => _profileStep = true);
+  }
+
+  Future<void> _pickDocument() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx'],
+        withData: true,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (file.bytes != null) {
+          final ext = file.extension?.toLowerCase() ?? 'pdf';
+          String mimeType = 'application/pdf';
+          if (ext == 'doc') mimeType = 'application/msword';
+          if (ext == 'docx') {
+            mimeType =
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+          }
+
+          setState(() {
+            _attachedDocuments.add(_TeacherDocumentItem(
+              fileName: file.name,
+              contentType: mimeType,
+              fileSize: file.size,
+              fileBytes: file.bytes!,
+            ));
+          });
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao selecionar arquivo: $e')),
+      );
+    }
   }
 
   Future<void> _submit() async {
@@ -99,9 +168,10 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
         email: _emailController.text,
         password: _passwordController.text,
         institutionId: _selectedInstitution!.id,
-        taughtLanguages: _selectedLanguages.toList(),
+        taughtLanguages: _selectedLanguages,
         specializationAreas: specialties,
         bibliography: _biographyController.text,
+        documents: _attachedDocuments.map((doc) => doc.toJson()).toList(),
       );
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
@@ -251,121 +321,241 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
     ),
   );
 
-  Widget _profileForm() => Form(
-    key: _profileFormKey,
-    child: Column(
-      key: const ValueKey('teacher-profile'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: _viewModel.isLoading
-                ? null
-                : () => setState(() => _profileStep = false),
-            icon: const Icon(Icons.arrow_back_rounded, size: 18),
-            label: const Text('Dados da conta'),
-            style: TextButton.styleFrom(
+  Widget _profileForm() {
+    final availableLanguages = _availableLanguages
+        .where((lang) => !_selectedLanguages.contains(lang))
+        .toList();
+
+    final dropdownValue =
+        availableLanguages.contains(_selectedLanguageDropdown)
+            ? _selectedLanguageDropdown
+            : null;
+
+    return Form(
+      key: _profileFormKey,
+      child: Column(
+        key: const ValueKey('teacher-profile'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _viewModel.isLoading
+                  ? null
+                  : () => setState(() => _profileStep = false),
+              icon: const Icon(Icons.arrow_back_rounded, size: 18),
+              label: const Text('Dados da conta'),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF7651C8),
+                padding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+          _InstitutionSearchField(
+            viewModel: _viewModel,
+            selectedInstitution: _selectedInstitution,
+            onSelected: (institution) {
+              setState(() => _selectedInstitution = institution);
+            },
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Idiomas lecionados',
+            style: TextStyle(
+              color: Color(0xFF33384A),
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Escolha um ou mais idiomas que você leciona.',
+            style: TextStyle(color: Color(0xFF73788B), fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            key: ValueKey(availableLanguages.join('|')),
+            initialValue: dropdownValue,
+            decoration: const InputDecoration(
+              labelText: 'Adicionar idioma lecionado',
+              hintText: 'Selecione um idioma...',
+              prefixIcon: Icon(Icons.language_rounded),
+            ),
+            items: availableLanguages
+                .map((lang) => DropdownMenuItem(
+                      value: lang,
+                      child: Text(lang),
+                    ))
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() {
+                  if (!_selectedLanguages.contains(value)) {
+                    _selectedLanguages.add(value);
+                  }
+                  _selectedLanguageDropdown = null;
+                });
+              }
+            },
+          ),
+          const SizedBox(height: 12),
+          if (_selectedLanguages.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 6.0),
+              child: Text(
+                'Nenhum idioma selecionado. Escolha no campo acima.',
+                style: TextStyle(
+                  color: Color(0xFF73788B),
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _selectedLanguages.map((language) {
+              return Chip(
+                avatar: const Icon(
+                  Icons.translate_rounded,
+                  size: 16,
+                  color: Color(0xFF7651C8),
+                ),
+                label: Text(language),
+                deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                onDeleted: () {
+                  setState(() {
+                    _selectedLanguages.remove(language);
+                  });
+                },
+                backgroundColor: const Color(0xFFF0EAFE),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: const BorderSide(color: Color(0xFFC6B3F0)),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 17),
+          TextFormField(
+            controller: _specializationController,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              labelText: 'Áreas de especialização',
+              hintText: 'Conversação, Gramática',
+              helperText: 'Separe as áreas por vírgulas.',
+              prefixIcon: Icon(Icons.workspace_premium_outlined),
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _biographyController,
+            minLines: 3,
+            maxLines: 5,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              labelText: 'Biografia profissional',
+              hintText: 'Conte um pouco sobre sua experiência…',
+              alignLabelWithHint: true,
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Documentos e Comprovantes',
+            style: TextStyle(
+              color: Color(0xFF33384A),
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Anexe diplomas, certificados ou currículo em formato PDF, DOC ou DOCX.',
+            style: TextStyle(color: Color(0xFF73788B), fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: _pickDocument,
+            style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF7651C8),
-              padding: EdgeInsets.zero,
-            ),
-          ),
-        ),
-        _InstitutionSearchField(
-          viewModel: _viewModel,
-          selectedInstitution: _selectedInstitution,
-          onSelected: (institution) {
-            setState(() => _selectedInstitution = institution);
-          },
-        ),
-        const SizedBox(height: 20),
-        const Text(
-          'Idiomas lecionados',
-          style: TextStyle(
-            color: Color(0xFF33384A),
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 9),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: _languages.map((language) {
-            final selected = _selectedLanguages.contains(language);
-            return FilterChip(
-              label: Text(language),
-              selected: selected,
-              onSelected: (value) => setState(() {
-                value
-                    ? _selectedLanguages.add(language)
-                    : _selectedLanguages.remove(language);
-              }),
-              selectedColor: const Color(0xFFF0EAFE),
-              checkmarkColor: const Color(0xFF7651C8),
-              side: BorderSide(
-                color: selected
-                    ? const Color(0xFFC6B3F0)
-                    : const Color(0xFFE1E4EC),
-              ),
+              side: const BorderSide(color: Color(0xFF7651C8)),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 17),
-        TextFormField(
-          controller: _specializationController,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-            labelText: 'Áreas de especialização',
-            hintText: 'Conversação, Gramática',
-            helperText: 'Separe as áreas por vírgulas.',
-            prefixIcon: Icon(Icons.workspace_premium_outlined),
-          ),
-        ),
-        const SizedBox(height: 14),
-        TextFormField(
-          controller: _biographyController,
-          minLines: 3,
-          maxLines: 5,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-            labelText: 'Biografia profissional',
-            hintText: 'Conte um pouco sobre sua experiência…',
-            alignLabelWithHint: true,
-          ),
-        ),
-        if (_viewModel.errorMessage != null) ...[
-          const SizedBox(height: 16),
-          _FormError(message: _viewModel.errorMessage!),
-        ],
-        const SizedBox(height: 22),
-        SizedBox(
-          height: 50,
-          child: FilledButton(
-            onPressed: _viewModel.isLoading ? null : _submit,
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF7651C8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
-            child: _viewModel.isLoading
-                ? const SizedBox.square(
-                    dimension: 19,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
+            icon: const Icon(Icons.attach_file_rounded, size: 20),
+            label: const Text('Anexar diploma / currículo'),
+          ),
+          const SizedBox(height: 10),
+          ..._attachedDocuments.map((doc) => Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                elevation: 0,
+                color: const Color(0xFFF6F8FA),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: Color(0xFFE1E4EC)),
+                ),
+                child: ListTile(
+                  dense: true,
+                  leading: const Icon(
+                    Icons.description_outlined,
+                    color: Color(0xFF7651C8),
+                  ),
+                  title: Text(
+                    doc.fileName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: Color(0xFF33384A),
                     ),
-                  )
-                : const Text('Criar perfil de professor'),
+                  ),
+                  subtitle: Text(
+                    doc.formattedSize,
+                    style:
+                        const TextStyle(fontSize: 11, color: Color(0xFF73788B)),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.close_rounded,
+                        size: 18, color: Colors.grey),
+                    onPressed: () {
+                      setState(() {
+                        _attachedDocuments.remove(doc);
+                      });
+                    },
+                  ),
+                ),
+              )),
+          if (_viewModel.errorMessage != null) ...[
+            const SizedBox(height: 16),
+            _FormError(message: _viewModel.errorMessage!),
+          ],
+          const SizedBox(height: 22),
+          SizedBox(
+            height: 50,
+            child: FilledButton(
+              onPressed: _viewModel.isLoading ? null : _submit,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF7651C8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: _viewModel.isLoading
+                  ? const SizedBox.square(
+                      dimension: 19,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text('Criar perfil de professor'),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 
   String? _validateEmail(String? value) {
     final email = value?.trim() ?? '';

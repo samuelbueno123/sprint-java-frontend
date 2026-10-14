@@ -14,7 +14,7 @@ class DashboardViewModel extends ChangeNotifier {
   final Logout logout;
 
   DashboardState _state = const DashboardInitial();
-  String _activeSection = 'home';
+  String _activeSection = 'profile';
 
   DashboardState get state => _state;
   String get activeSection => _activeSection;

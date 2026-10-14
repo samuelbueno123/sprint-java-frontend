@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/network/api_client.dart';
@@ -86,11 +87,8 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
 
       setState(() => _isUpdatingPicture = true);
       final ds = DashboardRemoteDataSource(ApiClient().dio);
-      await ds.updateUser(
+      await ds.updateProfilePicture(
         userId: widget.data.user.id,
-        name: widget.data.user.name,
-        email: widget.data.user.email,
-        googleId: widget.data.user.googleId,
         profilePicture: dataUrl,
       );
       if (!mounted) return;
@@ -100,7 +98,9 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro na foto: $e')),
+        SnackBar(
+          content: Text(_parseErrorMessage(e, 'Erro na foto de perfil.')),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isUpdatingPicture = false);
@@ -109,17 +109,23 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
 
   Future<void> _saveProfileData() async {
     final fullName = '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'.trim();
-    if (fullName.isEmpty) return;
+    if (fullName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Informe seu nome.')),
+      );
+      return;
+    }
+
+    final isGoogle = widget.data.user.googleId.isNotEmpty;
+    final email = _emailController.text.trim();
 
     setState(() => _isSavingProfile = true);
     try {
       final ds = DashboardRemoteDataSource(ApiClient().dio);
-      await ds.updateUser(
+      await ds.updateProfileDetails(
         userId: widget.data.user.id,
         name: fullName,
-        email: _emailController.text.trim(),
-        googleId: widget.data.user.googleId,
-        profilePicture: widget.data.user.picture,
+        email: isGoogle ? null : email,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -128,7 +134,9 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao atualizar perfil: $e')),
+        SnackBar(
+          content: Text(_parseErrorMessage(e, 'Erro ao atualizar perfil.')),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSavingProfile = false);
@@ -154,7 +162,11 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
     }
     if (newPass != confirmPass) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('As senhas não coincidem.')),
+        const SnackBar(
+          content: Text(
+            "As senhas nos campos 'Nova senha' e 'Confirmar senha' não coincidem.",
+          ),
+        ),
       );
       return;
     }
@@ -162,12 +174,8 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
     setState(() => _isChangingPassword = true);
     try {
       final ds = DashboardRemoteDataSource(ApiClient().dio);
-      await ds.updateUser(
+      await ds.updatePassword(
         userId: widget.data.user.id,
-        name: widget.data.user.name,
-        email: widget.data.user.email,
-        googleId: widget.data.user.googleId,
-        profilePicture: widget.data.user.picture,
         currentPassword: currentPass,
         password: newPass,
       );
@@ -181,7 +189,9 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao alterar senha: $e')),
+        SnackBar(
+          content: Text(_parseErrorMessage(e, 'Erro ao alterar senha.')),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isChangingPassword = false);
@@ -359,9 +369,44 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                     const SizedBox(height: 14),
                     const Text('Email Institucional', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
                     const SizedBox(height: 6),
-                    TextField(
-                      controller: _emailController,
-                      decoration: _inputDecoration('Email'),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _emailController,
+                                readOnly: widget.data.user.googleId.isNotEmpty,
+                                decoration: _inputDecoration('Email'),
+                              ),
+                            ),
+                            if (widget.data.user.googleId.isNotEmpty)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 8),
+                                child: Icon(
+                                  Icons.lock_outline_rounded,
+                                  size: 18,
+                                  color: Color(0xFF8A8FA1),
+                                ),
+                              ),
+                          ],
+                        ),
+                        if (widget.data.user.googleId.isNotEmpty)
+                          const Padding(
+                            padding: EdgeInsets.only(
+                              top: 6,
+                              left: 12,
+                            ),
+                            child: Text(
+                              'Contas vinculadas ao Google não podem alterar o e-mail.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF8A8FA1),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 14),
                     const Text('Instituição', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
@@ -661,6 +706,21 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E8EF))),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF7651C8), width: 2)),
     );
+  }
+
+  String _parseErrorMessage(Object error, String fallback) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map<String, dynamic>) {
+        final msg = data['message'] ?? data['detail'] ?? data['error'];
+        if (msg != null && msg.toString().trim().isNotEmpty) {
+          return msg.toString().trim();
+        }
+      } else if (data is String && data.trim().isNotEmpty) {
+        return data.trim();
+      }
+    }
+    return fallback;
   }
 }
 

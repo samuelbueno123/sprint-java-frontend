@@ -115,6 +115,50 @@ class DashboardRemoteDataSource {
         .toList();
   }
 
+  Future<void> updateProfilePicture({
+    String? userId,
+    required String profilePicture,
+  }) async {
+    final endpoint = AppConfig.authenticatedUserEndpoint.toString();
+
+    await _dio.put<void>(
+      endpoint,
+      data: {
+        'profilePicture': profilePicture,
+      },
+    );
+  }
+
+  Future<void> updateProfileDetails({
+    String? userId,
+    String? name,
+    String? email,
+  }) async {
+    final endpoint = AppConfig.authenticatedUserEndpoint.toString();
+
+    final Map<String, dynamic> body = {};
+    if (name != null && name.trim().isNotEmpty) body['name'] = name.trim();
+    if (email != null && email.trim().isNotEmpty) body['email'] = email.trim().toLowerCase();
+
+    await _dio.put<void>(endpoint, data: body);
+  }
+
+  Future<void> updatePassword({
+    String? userId,
+    required String currentPassword,
+    required String password,
+  }) async {
+    final endpoint = AppConfig.authenticatedUserEndpoint.toString();
+
+    await _dio.put<void>(
+      endpoint,
+      data: {
+        'currentPassword': currentPassword,
+        'password': password,
+      },
+    );
+  }
+
   Future<void> updateUser({
     String? userId,
     required String name,
@@ -128,17 +172,15 @@ class DashboardRemoteDataSource {
         ? AppConfig.userUpdateEndpoint(userId).toString()
         : AppConfig.authenticatedUserEndpoint.toString();
 
-    await _dio.put<void>(
-      endpoint,
-      data: {
-        'name': name.trim(),
-        'email': email.trim().toLowerCase(),
-        'googleId': googleId,
-        'profilePicture': profilePicture,
-        'currentPassword': currentPassword,
-        'password': password,
-      },
-    );
+    final Map<String, dynamic> body = {};
+    if (name.trim().isNotEmpty) body['name'] = name.trim();
+    if (email.trim().isNotEmpty) body['email'] = email.trim().toLowerCase();
+    if (googleId != null && googleId.isNotEmpty) body['googleId'] = googleId;
+    if (profilePicture != null && profilePicture.isNotEmpty) body['profilePicture'] = profilePicture;
+    if (currentPassword != null && currentPassword.isNotEmpty) body['currentPassword'] = currentPassword;
+    if (password != null && password.isNotEmpty) body['password'] = password;
+
+    await _dio.put<void>(endpoint, data: body);
   }
 
   Future<void> logout() async {

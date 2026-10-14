@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/network/api_client.dart';
@@ -23,7 +24,7 @@ class UserSettingsView extends StatefulWidget {
 }
 
 class _UserSettingsViewState extends State<UserSettingsView> {
-  // Notification states (All 4 options)
+  // Notification states
   bool _notifDaily = true;
   bool _notifAchievement = true;
   bool _notifRanking = false;
@@ -68,11 +69,8 @@ class _UserSettingsViewState extends State<UserSettingsView> {
 
       setState(() => _isUpdatingPicture = true);
       final ds = DashboardRemoteDataSource(ApiClient().dio);
-      await ds.updateUser(
+      await ds.updateProfilePicture(
         userId: widget.data.user.id,
-        name: widget.data.user.name,
-        email: widget.data.user.email,
-        googleId: widget.data.user.googleId,
         profilePicture: dataUrl,
       );
       if (!mounted) return;
@@ -82,7 +80,9 @@ class _UserSettingsViewState extends State<UserSettingsView> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro na foto: $e')),
+        SnackBar(
+          content: Text(_parseErrorMessage(e, 'Erro na foto de perfil.')),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isUpdatingPicture = false);
@@ -91,17 +91,23 @@ class _UserSettingsViewState extends State<UserSettingsView> {
 
   Future<void> _saveProfileData() async {
     final name = _nameController.text.trim();
-    if (name.isEmpty) return;
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Informe seu nome.')),
+      );
+      return;
+    }
+
+    final isGoogle = widget.data.user.googleId.isNotEmpty;
+    final email = _emailController.text.trim();
 
     setState(() => _isSavingProfile = true);
     try {
       final ds = DashboardRemoteDataSource(ApiClient().dio);
-      await ds.updateUser(
+      await ds.updateProfileDetails(
         userId: widget.data.user.id,
         name: name,
-        email: _emailController.text.trim(),
-        googleId: widget.data.user.googleId,
-        profilePicture: widget.data.user.picture,
+        email: isGoogle ? null : email,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -110,7 +116,9 @@ class _UserSettingsViewState extends State<UserSettingsView> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao atualizar dados: $e')),
+        SnackBar(
+          content: Text(_parseErrorMessage(e, 'Erro ao atualizar dados.')),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSavingProfile = false);
@@ -136,7 +144,11 @@ class _UserSettingsViewState extends State<UserSettingsView> {
     }
     if (newPass != confirmPass) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('As senhas não coincidem.')),
+        const SnackBar(
+          content: Text(
+            "As senhas nos campos 'Nova senha' e 'Confirmar senha' não coincidem.",
+          ),
+        ),
       );
       return;
     }
@@ -144,12 +156,8 @@ class _UserSettingsViewState extends State<UserSettingsView> {
     setState(() => _isChangingPassword = true);
     try {
       final ds = DashboardRemoteDataSource(ApiClient().dio);
-      await ds.updateUser(
+      await ds.updatePassword(
         userId: widget.data.user.id,
-        name: widget.data.user.name,
-        email: widget.data.user.email,
-        googleId: widget.data.user.googleId,
-        profilePicture: widget.data.user.picture,
         currentPassword: currentPass,
         password: newPass,
       );
@@ -163,7 +171,9 @@ class _UserSettingsViewState extends State<UserSettingsView> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao alterar senha: $e')),
+        SnackBar(
+          content: Text(_parseErrorMessage(e, 'Erro ao alterar senha.')),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isChangingPassword = false);
@@ -173,61 +183,38 @@ class _UserSettingsViewState extends State<UserSettingsView> {
   @override
   Widget build(BuildContext context) {
     const brandColor = Color(0xFF5869D8);
+    final isGoogleAccount = widget.data.user.googleId.isNotEmpty;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
+          constraints: const BoxConstraints(maxWidth: 800),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF5869D8), Color(0xFF7651C8)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+              // Cabeçalho da página de Configurações
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: widget.onBackToProfile,
+                    icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF252A3D)),
+                    tooltip: 'Voltar ao Perfil',
                   ),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: widget.onBackToProfile,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: BorderSide(color: Colors.white.withValues(alpha: 0.4)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                      label: const Text('Voltar ao Perfil'),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Configurações da Conta',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF252A3D),
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Configurações da Conta',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Gerencie suas preferências de conta no Duolinfo',
-                      style: TextStyle(color: Color(0xEFFFFFFF), fontSize: 14),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
 
-              // Card 1: Perfil
+              // Card 1: Perfil Público e Dados Pessoais
               Card(
                 elevation: 0,
                 color: Colors.white,
@@ -240,35 +227,37 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const Text(
+                        'Perfil Público e Informações Pessoais',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: brandColor),
+                      ),
+                      const SizedBox(height: 16),
                       Row(
                         children: [
-                          GestureDetector(
-                            onTap: _isUpdatingPicture ? null : _pickAndUploadLocalImage,
-                            child: Stack(
-                              children: [
-                                AppUserAvatar(
-                                  name: widget.data.user.name,
-                                  pictureUrl: widget.data.user.picture,
-                                  radius: 36,
-                                  backgroundColor: brandColor.withValues(alpha: 0.15),
-                                  textColor: brandColor,
+                          Stack(
+                            children: [
+                              AppUserAvatar(
+                                name: widget.data.user.name,
+                                pictureUrl: widget.data.user.picture,
+                                radius: 36,
+                                backgroundColor: brandColor.withValues(alpha: .15),
+                                textColor: brandColor,
+                              ),
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: brandColor,
+                                  child: _isUpdatingPicture
+                                      ? const SizedBox.square(
+                                          dimension: 12,
+                                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                        )
+                                      : const Icon(Icons.camera_alt_rounded, size: 14, color: Colors.white),
                                 ),
-                                Positioned(
-                                  right: 0,
-                                  bottom: 0,
-                                  child: CircleAvatar(
-                                    radius: 14,
-                                    backgroundColor: brandColor,
-                                    child: _isUpdatingPicture
-                                        ? const SizedBox.square(
-                                            dimension: 12,
-                                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                          )
-                                        : const Icon(Icons.camera_alt_rounded, size: 14, color: Colors.white),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -293,7 +282,7 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                                   ),
                                   icon: const Icon(Icons.upload_file_rounded, size: 14, color: brandColor),
                                   label: const Text(
-                                    'Escolher foto local (JPG/PNG <= 1024x1024)',
+                                    'Escolher foto local',
                                     style: TextStyle(fontSize: 12, color: brandColor, fontWeight: FontWeight.w600),
                                   ),
                                 ),
@@ -309,7 +298,19 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                       const SizedBox(height: 14),
                       const Text('Email', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
                       const SizedBox(height: 6),
-                      TextField(controller: _emailController, decoration: _inputDecoration('Email')),
+                      TextField(
+                        controller: _emailController,
+                        readOnly: isGoogleAccount,
+                        decoration: _inputDecoration(
+                          'Email',
+                          helperText: isGoogleAccount
+                              ? 'Contas vinculadas ao Google não podem alterar o e-mail.'
+                              : null,
+                          suffixIcon: isGoogleAccount
+                              ? const Icon(Icons.lock_outline_rounded, size: 18, color: Color(0xFF8A8FA1))
+                              : null,
+                        ),
+                      ),
                       const SizedBox(height: 18),
                       ElevatedButton(
                         onPressed: _isSavingProfile ? null : _saveProfileData,
@@ -332,7 +333,7 @@ class _UserSettingsViewState extends State<UserSettingsView> {
               ),
               const SizedBox(height: 16),
 
-              // Card 2: Segurança e Senha (sem decoration fake)
+              // Card 2: Segurança e Senha
               Card(
                 elevation: 0,
                 color: Colors.white,
@@ -389,18 +390,18 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                         ],
                       ),
                       const SizedBox(height: 18),
-                      OutlinedButton(
+                      ElevatedButton(
                         onPressed: _isChangingPassword ? null : _changePassword,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: brandColor,
-                          side: const BorderSide(color: brandColor),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: brandColor,
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         child: _isChangingPassword
                             ? const SizedBox.square(
                                 dimension: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                               )
                             : const Text('Alterar Senha', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
@@ -410,172 +411,111 @@ class _UserSettingsViewState extends State<UserSettingsView> {
               ),
               const SizedBox(height: 16),
 
-              // Card 3: Notificações
-              _SettingsCard(
-                icon: Icons.notifications_none_rounded,
-                title: 'Notificações',
-                iconColor: brandColor,
-                child: Column(
-                  children: [
-                    _SwitchRow(
-                      title: 'Lembretes de acesso e estudo',
-                      subtitle: 'Receba alertas diários para continuar seu aprendizado',
-                      value: _notifDaily,
-                      activeColor: brandColor,
-                      onChanged: (val) => setState(() => _notifDaily = val),
-                    ),
-                    _SwitchRow(
-                      title: 'Novas conquistas',
-                      subtitle: 'Alertas quando desbloquear novos níveis e metas',
-                      value: _notifAchievement,
-                      activeColor: brandColor,
-                      onChanged: (val) => setState(() => _notifAchievement = val),
-                    ),
-                    _SwitchRow(
-                      title: 'Atualizações de turmas e ranking',
-                      subtitle: 'Notificar sobre atividades e posição na plataforma',
-                      value: _notifRanking,
-                      activeColor: brandColor,
-                      onChanged: (val) => setState(() => _notifRanking = val),
-                    ),
-                    _SwitchRow(
-                      title: 'Comunicados do sistema',
-                      subtitle: 'Novidades, avisos de manutenção e atualizações',
-                      value: _notifUpdates,
-                      activeColor: brandColor,
-                      onChanged: (val) => setState(() => _notifUpdates = val),
-                    ),
-                  ],
+              // Card 3: Preferências e Notificações
+              Card(
+                elevation: 0,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  side: const BorderSide(color: Color(0xFFE5E8EF)),
                 ),
-              ),
-              const SizedBox(height: 16),
-
-              // Card 4: Preferências
-              _SettingsCard(
-                icon: Icons.palette_outlined,
-                title: 'Preferências do Sistema',
-                iconColor: brandColor,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Tema do Aplicativo', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => setState(() => _theme = 'light'),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: _theme == 'light' ? const Color(0xFFEAF2FF) : Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _theme == 'light' ? brandColor : const Color(0xFFE5E8EF),
-                                  width: _theme == 'light' ? 2 : 1,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Preferências do Aplicativo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: brandColor)),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Idioma da Interface', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
+                                const SizedBox(height: 6),
+                                DropdownButtonFormField<String>(
+                                  value: _language,
+                                  decoration: _inputDecoration('Idioma'),
+                                  items: const [
+                                    DropdownMenuItem(value: 'pt', child: Text('Português (Brasil)')),
+                                    DropdownMenuItem(value: 'en', child: Text('English')),
+                                    DropdownMenuItem(value: 'es', child: Text('Español')),
+                                  ],
+                                  onChanged: (val) {
+                                    if (val != null) setState(() => _language = val);
+                                  },
                                 ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.wb_sunny_rounded, color: _theme == 'light' ? brandColor : Colors.grey),
-                                  const SizedBox(width: 10),
-                                  const Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('Claro', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                      Text('Fundo claro', style: TextStyle(color: Color(0xFF73788B), fontSize: 11)),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                              ],
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => setState(() => _theme = 'dark'),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: _theme == 'dark' ? const Color(0xFFEAF2FF) : Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _theme == 'dark' ? brandColor : const Color(0xFFE5E8EF),
-                                  width: _theme == 'dark' ? 2 : 1,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Tema', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
+                                const SizedBox(height: 6),
+                                DropdownButtonFormField<String>(
+                                  value: _theme,
+                                  decoration: _inputDecoration('Tema'),
+                                  items: const [
+                                    DropdownMenuItem(value: 'light', child: Text('Claro')),
+                                    DropdownMenuItem(value: 'dark', child: Text('Escuro')),
+                                    DropdownMenuItem(value: 'system', child: Text('Padrão do Sistema')),
+                                  ],
+                                  onChanged: (val) {
+                                    if (val != null) setState(() => _theme = val);
+                                  },
                                 ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.nightlight_round, color: _theme == 'dark' ? brandColor : Colors.grey),
-                                  const SizedBox(width: 10),
-                                  const Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('Escuro', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                      Text('Fundo escuro', style: TextStyle(color: Color(0xFF73788B), fontSize: 11)),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                              ],
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    const Text('Idioma do App', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      value: _language,
-                      decoration: _inputDecoration(''),
-                      items: const [
-                        DropdownMenuItem(value: 'pt', child: Text('Português')),
-                        DropdownMenuItem(value: 'en', child: Text('English')),
-                        DropdownMenuItem(value: 'es', child: Text('Español')),
-                      ],
-                      onChanged: (val) => setState(() => _language = val ?? 'pt'),
-                    ),
-                  ],
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      const Text('Notificações por Email', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
+                      const SizedBox(height: 8),
+                      SwitchListTile(
+                        value: _notifDaily,
+                        activeColor: brandColor,
+                        title: const Text('Lembretes Diários de Estudo', style: TextStyle(fontSize: 14)),
+                        onChanged: (val) => setState(() => _notifDaily = val),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      SwitchListTile(
+                        value: _notifAchievement,
+                        activeColor: brandColor,
+                        title: const Text('Conquistas e Progresso', style: TextStyle(fontSize: 14)),
+                        onChanged: (val) => setState(() => _notifAchievement = val),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      SwitchListTile(
+                        value: _notifRanking,
+                        activeColor: brandColor,
+                        title: const Text('Atualizações de Ranking e Ligas', style: TextStyle(fontSize: 14)),
+                        onChanged: (val) => setState(() => _notifRanking = val),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      SwitchListTile(
+                        value: _notifUpdates,
+                        activeColor: brandColor,
+                        title: const Text('Novidades e Atualizações da Plataforma', style: TextStyle(fontSize: 14)),
+                        onChanged: (val) => setState(() => _notifUpdates = val),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-              // Card 5: Zona de Perigo
-              _SettingsCard(
-                icon: Icons.delete_outline_rounded,
-                title: 'Zona de Perigo',
-                iconColor: Colors.redAccent,
-                child: Column(
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: widget.onLogout,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.redAccent,
-                        side: const BorderSide(color: Colors.redAccent),
-                        minimumSize: const Size(double.infinity, 48),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      icon: const Icon(Icons.logout_rounded, size: 18),
-                      label: const Text('Sair da Conta', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(height: 10),
-                    TextButton.icon(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Para excluir sua conta, entre em contato com o suporte.')),
-                        );
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.red.shade300,
-                        minimumSize: const Size(double.infinity, 44),
-                      ),
-                      icon: const Icon(Icons.delete_forever_rounded, size: 18),
-                      label: const Text('Excluir Conta'),
-                    ),
-                  ],
+              // Encerramento de sessão
+              Center(
+                child: TextButton.icon(
+                  onPressed: widget.onLogout,
+                  icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+                  label: const Text('Sair da Conta', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -585,101 +525,36 @@ class _UserSettingsViewState extends State<UserSettingsView> {
     );
   }
 
-  InputDecoration _inputDecoration(String hint) {
+  InputDecoration _inputDecoration(String hint, {String? helperText, Widget? suffixIcon}) {
     return InputDecoration(
       hintText: hint,
+      helperText: helperText,
+      suffixIcon: suffixIcon,
+      isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E8EF))),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E8EF))),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF5869D8), width: 2)),
-    );
-  }
-}
-
-class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({
-    required this.icon,
-    required this.title,
-    required this.iconColor,
-    required this.child,
-  });
-
-  final IconData icon;
-  final String title;
-  final Color iconColor;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: Color(0xFFE5E8EF)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFFE5E8EF)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: iconColor, size: 21),
-                const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: iconColor),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            child,
-          ],
-        ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFFE5E8EF)),
       ),
     );
   }
-}
 
-class _SwitchRow extends StatelessWidget {
-  const _SwitchRow({
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.activeColor,
-    required this.onChanged,
-  });
-
-  final String title;
-  final String subtitle;
-  final bool value;
-  final Color activeColor;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF252A3D))),
-                const SizedBox(height: 2),
-                Text(subtitle, style: const TextStyle(color: Color(0xFF73788B), fontSize: 12)),
-              ],
-            ),
-          ),
-          Switch(
-            value: value,
-            activeColor: activeColor,
-            onChanged: onChanged,
-          ),
-        ],
-      ),
-    );
+  String _parseErrorMessage(Object error, String fallback) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map<String, dynamic>) {
+        final msg = data['message'] ?? data['detail'] ?? data['error'];
+        if (msg != null && msg.toString().trim().isNotEmpty) {
+          return msg.toString().trim();
+        }
+      } else if (data is String && data.trim().isNotEmpty) {
+        return data.trim();
+      }
+    }
+    return fallback;
   }
 }
