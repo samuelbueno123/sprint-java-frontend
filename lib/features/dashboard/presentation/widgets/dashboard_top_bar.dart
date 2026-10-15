@@ -47,14 +47,19 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final avatarUrl = data.user.picture;
+    final isCompact = MediaQuery.sizeOf(context).width < 380;
 
     return Container(
       height: preferredSize.height,
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+        ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 16),
       child: Row(
         children: [
           if (onMenuPressed != null) ...[
@@ -70,47 +75,55 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
             color: Color(0xFF58CC02),
             size: 26,
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: isCompact ? 5 : 8),
           const Text(
             'Duolinfo',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.w800,
               color: Colors.black87,
             ),
           ),
           const Spacer(), // Empurra TODO o bloco de perfil e conta para o canto direito!
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: _roleColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  data.profileType == UserProfileType.student
-                      ? Icons.school_rounded
-                      : data.profileType == UserProfileType.teacher
-                      ? Icons.co_present_rounded
-                      : Icons.person_rounded,
-                  size: 15,
-                  color: _roleColor,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  data.profileType.label,
-                  style: TextStyle(
+          Tooltip(
+            message: data.profileType.label,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isCompact ? 7 : 10,
+                vertical: 5,
+              ),
+              decoration: BoxDecoration(
+                color: _roleColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    data.profileType == UserProfileType.student
+                        ? Icons.school_rounded
+                        : data.profileType == UserProfileType.teacher
+                        ? Icons.co_present_rounded
+                        : Icons.person_rounded,
+                    size: 15,
                     color: _roleColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
                   ),
-                ),
-              ],
+                  if (!isCompact) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      data.profileType.label,
+                      style: TextStyle(
+                        color: _roleColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: isCompact ? 6 : 12),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'settings') {

@@ -34,7 +34,7 @@ class RegistrationChoiceDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dialog(
       elevation: 12,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
@@ -67,12 +67,12 @@ class RegistrationChoiceDialog extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 18),
-              const Text(
+              Text(
                 'Complete seu cadastro',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF252A3D),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 8),
@@ -80,7 +80,7 @@ class RegistrationChoiceDialog extends StatelessWidget {
                 initialName != null && initialName!.isNotEmpty
                     ? 'Olá, $initialName! Escolha como você vai usar o Duolinfo:'
                     : 'Escolha o seu tipo de conta para continuar no Duolinfo:',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   color: Color(0xFF73788B),
                   height: 1.4,
@@ -188,7 +188,7 @@ class _ChoiceCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       description,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Color(0xFF73788B),
                         fontSize: 12,
                         height: 1.35,

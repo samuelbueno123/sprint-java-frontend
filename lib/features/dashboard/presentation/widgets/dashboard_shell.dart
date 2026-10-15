@@ -37,25 +37,26 @@ class _DashboardShellState extends State<DashboardShell> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isDesktop = constraints.maxWidth >= 900;
+        final isDesktop = constraints.maxWidth >= 1200;
+        final hasNavigationRail = constraints.maxWidth >= 768;
 
         return Scaffold(
           key: _scaffoldKey,
-          backgroundColor: const Color(0xFFF7F9FA),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: DashboardTopBar(
             data: widget.data,
             onLogout: widget.onLogout,
             onOpenSettings: () => widget.onSectionSelected('settings'),
             isDesktop: isDesktop,
             onMenuPressed: () {
-              if (isDesktop) {
+              if (hasNavigationRail) {
                 setState(() => _isSidebarExpanded = !_isSidebarExpanded);
               } else {
                 _scaffoldKey.currentState?.openDrawer();
               }
             },
           ),
-          drawer: isDesktop
+          drawer: hasNavigationRail
               ? null
               : Drawer(
                   child: SafeArea(
@@ -71,7 +72,7 @@ class _DashboardShellState extends State<DashboardShell> {
                 ),
           body: Row(
             children: [
-              if (isDesktop)
+              if (hasNavigationRail)
                 DashboardSidebar(
                   profileType: widget.data.profileType,
                   activeSection: widget.activeSection,
@@ -101,8 +102,18 @@ class _DashboardShellState extends State<DashboardShell> {
             data: widget.data,
             onRefresh: widget.onRefresh,
           );
-        if (widget.activeSection == 'lesson')
-          return const LessonExecutionPage();
+        if (const {
+          'lesson',
+          'history',
+          'achievements',
+          'ranking',
+          'groupRanking',
+        }.contains(widget.activeSection)) {
+          return LearningFeaturePage(
+            section: widget.activeSection,
+            onBackToProfile: () => widget.onSectionSelected('profile'),
+          );
+        }
         return StudentDashboardView(
           data: widget.data,
           activeSection: widget.activeSection,
@@ -116,6 +127,18 @@ class _DashboardShellState extends State<DashboardShell> {
             data: widget.data,
             onRefresh: widget.onRefresh,
           );
+        if (const {
+          'manageExercises',
+          'createExercise',
+          'reviewExercises',
+          'teacherRanking',
+        }.contains(widget.activeSection)) {
+          return TeacherLearningPage(
+            data: widget.data,
+            section: widget.activeSection,
+            onSectionSelected: widget.onSectionSelected,
+          );
+        }
         return TeacherDashboardView(
           data: widget.data,
           activeSection: widget.activeSection,

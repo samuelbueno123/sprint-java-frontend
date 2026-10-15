@@ -30,12 +30,16 @@ class DashboardSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
       width: isCollapsed ? 72 : 240,
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(right: BorderSide(color: Colors.grey.shade200)),
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          right: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+        ),
       ),
       child: ClipRect(
         child: Column(
@@ -43,19 +47,11 @@ class DashboardSidebar extends StatelessWidget {
             const SizedBox(height: 16),
             _NavItem(
               icon: Icons.person_outline_rounded,
-              label: 'Meu Perfil',
+              label: 'Início',
               isSelected: activeSection == 'profile',
               accentColor: _accentColor,
               isCollapsed: isCollapsed,
               onTap: () => onSectionSelected('profile'),
-            ),
-            _NavItem(
-              icon: Icons.dashboard_rounded,
-              label: 'Início',
-              isSelected: activeSection == 'home',
-              accentColor: _accentColor,
-              isCollapsed: isCollapsed,
-              onTap: () => onSectionSelected('home'),
             ),
             if (profileType != UserProfileType.user)
               _NavItem(
@@ -88,6 +84,40 @@ class DashboardSidebar extends StatelessWidget {
                 isCollapsed: isCollapsed,
                 onTap: () => onSectionSelected('classes'),
               ),
+            if (profileType == UserProfileType.teacher) ...[
+              _NavItem(
+                icon: Icons.library_books_outlined,
+                label: 'Minhas atividades',
+                isSelected: activeSection == 'manageExercises',
+                accentColor: _accentColor,
+                isCollapsed: isCollapsed,
+                onTap: () => onSectionSelected('manageExercises'),
+              ),
+              _NavItem(
+                icon: Icons.post_add_rounded,
+                label: 'Criar atividade',
+                isSelected: activeSection == 'createExercise',
+                accentColor: _accentColor,
+                isCollapsed: isCollapsed,
+                onTap: () => onSectionSelected('createExercise'),
+              ),
+              _NavItem(
+                icon: Icons.fact_check_outlined,
+                label: 'Analisar respostas',
+                isSelected: activeSection == 'reviewExercises',
+                accentColor: _accentColor,
+                isCollapsed: isCollapsed,
+                onTap: () => onSectionSelected('reviewExercises'),
+              ),
+              _NavItem(
+                icon: Icons.leaderboard_rounded,
+                label: 'Desempenho',
+                isSelected: activeSection == 'teacherRanking',
+                accentColor: _accentColor,
+                isCollapsed: isCollapsed,
+                onTap: () => onSectionSelected('teacherRanking'),
+              ),
+            ],
             if (profileType == UserProfileType.student)
               _NavItem(
                 icon: Icons.school_rounded,
@@ -97,6 +127,40 @@ class DashboardSidebar extends StatelessWidget {
                 isCollapsed: isCollapsed,
                 onTap: () => onSectionSelected('lesson'),
               ),
+            if (profileType == UserProfileType.student) ...[
+              _NavItem(
+                icon: Icons.history_rounded,
+                label: 'Histórico',
+                isSelected: activeSection == 'history',
+                accentColor: _accentColor,
+                isCollapsed: isCollapsed,
+                onTap: () => onSectionSelected('history'),
+              ),
+              _NavItem(
+                icon: Icons.emoji_events_outlined,
+                label: 'Conquistas',
+                isSelected: activeSection == 'achievements',
+                accentColor: _accentColor,
+                isCollapsed: isCollapsed,
+                onTap: () => onSectionSelected('achievements'),
+              ),
+              _NavItem(
+                icon: Icons.leaderboard_rounded,
+                label: 'Ranking',
+                isSelected: activeSection == 'ranking',
+                accentColor: _accentColor,
+                isCollapsed: isCollapsed,
+                onTap: () => onSectionSelected('ranking'),
+              ),
+              _NavItem(
+                icon: Icons.groups_2_outlined,
+                label: 'Ranking de grupos',
+                isSelected: activeSection == 'groupRanking',
+                accentColor: _accentColor,
+                isCollapsed: isCollapsed,
+                onTap: () => onSectionSelected('groupRanking'),
+              ),
+            ],
             _NavItem(
               icon: Icons.settings_rounded,
               label: 'Configurações',

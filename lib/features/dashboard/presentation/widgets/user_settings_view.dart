@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/dashboard_data.dart';
 import 'app_user_avatar.dart';
 import 'edit_profile_dialogs.dart';
+import 'app_theme_selector.dart';
+import 'responsive_layout.dart';
 
 class UserSettingsView extends StatefulWidget {
   const UserSettingsView({
@@ -31,7 +33,6 @@ class _UserSettingsViewState extends State<UserSettingsView> {
 
   // Preferences
   String _language = 'pt';
-  String _theme = 'light';
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +40,7 @@ class _UserSettingsViewState extends State<UserSettingsView> {
     final isGoogleAccount = widget.data.user.googleId.isNotEmpty;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: responsivePagePadding(context),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 800),
@@ -64,7 +65,10 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                     ),
                   ],
                 ),
-                child: Row(
+                child: Wrap(
+                  spacing: 16,
+                  runSpacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     OutlinedButton.icon(
                       onPressed: widget.onBackToProfile,
@@ -82,10 +86,11 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                         ),
                       ),
                       icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                      label: const Text('Voltar ao Perfil'),
+                      label: Text('Voltar ao Perfil'),
                     ),
                     const SizedBox(width: 16),
-                    const Expanded(
+                    SizedBox(
+                      width: isCompactLayout(context) ? 220 : 300,
                       child: Text(
                         'Configurações da Conta',
                         style: TextStyle(
@@ -104,17 +109,19 @@ class _UserSettingsViewState extends State<UserSettingsView> {
               // Card 1: Perfil e Foto do Usuário
               Card(
                 elevation: 0,
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
-                  side: const BorderSide(color: Color(0xFFE5E8EF)),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: responsiveCardPadding(context),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
                           Icon(
                             Icons.account_circle_outlined,
@@ -149,17 +156,21 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                               children: [
                                 Text(
                                   widget.data.user.name,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 17,
-                                    color: Color(0xFF252A3D),
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   widget.data.user.email,
-                                  style: const TextStyle(
-                                    color: Color(0xFF73788B),
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                                     fontSize: 13,
                                   ),
                                 ),
@@ -215,7 +226,7 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                           ),
                         ),
                         icon: const Icon(Icons.camera_alt_rounded, size: 18),
-                        label: const Text('Alterar Foto de Perfil'),
+                        label: Text('Alterar Foto de Perfil'),
                       ),
                     ],
                   ),
@@ -226,17 +237,19 @@ class _UserSettingsViewState extends State<UserSettingsView> {
               // Card 2: Informações Pessoais
               Card(
                 elevation: 0,
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
-                  side: const BorderSide(color: Color(0xFFE5E8EF)),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: responsiveCardPadding(context),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
                           Icon(
                             Icons.badge_outlined,
@@ -289,7 +302,7 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                           ),
                         ),
                         icon: const Icon(Icons.edit_note_rounded, size: 20),
-                        label: const Text('Editar Nome e E-mail'),
+                        label: Text('Editar Nome e E-mail'),
                       ),
                     ],
                   ),
@@ -300,17 +313,19 @@ class _UserSettingsViewState extends State<UserSettingsView> {
               // Card 3: Segurança e Senha
               Card(
                 elevation: 0,
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
-                  side: const BorderSide(color: Color(0xFFE5E8EF)),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: responsiveCardPadding(context),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
                           Icon(
                             Icons.security_rounded,
@@ -329,11 +344,11 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                         ],
                       ),
                       const SizedBox(height: 10),
-                      const Text(
+                      Text(
                         'Mantenha sua conta protegida redefinindo sua senha de acesso periodicamente.',
                         style: TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF73788B),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -354,7 +369,7 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                           ),
                         ),
                         icon: const Icon(Icons.lock_reset_rounded, size: 20),
-                        label: const Text('Alterar Senha de Acesso'),
+                        label: Text('Alterar Senha de Acesso'),
                       ),
                     ],
                   ),
@@ -365,17 +380,19 @@ class _UserSettingsViewState extends State<UserSettingsView> {
               // Card 4: Preferências do Aplicativo
               Card(
                 elevation: 0,
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
-                  side: const BorderSide(color: Color(0xFFE5E8EF)),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: responsiveCardPadding(context),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
                           Icon(Icons.tune_rounded, color: brandColor, size: 22),
                           SizedBox(width: 8),
@@ -390,105 +407,67 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      Row(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Idioma da Interface',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                    color: Color(0xFF252A3D),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                DropdownButtonFormField<String>(
-                                  value: _language,
-                                  decoration: _inputDecoration('Idioma'),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'pt',
-                                      child: Text('Português (Brasil)'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'en',
-                                      child: Text('English'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'es',
-                                      child: Text('Español'),
-                                    ),
-                                  ],
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      setState(() => _language = val);
-                                    }
-                                  },
-                                ),
-                              ],
+                          Text(
+                            'Idioma da Interface',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Tema',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                    color: Color(0xFF252A3D),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                DropdownButtonFormField<String>(
-                                  value: _theme,
-                                  decoration: _inputDecoration('Tema'),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'light',
-                                      child: Text('Claro'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'dark',
-                                      child: Text('Escuro'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'system',
-                                      child: Text('Padrão do Sistema'),
-                                    ),
-                                  ],
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      setState(() => _theme = val);
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            value: _language,
+                            decoration: _inputDecoration('Idioma'),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'pt',
+                                child: Text('Português (Brasil)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'en',
+                                child: Text('English'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'es',
+                                child: Text('Español'),
+                              ),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _language = val);
+                              }
+                            },
                           ),
+                          const SizedBox(height: 16),
+                          const AppThemeSelector(),
                         ],
                       ),
                       const SizedBox(height: 20),
-                      const Text(
+                      Text(
                         'Notificações por Email',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
-                          color: Color(0xFF252A3D),
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 8),
                       SwitchListTile(
                         value: _notifDaily,
                         activeColor: brandColor,
-                        title: const Text(
+                        title: Text(
                           'Lembretes Diários de Estudo',
                           style: TextStyle(fontSize: 14),
+                        ),
+                        subtitle: Text(
+                          'Receba lembretes para manter sua rotina de estudos.',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                         onChanged: (val) => setState(() => _notifDaily = val),
                         contentPadding: EdgeInsets.zero,
@@ -496,9 +475,15 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                       SwitchListTile(
                         value: _notifAchievement,
                         activeColor: brandColor,
-                        title: const Text(
+                        title: Text(
                           'Conquistas e Progresso',
                           style: TextStyle(fontSize: 14),
+                        ),
+                        subtitle: Text(
+                          'Acompanhe novas conquistas e seu progresso de aprendizagem.',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                         onChanged: (val) =>
                             setState(() => _notifAchievement = val),
@@ -507,9 +492,15 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                       SwitchListTile(
                         value: _notifRanking,
                         activeColor: brandColor,
-                        title: const Text(
+                        title: Text(
                           'Atualizações de Ranking e Ligas',
                           style: TextStyle(fontSize: 14),
+                        ),
+                        subtitle: Text(
+                          'Receba atualizações sobre sua posição no ranking.',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                         onChanged: (val) => setState(() => _notifRanking = val),
                         contentPadding: EdgeInsets.zero,
@@ -517,9 +508,15 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                       SwitchListTile(
                         value: _notifUpdates,
                         activeColor: brandColor,
-                        title: const Text(
+                        title: Text(
                           'Novidades e Atualizações da Plataforma',
                           style: TextStyle(fontSize: 14),
+                        ),
+                        subtitle: Text(
+                          'Fique por dentro de novidades e melhorias do Duolinfo.',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                         onChanged: (val) => setState(() => _notifUpdates = val),
                         contentPadding: EdgeInsets.zero,
@@ -538,7 +535,7 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                     Icons.logout_rounded,
                     color: Colors.redAccent,
                   ),
-                  label: const Text(
+                  label: Text(
                     'Sair da Conta',
                     style: TextStyle(
                       color: Colors.redAccent,
@@ -595,14 +592,17 @@ class _DetailRow extends StatelessWidget {
           width: 110,
           child: Text(
             label,
-            style: const TextStyle(color: Color(0xFF73788B), fontSize: 13),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 13,
+            ),
           ),
         ),
         Expanded(
           child: Text(
             value.isEmpty ? 'Não informado' : value,
-            style: const TextStyle(
-              color: Color(0xFF252A3D),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w600,
               fontSize: 14,
             ),
@@ -617,9 +617,9 @@ class _DetailRow extends StatelessWidget {
             ),
             child: Text(
               badge!,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: Color(0xFF73788B),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),

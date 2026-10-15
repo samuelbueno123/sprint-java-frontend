@@ -7,11 +7,17 @@ class StudentModel {
     required this.name,
     required this.email,
     required this.languages,
+    this.languageScores = const {},
   });
 
   factory StudentModel.fromJson(Map<String, dynamic> json) {
     final rawLangs = json['languages'] as List<dynamic>? ?? const [];
     final levels = json['languageLevels'] as Map<String, dynamic>? ?? const {};
+    final rawScores =
+        json['languageScores'] as Map<String, dynamic>? ?? const {};
+    final scores = rawScores.map(
+      (language, score) => MapEntry(language, (score as num).toInt()),
+    );
     final languages = rawLangs.map((value) {
       final name = value.toString();
       final level = levels[name];
@@ -24,6 +30,7 @@ class StudentModel {
       name: json['name'] as String? ?? '',
       email: json['email'] as String? ?? '',
       languages: languages,
+      languageScores: scores,
     );
   }
 
@@ -32,6 +39,7 @@ class StudentModel {
   final String name;
   final String email;
   final List<String> languages;
+  final Map<String, int> languageScores;
 
   StudentProfile toEntity() => StudentProfile(
     id: id,
@@ -39,5 +47,6 @@ class StudentModel {
     name: name,
     email: email,
     languages: languages,
+    languageScores: languageScores,
   );
 }

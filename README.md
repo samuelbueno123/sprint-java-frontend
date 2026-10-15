@@ -12,36 +12,36 @@ para abrir o provedor OAuth.
 
 ## Ambientes e configuração
 
-`AppConfig` é a única fonte de configuração. Não há URL de backend ou decisão de
-plataforma em features. Em desenvolvimento, a URL padrão é
-`http://localhost:8080`; no emulador Android, o padrão é
-`http://10.0.2.2:8080`. `API_BASE_URL` sempre pode sobrescrever esses valores.
+`AppConfig` é a única fonte de configuração. O app carrega `.env` na inicialização
+e mantém suporte a `--dart-define`, que tem precedência. Em desenvolvimento, a
+URL padrão é `http://localhost:8080`; no emulador Android, o padrão é
+`http://10.0.2.2:8080`. Em um aparelho físico conectado por ADB, encaminhe a API
+local com `adb reverse tcp:8080 tcp:8080`, ou defina `API_BASE_URL` com um host
+acessível pelo aparelho. Staging e produção exigem uma URL HTTPS acessível.
 Para Flutter Web, use a porta `3000`, permitida pela configuração CORS de
-desenvolvimento do backend. Staging e produção exigem uma URL explícita. O
-datasource do Google encapsula as diferenças entre Web, iOS e plataformas nativas.
+desenvolvimento do backend. O datasource do Google encapsula as diferenças entre
+Web, iOS e plataformas nativas.
 
 Ambientes aceitos: `development` (padrão), `staging` (também aceita `test`) e
 `production`. Injete valores por ambiente no CI ou no comando Flutter:
 
-```bash
-flutter run \
-  --dart-define=APP_ENV=development \
-  --web-port=3000 \
-  --dart-define=GOOGLE_WEB_CLIENT_ID=... \
-  --dart-define=GOOGLE_IOS_CLIENT_ID=... \
-  --dart-define=GOOGLE_SERVER_CLIENT_ID=...
-```
+As chaves aceitas no `.env` são `API_BASE_URL`, `GOOGLE_WEB_CLIENT_ID`,
+`GOOGLE_IOS_CLIENT_ID`, `GOOGLE_SERVER_CLIENT_ID` e `GOOGLE_ANDROID_CLIENT_ID`.
+Os IDs OAuth são identificadores públicos; não coloque segredos privados no
+arquivo empacotado no app.
 
-Para produção, altere somente os valores de `--dart-define`; o código e as
-features permanecem iguais.
+Para produção, injete os valores de `--dart-define` no pipeline de build ou use
+um `.env` próprio com a URL HTTPS do backend.
 
 ### Configuração nativa do Google
 
-Além dos `dart-define`, registre os identificadores e fingerprints exigidos pelo
-Google Cloud em cada cliente nativo. Android (emulador e dispositivo físico) usa
-o cliente Android correspondente ao applicationId/assinatura; iOS Simulator e
-dispositivo usam o cliente iOS correspondente ao bundle ID; Flutter Web usa
-`GOOGLE_WEB_CLIENT_ID`, que deve ser o mesmo cliente OAuth Web configurado em
-`GOOGLE_CLIENT_ID` no backend. A origem local `http://localhost:3000` também
-precisa estar autorizada no cliente OAuth. A seleção ocorre somente no datasource
-de identidade, sem condicional de plataforma nas telas.
+No Android, cadastre no Google Cloud o cliente Android com o `applicationId` e
+o SHA-1 da chave usada para assinar o app (debug e release têm fingerprints
+distintos). O Android client ID é registrado no Google Cloud e não é passado como
+`serverClientId` pelo plugin. `GOOGLE_SERVER_CLIENT_ID` deve ser o OAuth Client
+Web, igual ao `GOOGLE_CLIENT_ID` usado pelo backend; é esse valor que permite ao
+SDK emitir o ID token para o backend validar. No iOS, cadastre o cliente iOS do
+bundle ID; no Web, autorize a origem `http://localhost:3000` no cliente OAuth Web.
+O `applicationId` Android atual é `com.example.frontend`; altere-o para o valor
+registrado no cliente Android antes de distribuir o app se esse não for o package
+definitivo.

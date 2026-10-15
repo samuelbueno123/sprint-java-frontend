@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -49,15 +50,6 @@ class TeacherSignupPage extends StatefulWidget {
 }
 
 class _TeacherSignupPageState extends State<TeacherSignupPage> {
-  static const _availableLanguages = [
-    'Inglês',
-    'Espanhol',
-    'Francês',
-    'Alemão',
-    'Italiano',
-    'Japonês',
-  ];
-
   late final RegistrationViewModel _viewModel;
   final _identityFormKey = GlobalKey<FormState>();
   final _profileFormKey = GlobalKey<FormState>();
@@ -79,6 +71,7 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
   void initState() {
     super.initState();
     _viewModel = AuthDependencies.createRegistrationViewModel();
+    unawaited(_viewModel.loadCatalog());
     _nameController = TextEditingController(text: widget.initialName ?? '');
     _emailController = TextEditingController(text: widget.initialEmail ?? '');
   }
@@ -104,14 +97,14 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
 
   Future<void> _pickDocument() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final files = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'doc', 'docx'],
-        withData: true,
       );
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        if (file.bytes != null) {
+      if (files.isNotEmpty) {
+        final file = files.first;
+        final fileBytes = await file.readAsBytes();
+        if (fileBytes.isNotEmpty) {
           final ext = file.extension?.toLowerCase() ?? 'pdf';
           String mimeType = 'application/pdf';
           if (ext == 'doc') mimeType = 'application/msword';
@@ -125,8 +118,8 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
               _TeacherDocumentItem(
                 fileName: file.name,
                 contentType: mimeType,
-                fileSize: file.size,
-                fileBytes: file.bytes!,
+                fileSize: file.lengthSync() ?? fileBytes.length,
+                fileBytes: fileBytes,
               ),
             );
           });
@@ -325,7 +318,7 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
   );
 
   Widget _profileForm() {
-    final availableLanguages = _availableLanguages
+    final availableLanguages = _viewModel.availableLanguages
         .where((lang) => !_selectedLanguages.contains(lang))
         .toList();
 
@@ -386,17 +379,29 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
             items: availableLanguages
                 .map((lang) => DropdownMenuItem(value: lang, child: Text(lang)))
                 .toList(),
-            onChanged: (value) {
-              if (value != null) {
-                setState(() {
-                  if (!_selectedLanguages.contains(value)) {
-                    _selectedLanguages.add(value);
-                  }
-                  _selectedLanguageDropdown = null;
-                });
-              }
-            },
+            onChanged:
+                _viewModel.isCatalogLoading ||
+                    _viewModel.catalogErrorMessage != null
+                ? null
+                : (value) {
+                    if (value != null) {
+                      setState(() {
+                        if (!_selectedLanguages.contains(value)) {
+                          _selectedLanguages.add(value);
+                        }
+                        _selectedLanguageDropdown = null;
+                      });
+                    }
+                  },
           ),
+          if (_viewModel.isCatalogLoading) ...[
+            const SizedBox(height: 8),
+            const LinearProgressIndicator(minHeight: 2),
+          ],
+          if (_viewModel.catalogErrorMessage != null) ...[
+            const SizedBox(height: 8),
+            _FormError(message: _viewModel.catalogErrorMessage!),
+          ],
           const SizedBox(height: 12),
           if (_selectedLanguages.isEmpty)
             const Padding(

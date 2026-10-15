@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../dashboard/presentation/widgets/responsive_layout.dart';
+
 class AuthPageFrame extends StatelessWidget {
   const AuthPageFrame({
     super.key,
@@ -22,9 +24,15 @@ class AuthPageFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFEFF6FF), Colors.white, Color(0xFFF5F3FF)],
+            colors: Theme.of(context).brightness == Brightness.dark
+                ? const [
+                    Color(0xFF121826),
+                    Color(0xFF10131A),
+                    Color(0xFF1A1730),
+                  ]
+                : const [Color(0xFFEFF6FF), Colors.white, Color(0xFFF5F3FF)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -32,7 +40,10 @@ class AuthPageFrame extends StatelessWidget {
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) => SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+              padding: EdgeInsets.symmetric(
+                horizontal: isCompactLayout(context) ? 12 : 20,
+                vertical: isCompactLayout(context) ? 16 : 28,
+              ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   minHeight: (constraints.maxHeight - 56)
@@ -112,19 +123,25 @@ class AuthPageFrame extends StatelessWidget {
                         const SizedBox(height: 24),
                         Card(
                           elevation: 0,
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.surface,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(22),
-                            side: const BorderSide(color: Color(0xFFE7E9F0)),
+                            side: BorderSide(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.outlineVariant,
+                            ),
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.all(24),
+                            padding: EdgeInsets.all(
+                              isCompactLayout(context) ? 16 : 24,
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Text(
                                   title,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: Color(0xFF22263A),
                                     fontSize: 21,
                                     fontWeight: FontWeight.w700,
@@ -133,7 +150,7 @@ class AuthPageFrame extends StatelessWidget {
                                 const SizedBox(height: 5),
                                 Text(
                                   subtitle,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: Color(0xFF73788B),
                                     height: 1.4,
                                   ),

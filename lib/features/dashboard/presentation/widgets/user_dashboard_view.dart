@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../auth/presentation/pages/student_signup_page.dart';
 import '../../../auth/presentation/pages/teacher_signup_page.dart';
-import '../../../auth/presentation/widgets/registration_choice_dialog.dart';
 import '../../domain/entities/dashboard_data.dart';
 import 'app_user_avatar.dart';
+import 'responsive_layout.dart';
 import 'user_settings_view.dart';
 
 class UserDashboardView extends StatelessWidget {
@@ -39,7 +39,7 @@ class UserDashboardView extends StatelessWidget {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: responsivePagePadding(context),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 760),
@@ -67,14 +67,14 @@ class UserDashboardView extends StatelessWidget {
                     const SizedBox(height: 14),
                     Text(
                       'Bem-vindo, ${data.user.name.split(' ').first}!',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 25,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Sua conta foi autenticada com sucesso! Para começar a usar a plataforma, escolha se você deseja continuar como Estudante ou Professor.',
                       style: TextStyle(color: Color(0xEFFFFFFF), height: 1.45),
                     ),
@@ -82,12 +82,12 @@ class UserDashboardView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'Escolha o tipo de perfil:',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF252A3D),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 12),
@@ -113,63 +113,6 @@ class UserDashboardView extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 20),
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  side: const BorderSide(color: Color(0xFFE5E8EF)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Informações da Conta Autenticada',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF252A3D),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.person_outline_rounded,
-                            color: Color(0xFF5869D8),
-                            size: 20,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            data.user.name,
-                            style: const TextStyle(
-                              color: Color(0xFF252A3D),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.email_outlined,
-                            color: Color(0xFF5869D8),
-                            size: 20,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            data.user.email,
-                            style: const TextStyle(color: Color(0xFF73788B)),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
               ),
             ],
           ),
@@ -201,12 +144,10 @@ class UserDashboardView extends StatelessWidget {
   }
 
   Widget _buildUserProfileView(BuildContext context) {
-    final initial = data.user.name.isNotEmpty
-        ? data.user.name[0].toUpperCase()
-        : 'U';
+    final isMobile = isCompactLayout(context);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: responsivePagePadding(context),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 800),
@@ -215,7 +156,7 @@ class UserDashboardView extends StatelessWidget {
             children: [
               // Banner do Perfil
               Container(
-                padding: const EdgeInsets.all(24),
+                padding: responsiveBannerPadding(context),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF5869D8), Color(0xFF7651C8)],
@@ -234,16 +175,8 @@ class UserDashboardView extends StatelessWidget {
                 child: Column(
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        const Text(
-                          'Meu Perfil',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
                         IconButton(
                           onPressed: () => onSectionSelected?.call('settings'),
                           icon: const Icon(
@@ -255,109 +188,85 @@ class UserDashboardView extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        AppUserAvatar(
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final avatar = AppUserAvatar(
                           name: data.user.name,
                           pictureUrl: data.user.picture,
                           radius: 36,
                           backgroundColor: Colors.white.withValues(alpha: 0.2),
                           textColor: Colors.white,
-                        ),
-                        const SizedBox(width: 20),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                data.user.name,
-                                style: const TextStyle(
+                        );
+                        final details = Column(
+                          crossAxisAlignment: isMobile
+                              ? CrossAxisAlignment.center
+                              : CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              data.user.name,
+                              textAlign: isMobile
+                                  ? TextAlign.center
+                                  : TextAlign.start,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              data.user.email,
+                              textAlign: isMobile
+                                  ? TextAlign.center
+                                  : TextAlign.start,
+                              softWrap: true,
+                              style: TextStyle(
+                                color: Color(0xEFFFFFFF),
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'Pendente de Perfil',
+                                style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                data.user.email,
-                                style: const TextStyle(
-                                  color: Color(0xEFFFFFFF),
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Text(
-                                  'Pendente de Perfil',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
+                            ),
+                          ],
+                        );
+                        if (isMobile) {
+                          return Column(
+                            children: [
+                              avatar,
+                              const SizedBox(height: 14),
+                              details,
                             ],
-                          ),
-                        ),
-                      ],
+                          );
+                        }
+                        return Row(
+                          children: [
+                            avatar,
+                            const SizedBox(width: 20),
+                            Expanded(child: details),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-              // Dados da Conta
-              Card(
-                elevation: 0,
-                color: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  side: const BorderSide(color: Color(0xFFE5E8EF)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(
-                            Icons.person_outline_rounded,
-                            color: Color(0xFF5869D8),
-                            size: 21,
-                          ),
-                          SizedBox(width: 10),
-                          Text(
-                            'Informações da Conta',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
-                              color: Color(0xFF252A3D),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _DetailRow(label: 'Nome', value: data.user.name),
-                      _DetailRow(label: 'Email', value: data.user.email),
-                      _DetailRow(
-                        label: 'Google ID',
-                        value: data.user.googleId.isNotEmpty
-                            ? data.user.googleId
-                            : 'Não vinculado',
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
               // Conclusão de Perfil
               Container(
                 padding: const EdgeInsets.all(20),
@@ -369,7 +278,7 @@ class UserDashboardView extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
                         Icon(
                           Icons.assignment_ind_rounded,
@@ -388,16 +297,18 @@ class UserDashboardView extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Vincule um perfil de estudante ou professor para desbloquear recursos completos de turmas e idiomas.',
                       style: TextStyle(
-                        color: Color(0xFF4D5365),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 13,
                         height: 1.4,
                       ),
                     ),
                     const SizedBox(height: 14),
-                    Row(
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 10,
                       children: [
                         ElevatedButton.icon(
                           onPressed: () => _openStudentSignup(context),
@@ -406,9 +317,8 @@ class UserDashboardView extends StatelessWidget {
                             foregroundColor: Colors.white,
                           ),
                           icon: const Icon(Icons.school_rounded, size: 18),
-                          label: const Text('Estudante'),
+                          label: Text('Estudante'),
                         ),
-                        const SizedBox(width: 12),
                         ElevatedButton.icon(
                           onPressed: () => _openTeacherSignup(context),
                           style: ElevatedButton.styleFrom(
@@ -416,7 +326,7 @@ class UserDashboardView extends StatelessWidget {
                             foregroundColor: Colors.white,
                           ),
                           icon: const Icon(Icons.co_present_rounded, size: 18),
-                          label: const Text('Professor'),
+                          label: Text('Professor'),
                         ),
                       ],
                     ),
@@ -483,8 +393,8 @@ class _PendingProfileCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               description,
-              style: const TextStyle(
-                color: Color(0xFF73788B),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 12,
                 height: 1.35,
               ),
@@ -510,13 +420,18 @@ class _DetailRow extends StatelessWidget {
       children: [
         SizedBox(
           width: 82,
-          child: Text(label, style: const TextStyle(color: Color(0xFF73788B))),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
         ),
         Expanded(
           child: Text(
             value.isEmpty ? 'Não informado' : value,
-            style: const TextStyle(
-              color: Color(0xFF252A3D),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w600,
             ),
           ),

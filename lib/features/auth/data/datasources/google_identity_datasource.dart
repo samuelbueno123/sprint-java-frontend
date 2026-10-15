@@ -24,7 +24,9 @@ class GoogleIdentityDataSource {
       return AppConfig.googleIosClientId.isNotEmpty &&
           AppConfig.googleServerClientId.isNotEmpty;
     }
-    // Android, desktop e dispositivo físico usam a configuração nativa do Google.
+    // O Android Client ID é vinculado no Google Cloud ao package name e ao
+    // SHA-1 do certificado. O server ID precisa ser o OAuth Client Web para
+    // que o SDK retorne um ID token aceito pelo backend.
     return AppConfig.googleServerClientId.isNotEmpty;
   }
 

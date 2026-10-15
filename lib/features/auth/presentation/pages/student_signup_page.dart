@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
@@ -6,7 +8,7 @@ import '../viewmodels/registration_view_model.dart';
 import '../widgets/auth_page_frame.dart';
 
 class _SelectedLanguageItem {
-  _SelectedLanguageItem({required this.languageName, this.level = 'Iniciante'});
+  _SelectedLanguageItem({required this.languageName, required this.level});
 
   final String languageName;
   String level;
@@ -28,23 +30,6 @@ class StudentSignupPage extends StatefulWidget {
 }
 
 class _StudentSignupPageState extends State<StudentSignupPage> {
-  static const _availableLanguages = [
-    'Inglês',
-    'Espanhol',
-    'Francês',
-    'Alemão',
-    'Italiano',
-    'Japonês',
-  ];
-
-  static const _proficiencyLevels = [
-    'Iniciante',
-    'Básico',
-    'Intermediário',
-    'Avançado',
-    'Fluente',
-  ];
-
   late final RegistrationViewModel _viewModel;
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
@@ -60,6 +45,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
   void initState() {
     super.initState();
     _viewModel = AuthDependencies.createRegistrationViewModel();
+    unawaited(_viewModel.loadCatalog());
     _nameController = TextEditingController(text: widget.initialName ?? '');
     _emailController = TextEditingController(text: widget.initialEmail ?? '');
   }
@@ -104,7 +90,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
     final isEmailLocked =
         widget.initialEmail != null && widget.initialEmail!.trim().isNotEmpty;
 
-    final availableLanguages = _availableLanguages
+    final availableLanguages = _viewModel.availableLanguages
         .where((lang) => !_selectedLanguages.any((s) => s.languageName == lang))
         .toList();
 
@@ -238,20 +224,33 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                       ),
                     )
                     .toList(),
-                onChanged: (value) {
-                  if (value == null) return;
+                onChanged:
+                    _viewModel.isCatalogLoading ||
+                        _viewModel.catalogErrorMessage != null ||
+                        _viewModel.proficiencyLevels.isEmpty
+                    ? null
+                    : (value) {
+                        if (value == null) return;
 
-                  setState(() {
-                    _selectedLanguages.add(
-                      _SelectedLanguageItem(
-                        languageName: value,
-                        level: 'Iniciante',
-                      ),
-                    );
-                    _selectedDropdownLanguage = null;
-                  });
-                },
+                        setState(() {
+                          _selectedLanguages.add(
+                            _SelectedLanguageItem(
+                              languageName: value,
+                              level: _viewModel.proficiencyLevels.first,
+                            ),
+                          );
+                          _selectedDropdownLanguage = null;
+                        });
+                      },
               ),
+              if (_viewModel.isCatalogLoading) ...[
+                const SizedBox(height: 8),
+                const LinearProgressIndicator(minHeight: 2),
+              ],
+              if (_viewModel.catalogErrorMessage != null) ...[
+                const SizedBox(height: 8),
+                _FormError(message: _viewModel.catalogErrorMessage!),
+              ],
               const SizedBox(height: 12),
               if (_selectedLanguages.isEmpty)
                 const Padding(
@@ -325,7 +324,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                             ),
                             isDense: true,
                           ),
-                          items: _proficiencyLevels
+                          items: _viewModel.proficiencyLevels
                               .map(
                                 (lvl) => DropdownMenuItem(
                                   value: lvl,
@@ -333,13 +332,15 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                                 ),
                               )
                               .toList(),
-                          onChanged: (newLevel) {
-                            if (newLevel != null) {
-                              setState(() {
-                                item.level = newLevel;
-                              });
-                            }
-                          },
+                          onChanged: _viewModel.proficiencyLevels.isEmpty
+                              ? null
+                              : (newLevel) {
+                                  if (newLevel != null) {
+                                    setState(() {
+                                      item.level = newLevel;
+                                    });
+                                  }
+                                },
                         ),
                       ],
                     ),

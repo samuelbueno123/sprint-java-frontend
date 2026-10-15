@@ -4,8 +4,8 @@ import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/teacher_class_assignment.dart';
 import '../../domain/entities/teacher_profile.dart';
 import 'app_user_avatar.dart';
-import 'dashboard_empty_state.dart';
 import 'info_stat_card.dart';
+import 'responsive_layout.dart';
 import 'teacher_settings_view.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/network/api_client.dart';
@@ -42,19 +42,12 @@ class TeacherDashboardView extends StatelessWidget {
 
     final teacher = data.teacherProfile;
     if (teacher == null) {
-      return const SingleChildScrollView(
-        padding: EdgeInsets.all(24),
-        child: DashboardEmptyState(
-          icon: Icons.co_present_rounded,
-          title: 'Perfil docente indisponível',
-          message:
-              'Não foi possível localizar os dados de professor desta conta.',
-        ),
-      );
+      return _teacherProfileUnavailable(context);
     }
 
     if (activeSection == 'languages') {
       return _page(
+        context: context,
         title: 'Ensino e idiomas',
         subtitle: 'Idiomas lecionados, especializações e atuação acadêmica.',
         child: Column(
@@ -94,7 +87,7 @@ class TeacherDashboardView extends StatelessWidget {
             _ProfileCard(
               icon: Icons.record_voice_over_rounded,
               title: 'Idiomas lecionados',
-              child: _tagList(teacher.taughtLanguages, _purple),
+              child: _tagList(teacher.taughtLanguages, _purple, context),
             ),
             const SizedBox(height: 16),
             _ProfileCard(
@@ -103,6 +96,7 @@ class TeacherDashboardView extends StatelessWidget {
               child: _tagList(
                 teacher.specializationAreas,
                 const Color(0xFFE5902D),
+                context,
               ),
             ),
             Align(
@@ -121,7 +115,7 @@ class TeacherDashboardView extends StatelessWidget {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(22),
                       ),
-                      title: const Text('Gerenciar idiomas e especializações'),
+                      title: Text('Gerenciar idiomas e especializações'),
                       content: SizedBox(
                         width: 460,
                         child: Column(
@@ -147,11 +141,11 @@ class TeacherDashboardView extends StatelessWidget {
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Cancelar'),
+                          child: Text('Cancelar'),
                         ),
                         FilledButton(
                           onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('Salvar'),
+                          child: Text('Salvar'),
                         ),
                       ],
                     ),
@@ -187,7 +181,7 @@ class TeacherDashboardView extends StatelessWidget {
                   areas.dispose();
                 },
                 icon: const Icon(Icons.edit),
-                label: const Text(
+                label: Text(
                   'Gerenciar idiomas lecionados / atualizar especializações',
                 ),
               ),
@@ -200,7 +194,7 @@ class TeacherDashboardView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFFE2D6FF)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.school_outlined, color: _purple, size: 28),
                   SizedBox(width: 14),
@@ -220,7 +214,9 @@ class TeacherDashboardView extends StatelessWidget {
                         Text(
                           'Mantenha os conteúdos das turmas atualizados para garantir um acompanhamento eficiente do aprendizado dos alunos.',
                           style: TextStyle(
-                            color: Color(0xFF4D5365),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontSize: 13,
                           ),
                         ),
@@ -236,68 +232,45 @@ class TeacherDashboardView extends StatelessWidget {
     }
 
     if (activeSection == 'profile') {
-      return _buildTeacherProfileView(teacher);
+      return _buildTeacherProfileView(context, teacher);
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: responsivePagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _WelcomeBanner(name: teacher.name, institution: teacher.institution),
           const SizedBox(height: 20),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: InfoStatCard(
-                          title: 'Idiomas de Ensino',
-                          value: teacher.taughtLanguages.length.toString(),
-                          icon: Icons.record_voice_over_rounded,
-                          accentColor: _purple,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: InfoStatCard(
-                          title: 'Especializações',
-                          value: teacher.specializationAreas.length.toString(),
-                          icon: Icons.workspace_premium_outlined,
-                          accentColor: const Color(0xFFE5902D),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: InfoStatCard(
-                          title: 'Turmas Atribuídas',
-                          value: data.teacherAssignments.length.toString(),
-                          icon: Icons.groups_rounded,
-                          accentColor: const Color(0xFF3579E8),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: InfoStatCard(
-                          title: 'Instituição',
-                          value: teacher.institution.isNotEmpty
-                              ? teacher.institution
-                              : 'Cadastrada',
-                          icon: Icons.account_balance_rounded,
-                          accentColor: const Color(0xFF32946B),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
+          ResponsiveCardGrid(
+            cards: [
+              InfoStatCard(
+                title: 'Idiomas de Ensino',
+                value: teacher.taughtLanguages.length.toString(),
+                icon: Icons.record_voice_over_rounded,
+                accentColor: _purple,
+              ),
+              InfoStatCard(
+                title: 'Especializações',
+                value: teacher.specializationAreas.length.toString(),
+                icon: Icons.workspace_premium_outlined,
+                accentColor: const Color(0xFFE5902D),
+              ),
+              InfoStatCard(
+                title: 'Turmas Atribuídas',
+                value: data.teacherAssignments.length.toString(),
+                icon: Icons.groups_rounded,
+                accentColor: const Color(0xFF3579E8),
+              ),
+              InfoStatCard(
+                title: 'Instituição',
+                value: teacher.institution.isNotEmpty
+                    ? teacher.institution
+                    : 'Cadastrada',
+                icon: Icons.account_balance_rounded,
+                accentColor: const Color(0xFF32946B),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
           LayoutBuilder(
@@ -313,7 +286,11 @@ class TeacherDashboardView extends StatelessWidget {
                     child: _ProfileCard(
                       icon: Icons.translate_rounded,
                       title: 'Idiomas lecionados',
-                      child: _tagList(teacher.taughtLanguages, _purple),
+                      child: _tagList(
+                        teacher.taughtLanguages,
+                        _purple,
+                        context,
+                      ),
                     ),
                   ),
                   SizedBox(width: wide ? 14 : 0, height: wide ? 0 : 14),
@@ -326,6 +303,7 @@ class TeacherDashboardView extends StatelessWidget {
                       child: _tagList(
                         teacher.specializationAreas,
                         const Color(0xFFE5902D),
+                        context,
                       ),
                     ),
                   ),
@@ -334,14 +312,87 @@ class TeacherDashboardView extends StatelessWidget {
             },
           ),
           const SizedBox(height: 16),
-          _profileContent(teacher),
+          _profileContent(teacher, context),
         ],
       ),
     );
   }
 
-  Widget _buildTeacherProfileView(TeacherProfile teacher) {
+  Widget _teacherProfileUnavailable(BuildContext context) => _page(
+    context: context,
+    title: activeSection == 'languages'
+        ? 'Ensino e idiomas'
+        : 'Perfil do professor',
+    subtitle: 'Resumo da conta e das turmas vinculadas ao seu perfil.',
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.cloud_off_outlined),
+            title: const Text('Dados do perfil docente não encontrados'),
+            subtitle: const Text(
+              'Não há um cadastro de professor disponível no banco de dados. Atualize para consultar novamente.',
+            ),
+            trailing: IconButton(
+              tooltip: 'Atualizar',
+              onPressed: onRefresh,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        InfoStatCard(
+          title: 'Turmas vinculadas',
+          value: data.teacherAssignments.length.toString(),
+          icon: Icons.groups_outlined,
+          accentColor: _purple,
+          subtitle: 'Atribuições recebidas da API',
+        ),
+        if (activeSection != 'languages') ...[
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: responsiveCardPadding(context),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Turmas atribuídas',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (data.teacherAssignments.isEmpty)
+                    const Text(
+                      'Não há turmas registradas no banco de dados. Atualize para consultar novamente.',
+                    )
+                  else
+                    for (final assignment in data.teacherAssignments)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.class_outlined),
+                        title: Text(assignment.schoolClassName),
+                        subtitle: Text('Desde ${assignment.startDate}'),
+                      ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
+
+  Widget _buildTeacherProfileView(
+    BuildContext context,
+    TeacherProfile teacher,
+  ) {
     final assignments = data.teacherAssignments;
+    final activeAssignments = assignments
+        .where((assignment) => assignment.isActive)
+        .length;
     final primarySubject = teacher.taughtLanguages.isNotEmpty
         ? 'Professora de ${teacher.taughtLanguages.join(', ')}'
         : 'Docente Duolinfo';
@@ -350,13 +401,13 @@ class TeacherDashboardView extends StatelessWidget {
         : 'Instituição Cadastrada';
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: responsivePagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Banner do Perfil do Professor
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: responsiveBannerPadding(context),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFF7651C8), Color(0xFF5B3BA6)],
@@ -377,7 +428,7 @@ class TeacherDashboardView extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Painel do Professor',
                       style: TextStyle(
                         color: Colors.white,
@@ -393,95 +444,103 @@ class TeacherDashboardView extends StatelessWidget {
                       ),
                       tooltip: 'Configurações',
                     ),
+                    IconButton(
+                      onPressed: onLogout,
+                      icon: const Icon(
+                        Icons.logout_rounded,
+                        color: Colors.white,
+                      ),
+                      tooltip: 'Sair da conta',
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final isMobile = constraints.maxWidth < 500;
-                    return Flex(
-                      direction: isMobile ? Axis.vertical : Axis.horizontal,
+                    final avatar = AppUserAvatar(
+                      name: teacher.name,
+                      pictureUrl: data.user.picture,
+                      radius: 42,
+                      backgroundColor: Colors.white.withValues(alpha: 0.25),
+                      textColor: Colors.white,
+                    );
+                    final details = Column(
                       crossAxisAlignment: isMobile
                           ? CrossAxisAlignment.center
                           : CrossAxisAlignment.start,
                       children: [
-                        AppUserAvatar(
-                          name: teacher.name,
-                          pictureUrl: data.user.picture,
-                          radius: 42,
-                          backgroundColor: Colors.white.withValues(alpha: 0.25),
-                          textColor: Colors.white,
-                        ),
-                        SizedBox(
-                          width: isMobile ? 0 : 20,
-                          height: isMobile ? 16 : 0,
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: isMobile
-                                ? CrossAxisAlignment.center
-                                : CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                teacher.name,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                                textAlign: isMobile
-                                    ? TextAlign.center
-                                    : TextAlign.start,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '$primarySubject • $instName',
-                                style: const TextStyle(
-                                  color: Color(0xEFFFFFFF),
-                                  fontSize: 14,
-                                ),
-                                textAlign: isMobile
-                                    ? TextAlign.center
-                                    : TextAlign.start,
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                alignment: isMobile
-                                    ? WrapAlignment.center
-                                    : WrapAlignment.start,
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: [
-                                  _HeaderBadge(
-                                    label: '${assignments.length} Turmas',
-                                    icon: Icons.groups_rounded,
-                                    backgroundColor: Colors.white,
-                                    textColor: _purple,
-                                  ),
-                                  _HeaderBadge(
-                                    label:
-                                        '${teacher.taughtLanguages.length} Idiomas',
-                                    icon: Icons.record_voice_over_rounded,
-                                    backgroundColor: Colors.white.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                    textColor: Colors.white,
-                                  ),
-                                  if (teacher.specializationAreas.isNotEmpty)
-                                    _HeaderBadge(
-                                      label:
-                                          '${teacher.specializationAreas.length} Especializações',
-                                      icon: Icons.workspace_premium_outlined,
-                                      backgroundColor: Colors.white.withValues(
-                                        alpha: 0.2,
-                                      ),
-                                      textColor: Colors.white,
-                                    ),
-                                ],
-                              ),
-                            ],
+                        Text(
+                          teacher.name,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
                           ),
+                          textAlign: isMobile
+                              ? TextAlign.center
+                              : TextAlign.start,
                         ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$primarySubject • $instName',
+                          style: TextStyle(
+                            color: Color(0xEFFFFFFF),
+                            fontSize: 14,
+                          ),
+                          textAlign: isMobile
+                              ? TextAlign.center
+                              : TextAlign.start,
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          alignment: isMobile
+                              ? WrapAlignment.center
+                              : WrapAlignment.start,
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            _HeaderBadge(
+                              label: '$activeAssignments Turmas ativas',
+                              icon: Icons.groups_rounded,
+                              backgroundColor: Colors.white,
+                              textColor: _purple,
+                            ),
+                            _HeaderBadge(
+                              label:
+                                  '${teacher.taughtLanguages.length} Idiomas',
+                              icon: Icons.record_voice_over_rounded,
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.2,
+                              ),
+                              textColor: Colors.white,
+                            ),
+                            if (teacher.specializationAreas.isNotEmpty)
+                              _HeaderBadge(
+                                label:
+                                    '${teacher.specializationAreas.length} Especializações',
+                                icon: Icons.workspace_premium_outlined,
+                                backgroundColor: Colors.white.withValues(
+                                  alpha: 0.2,
+                                ),
+                                textColor: Colors.white,
+                              ),
+                          ],
+                        ),
+                      ],
+                    );
+                    if (isMobile) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [avatar, const SizedBox(height: 16), details],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        avatar,
+                        const SizedBox(width: 20),
+                        Expanded(child: details),
                       ],
                     );
                   },
@@ -491,56 +550,106 @@ class TeacherDashboardView extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // Métricas Rápidas
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth > 650;
-              return Flex(
-                direction: isWide ? Axis.horizontal : Axis.vertical,
-                children: [
-                  Expanded(
-                    flex: isWide ? 1 : 0,
-                    child: InfoStatCard(
-                      title: 'Turmas Atribuídas',
-                      value: assignments.length.toString(),
-                      icon: Icons.groups_rounded,
-                      accentColor: _purple,
-                      subtitle: 'Turmas sob sua gestão',
-                    ),
-                  ),
-                  SizedBox(width: isWide ? 12 : 0, height: isWide ? 0 : 12),
-                  Expanded(
-                    flex: isWide ? 1 : 0,
-                    child: InfoStatCard(
-                      title: 'Idiomas Lecionados',
-                      value: teacher.taughtLanguages.length.toString(),
-                      icon: Icons.record_voice_over_rounded,
-                      accentColor: const Color(0xFF3579E8),
-                      subtitle: 'Idiomas cadastrados',
-                    ),
-                  ),
-                  SizedBox(width: isWide ? 12 : 0, height: isWide ? 0 : 12),
-                  Expanded(
-                    flex: isWide ? 1 : 0,
-                    child: InfoStatCard(
-                      title: 'Especializações',
-                      value: teacher.specializationAreas.length.toString(),
-                      icon: Icons.workspace_premium_outlined,
-                      accentColor: const Color(0xFFE5902D),
-                      subtitle: 'Áreas de atuação',
-                    ),
-                  ),
-                ],
-              );
-            },
+          // Métricas rápidas derivadas do perfil e das atribuições da API.
+          ResponsiveCardGrid(
+            cards: [
+              InfoStatCard(
+                title: 'Turmas ativas',
+                value: activeAssignments.toString(),
+                icon: Icons.groups_rounded,
+                accentColor: _purple,
+                subtitle: 'Sob sua responsabilidade',
+              ),
+              InfoStatCard(
+                title: 'Histórico de turmas',
+                value: assignments.length.toString(),
+                icon: Icons.history_rounded,
+                accentColor: const Color(0xFF3579E8),
+                subtitle: 'Atribuições registradas',
+              ),
+              InfoStatCard(
+                title: 'Idiomas lecionados',
+                value: teacher.taughtLanguages.length.toString(),
+                icon: Icons.record_voice_over_rounded,
+                accentColor: const Color(0xFF32946B),
+                subtitle: 'No seu perfil docente',
+              ),
+              InfoStatCard(
+                title: 'Especializações',
+                value: teacher.specializationAreas.length.toString(),
+                icon: Icons.workspace_premium_outlined,
+                accentColor: const Color(0xFFE5902D),
+                subtitle: 'Áreas de atuação',
+              ),
+            ],
           ),
           const SizedBox(height: 20),
+
+          _ProfileCard(
+            icon: Icons.bolt_rounded,
+            title: 'Ações Rápidas',
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final wide = constraints.maxWidth >= 560;
+                final width = wide
+                    ? (constraints.maxWidth - 12) / 2
+                    : constraints.maxWidth;
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    SizedBox(
+                      width: width,
+                      child: _teacherQuickAction(
+                        context,
+                        icon: Icons.add_circle_outline_rounded,
+                        label: 'Criar conteúdo',
+                        onPressed: () =>
+                            onSectionSelected?.call('createExercise'),
+                        primary: true,
+                      ),
+                    ),
+                    SizedBox(
+                      width: width,
+                      child: _teacherQuickAction(
+                        context,
+                        icon: Icons.groups_outlined,
+                        label: 'Gerenciar turmas',
+                        onPressed: () => onSectionSelected?.call('classes'),
+                      ),
+                    ),
+                    SizedBox(
+                      width: width,
+                      child: _teacherQuickAction(
+                        context,
+                        icon: Icons.rate_review_outlined,
+                        label: 'Analisar respostas',
+                        onPressed: () =>
+                            onSectionSelected?.call('reviewExercises'),
+                      ),
+                    ),
+                    SizedBox(
+                      width: width,
+                      child: _teacherQuickAction(
+                        context,
+                        icon: Icons.trending_up_rounded,
+                        label: 'Ver rankings',
+                        onPressed: () =>
+                            onSectionSelected?.call('teacherRanking'),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
 
           // Seção: Minhas Turmas Atribuídas
           _ProfileCard(
             icon: Icons.groups_rounded,
             title: 'Minhas Turmas e Atribuições',
-            child: _assignmentContent(assignments),
+            child: _assignmentContent(assignments, context),
           ),
           const SizedBox(height: 16),
 
@@ -551,51 +660,30 @@ class TeacherDashboardView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Idiomas lecionados:',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF73788B),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 13,
                   ),
                 ),
                 const SizedBox(height: 8),
-                _tagList(teacher.taughtLanguages, _purple),
+                _tagList(teacher.taughtLanguages, _purple, context),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Áreas de especialização:',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF73788B),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 13,
                   ),
                 ),
                 const SizedBox(height: 8),
-                _tagList(teacher.specializationAreas, const Color(0xFFE5902D)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Dados Profissionais & Biografia
-          _ProfileCard(
-            icon: Icons.person_outline_rounded,
-            title: 'Dados Profissionais',
-            child: Column(
-              children: [
-                _DetailRow(label: 'Nome completo', value: teacher.name),
-                _DetailRow(label: 'Email institucional', value: teacher.email),
-                _DetailRow(
-                  label: 'Instituição de ensino',
-                  value: teacher.institution.isNotEmpty
-                      ? teacher.institution
-                      : 'Não informada',
-                ),
-                _DetailRow(
-                  label: 'Google ID',
-                  value: teacher.googleId.isNotEmpty
-                      ? teacher.googleId
-                      : 'Conta local',
+                _tagList(
+                  teacher.specializationAreas,
+                  const Color(0xFFE5902D),
+                  context,
                 ),
               ],
             ),
@@ -607,7 +695,10 @@ class TeacherDashboardView extends StatelessWidget {
               title: 'Biografia e Mini-Currículo',
               child: Text(
                 teacher.bibliography!,
-                style: const TextStyle(color: Color(0xFF4D5365), height: 1.55),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  height: 1.55,
+                ),
               ),
             ),
           ],
@@ -617,68 +708,114 @@ class TeacherDashboardView extends StatelessWidget {
   }
 
   Widget _page({
+    required BuildContext context,
     required String title,
     required String subtitle,
     required Widget child,
   }) => SingleChildScrollView(
-    padding: const EdgeInsets.all(24),
+    padding: responsivePagePadding(context),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 26,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF20243A),
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 6),
-        Text(subtitle, style: const TextStyle(color: Color(0xFF73788B))),
+        Text(
+          subtitle,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: 22),
         child,
       ],
     ),
   );
 
-  Widget _profileContent(TeacherProfile teacher) => Column(
-    children: [
-      _ProfileCard(
-        icon: Icons.person_outline_rounded,
-        title: 'Dados profissionais',
-        child: Column(
-          children: [
-            _DetailRow(label: 'Nome', value: teacher.name),
-            _DetailRow(label: 'Email', value: teacher.email),
-            _DetailRow(label: 'Instituição', value: teacher.institution),
-          ],
-        ),
-      ),
-      if (teacher.bibliography?.trim().isNotEmpty == true) ...[
-        const SizedBox(height: 16),
-        _ProfileCard(
-          icon: Icons.menu_book_rounded,
-          title: 'Biografia profissional',
-          child: Text(
-            teacher.bibliography!,
-            style: const TextStyle(color: Color(0xFF4D5365), height: 1.55),
-          ),
-        ),
-      ],
-      const SizedBox(height: 16),
-      _ProfileCard(
-        icon: Icons.groups_rounded,
-        title: 'Histórico de turmas',
-        child: _assignmentContent(data.teacherAssignments),
-      ),
-    ],
-  );
+  Widget _teacherQuickAction(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+    bool primary = false,
+  }) {
+    final style = primary
+        ? FilledButton.styleFrom(
+            backgroundColor: _purple,
+            foregroundColor: Colors.white,
+            alignment: Alignment.centerLeft,
+            minimumSize: const Size.fromHeight(54),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          )
+        : OutlinedButton.styleFrom(
+            foregroundColor: Theme.of(context).colorScheme.onSurface,
+            alignment: Alignment.centerLeft,
+            minimumSize: const Size.fromHeight(54),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            side: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          );
+    return primary
+        ? FilledButton.icon(
+            onPressed: onPressed,
+            style: style,
+            icon: Icon(icon),
+            label: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis),
+          )
+        : OutlinedButton.icon(
+            onPressed: onPressed,
+            style: style,
+            icon: Icon(icon),
+            label: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis),
+          );
+  }
 
-  Widget _assignmentContent(List<TeacherClassAssignment> assignments) {
+  Widget _profileContent(TeacherProfile teacher, BuildContext context) =>
+      Column(
+        children: [
+          if (teacher.bibliography?.trim().isNotEmpty == true) ...[
+            _ProfileCard(
+              icon: Icons.menu_book_rounded,
+              title: 'Biografia profissional',
+              child: Text(
+                teacher.bibliography!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  height: 1.55,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          _ProfileCard(
+            icon: Icons.groups_rounded,
+            title: 'Histórico de turmas',
+            child: _assignmentContent(data.teacherAssignments, context),
+          ),
+        ],
+      );
+
+  Widget _assignmentContent(
+    List<TeacherClassAssignment> assignments,
+    BuildContext context,
+  ) {
     if (assignments.isEmpty) {
-      return const Text(
+      return Text(
         'Nenhuma turma vinculada ao perfil.',
-        style: TextStyle(color: Color(0xFF73788B)),
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
       );
     }
     return Column(
@@ -690,9 +827,11 @@ class TeacherDashboardView extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(13),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8F7FC),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFEAE6F3)),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -711,8 +850,8 @@ class TeacherDashboardView extends StatelessWidget {
                         children: [
                           Text(
                             assignment.schoolClassName,
-                            style: const TextStyle(
-                              color: Color(0xFF252A3D),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -721,8 +860,10 @@ class TeacherDashboardView extends StatelessWidget {
                             assignment.isActive
                                 ? 'Ativa desde ${assignment.startDate}'
                                 : 'Período: ${assignment.startDate} – ${assignment.endDate}',
-                            style: const TextStyle(
-                              color: Color(0xFF73788B),
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                               fontSize: 12,
                             ),
                           ),
@@ -730,8 +871,10 @@ class TeacherDashboardView extends StatelessWidget {
                             const SizedBox(height: 3),
                             Text(
                               assignment.reason!,
-                              style: const TextStyle(
-                                color: Color(0xFF73788B),
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                                 fontSize: 12,
                               ),
                             ),
@@ -744,7 +887,7 @@ class TeacherDashboardView extends StatelessWidget {
                       style: TextStyle(
                         color: assignment.isActive
                             ? const Color(0xFF32946B)
-                            : const Color(0xFF73788B),
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
@@ -758,11 +901,11 @@ class TeacherDashboardView extends StatelessWidget {
     );
   }
 
-  Widget _tagList(List<String> values, Color color) {
+  Widget _tagList(List<String> values, Color color, BuildContext context) {
     if (values.isEmpty) {
-      return const Text(
+      return Text(
         'Nenhum dado cadastrado.',
-        style: TextStyle(color: Color(0xFF73788B)),
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
       );
     }
     return Wrap(
@@ -797,7 +940,7 @@ class _WelcomeBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(24),
+    padding: responsivePagePadding(context),
     decoration: BoxDecoration(
       gradient: const LinearGradient(
         colors: [Color(0xFF805BCF), Color(0xFF6741B5)],
@@ -821,7 +964,7 @@ class _WelcomeBanner extends StatelessWidget {
             children: [
               Text(
                 'Olá, ${name.split(' ').first}!',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 25,
                   fontWeight: FontWeight.w800,
@@ -832,7 +975,7 @@ class _WelcomeBanner extends StatelessWidget {
                 institution.isNotEmpty
                     ? 'Seu perfil docente • $institution'
                     : 'Seu perfil docente no Duolinfo.',
-                style: const TextStyle(color: Color(0xEFFFFFFF), height: 1.45),
+                style: TextStyle(color: Color(0xEFFFFFFF), height: 1.45),
               ),
             ],
           ),
@@ -870,10 +1013,10 @@ class _ProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
     elevation: 0,
-    color: Colors.white,
+    color: Theme.of(context).colorScheme.surface,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(18),
-      side: const BorderSide(color: Color(0xFFE5E8EF)),
+      side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
     ),
     child: Padding(
       padding: const EdgeInsets.all(20),
@@ -886,10 +1029,10 @@ class _ProfileCard extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
-                  color: Color(0xFF252A3D),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ],
@@ -916,13 +1059,18 @@ class _DetailRow extends StatelessWidget {
       children: [
         SizedBox(
           width: 94,
-          child: Text(label, style: const TextStyle(color: Color(0xFF73788B))),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
         ),
         Expanded(
           child: Text(
             value.isEmpty ? 'Não informado' : value,
-            style: const TextStyle(
-              color: Color(0xFF252A3D),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w600,
             ),
           ),

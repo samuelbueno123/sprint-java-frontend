@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "com.example.frontend"
-    compileSdk = flutter.compileSdkVersion
+    // Plugins such as file_picker use Android 36 APIs during compilation.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

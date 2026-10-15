@@ -50,8 +50,8 @@ class _DashboardPageState extends State<DashboardPage> {
         final state = _viewModel.state;
 
         if (state is DashboardLoading || state is DashboardInitial) {
-          return const Scaffold(
-            backgroundColor: Color(0xFFF7F9FA),
+          return Scaffold(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             body: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -77,7 +77,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
         if (state is DashboardError) {
           return Scaffold(
-            backgroundColor: const Color(0xFFF7F9FA),
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             body: DashboardErrorState(
               message: state.message,
               onRetry: _viewModel.loadDashboardData,

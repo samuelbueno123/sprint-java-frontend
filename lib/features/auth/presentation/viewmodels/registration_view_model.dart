@@ -17,10 +17,41 @@ class RegistrationViewModel extends ChangeNotifier {
   final AuthRemoteDataSource _remote;
 
   bool _isLoading = false;
+  bool _isCatalogLoading = false;
   String? _errorMessage;
+  String? _catalogErrorMessage;
+  List<String> _availableLanguages = const [];
+  List<String> _proficiencyLevels = const [];
 
   bool get isLoading => _isLoading;
+  bool get isCatalogLoading => _isCatalogLoading;
   String? get errorMessage => _errorMessage;
+  String? get catalogErrorMessage => _catalogErrorMessage;
+  List<String> get availableLanguages => _availableLanguages;
+  List<String> get proficiencyLevels => _proficiencyLevels;
+
+  Future<void> loadCatalog() async {
+    if (_isCatalogLoading) return;
+    _isCatalogLoading = true;
+    _catalogErrorMessage = null;
+    notifyListeners();
+    try {
+      final values = await Future.wait([
+        _remote.fetchLanguages(),
+        _remote.fetchProficiencyLevels(),
+      ]);
+      _availableLanguages = values[0];
+      _proficiencyLevels = values[1];
+      if (_availableLanguages.isEmpty || _proficiencyLevels.isEmpty) {
+        _catalogErrorMessage = 'O catálogo de idiomas ou níveis está vazio.';
+      }
+    } catch (error) {
+      _catalogErrorMessage = registrationErrorMessage(error);
+    } finally {
+      _isCatalogLoading = false;
+      notifyListeners();
+    }
+  }
 
   Future<List<InstitutionModel>> searchInstitutions([String? query]) async {
     try {

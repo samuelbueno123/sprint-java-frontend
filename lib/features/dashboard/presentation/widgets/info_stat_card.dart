@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'responsive_layout.dart';
+
 class InfoStatCard extends StatelessWidget {
   const InfoStatCard({
     super.key,
@@ -24,20 +26,24 @@ class InfoStatCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: Colors.grey.shade200),
       ),
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surface,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: responsiveCardPadding(context),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(isCompactLayout(context) ? 10 : 12),
               decoration: BoxDecoration(
                 color: accentColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: accentColor, size: 28),
+              child: Icon(
+                icon,
+                color: accentColor,
+                size: isCompactLayout(context) ? 24 : 28,
+              ),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: isCompactLayout(context) ? 12 : 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

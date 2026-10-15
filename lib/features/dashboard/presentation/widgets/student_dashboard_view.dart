@@ -5,8 +5,8 @@ import '../../domain/entities/student_enrollment.dart';
 import 'app_user_avatar.dart';
 import 'dashboard_empty_state.dart';
 import 'info_stat_card.dart';
+import 'responsive_layout.dart';
 import 'student_settings_view.dart';
-import 'learning_features.dart';
 
 class StudentDashboardView extends StatelessWidget {
   const StudentDashboardView({
@@ -45,6 +45,7 @@ class StudentDashboardView extends StatelessWidget {
 
     if (activeSection == 'languages') {
       return _page(
+        context: context,
         title: 'Meus idiomas',
         subtitle: 'Idiomas e progresso de estudo vinculados à sua conta.',
         child: Column(
@@ -69,9 +70,11 @@ class StudentDashboardView extends StatelessWidget {
                     SizedBox(width: isWide ? 12 : 0, height: isWide ? 0 : 12),
                     Expanded(
                       flex: isWide ? 1 : 0,
-                      child: const InfoStatCard(
+                      child: InfoStatCard(
                         title: 'Status Acadêmico',
-                        value: 'Ativo',
+                        value: data.studentEnrollments.isEmpty
+                            ? 'Sem turma'
+                            : data.studentEnrollments.first.status,
                         icon: Icons.verified_user_rounded,
                         accentColor: Color(0xFF32946B),
                         subtitle: 'Matrícula regularizada',
@@ -85,25 +88,8 @@ class StudentDashboardView extends StatelessWidget {
             _ProfileCard(
               icon: Icons.translate_rounded,
               title: 'Idiomas em Estudo',
-              children: [_languageContent(languages)],
+              children: [_languageContent(languages, context)],
             ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: () async {
-                  final changed = await showDialog<bool>(
-                    context: context,
-                    builder: (_) => StudentLanguageManager(data: data),
-                  );
-                  if (changed == true) onRefresh?.call();
-                },
-                icon: const Icon(Icons.add),
-                label: const Text(
-                  'Adicionar novo idioma / editar proficiência',
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -111,7 +97,7 @@ class StudentDashboardView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFFD4E3FC)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.lightbulb_outline_rounded, color: _blue, size: 28),
                   SizedBox(width: 14),
@@ -131,7 +117,9 @@ class StudentDashboardView extends StatelessWidget {
                         Text(
                           'Pratique vocabulário e exercícios diariamente para acelerar seu progresso e nivelamento nos idiomas escolhidos.',
                           style: TextStyle(
-                            color: Color(0xFF4D5365),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontSize: 13,
                           ),
                         ),
@@ -147,11 +135,11 @@ class StudentDashboardView extends StatelessWidget {
     }
 
     if (activeSection == 'profile') {
-      return _buildStudentProfileView(name, languages);
+      return _buildStudentProfileView(context, name, languages);
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: responsivePagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -161,90 +149,58 @@ class StudentDashboardView extends StatelessWidget {
                 'Seu perfil de aprendizado começa com os idiomas que você escolheu.',
           ),
           const SizedBox(height: 20),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: InfoStatCard(
-                          title: 'Total de Idiomas',
-                          value: languages.length.toString(),
-                          icon: Icons.language_rounded,
-                          accentColor: _blue,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: InfoStatCard(
-                          title: 'Turmas Ativas',
-                          value: data.studentEnrollments.length.toString(),
-                          icon: Icons.groups_rounded,
-                          accentColor: const Color(0xFF58CC02),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: InfoStatCard(
-                          title: 'Status do Aluno',
-                          value: 'Matriculado',
-                          icon: Icons.verified_user_rounded,
-                          accentColor: Color(0xFFE5902D),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: InfoStatCard(
-                          title: 'Desempenho',
-                          value: 'Regular',
-                          icon: Icons.insights_rounded,
-                          accentColor: Color(0xFF7651C8),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
+          ResponsiveCardGrid(
+            cards: [
+              InfoStatCard(
+                title: 'Total de Idiomas',
+                value: languages.length.toString(),
+                icon: Icons.language_rounded,
+                accentColor: _blue,
+              ),
+              InfoStatCard(
+                title: 'Turmas Ativas',
+                value: data.studentEnrollments.length.toString(),
+                icon: Icons.groups_rounded,
+                accentColor: const Color(0xFF58CC02),
+              ),
+              InfoStatCard(
+                title: 'Status do Aluno',
+                value: data.studentEnrollments.isEmpty
+                    ? 'Sem matrícula'
+                    : data.studentEnrollments.first.status,
+                icon: Icons.verified_user_rounded,
+                accentColor: const Color(0xFFE5902D),
+              ),
+              InfoStatCard(
+                title: 'Matrículas',
+                value: data.studentEnrollments.length.toString(),
+                icon: Icons.insights_rounded,
+                accentColor: const Color(0xFF7651C8),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
           _ProfileCard(
             icon: Icons.translate_rounded,
             title: 'Idiomas no seu perfil',
-            children: [_languageContent(languages)],
+            children: [_languageContent(languages, context)],
           ),
           const SizedBox(height: 16),
           _ProfileCard(
             icon: Icons.groups_rounded,
             title: 'Turmas ativas',
-            children: [_enrollmentContent(data.studentEnrollments)],
-          ),
-          const SizedBox(height: 16),
-          _ProfileCard(
-            icon: Icons.person_outline_rounded,
-            title: 'Conta de estudante',
-            children: [
-              _DetailRow(label: 'Nome', value: name),
-              _DetailRow(label: 'Email', value: data.user.email),
-              _DetailRow(
-                label: 'Matrícula',
-                value: student?.id != null
-                    ? '#${student!.id}'
-                    : 'Não informada',
-              ),
-            ],
+            children: [_enrollmentContent(data.studentEnrollments, context)],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStudentProfileView(String name, List<String> languages) {
+  Widget _buildStudentProfileView(
+    BuildContext context,
+    String name,
+    List<String> languages,
+  ) {
     final student = data.studentProfile;
     final enrollments = data.studentEnrollments;
     final primaryLanguage = languages.isNotEmpty
@@ -255,13 +211,30 @@ class StudentDashboardView extends StatelessWidget {
         : 'Sem turma ativa';
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: responsivePagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const SizedBox(height: 16),
+          if (student == null)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.cloud_off_outlined),
+                title: const Text('Dados do perfil não encontrados'),
+                subtitle: const Text(
+                  'Não há um perfil de estudante registrado no banco de dados. Atualize para consultar novamente.',
+                ),
+                trailing: IconButton(
+                  tooltip: 'Atualizar',
+                  onPressed: onRefresh,
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
+              ),
+            ),
+          if (student == null) const SizedBox(height: 12),
           // Banner de Perfil do Estudante com Avatar e Badges
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: responsiveBannerPadding(context),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFF3579E8), Color(0xFF1D52B4)],
@@ -280,191 +253,140 @@ class StudentDashboardView extends StatelessWidget {
             child: Column(
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    const Text(
-                      'Meu Perfil',
-                      style: TextStyle(
+                    IconButton(
+                      onPressed: () => onSectionSelected?.call('settings'),
+                      icon: const Icon(
+                        Icons.settings_rounded,
                         color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                    Row(
-                      children: [
-                        IconButton(
-                          onPressed: () => onSectionSelected?.call('settings'),
-                          icon: const Icon(
-                            Icons.settings_rounded,
-                            color: Colors.white,
-                          ),
-                          tooltip: 'Configurações',
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.verified_user_rounded,
-                                color: Colors.white,
-                                size: 14,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                data.user.googleId.isNotEmpty
-                                    ? 'Verificado Google'
-                                    : 'Conta Ativa',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                      tooltip: 'Configurações',
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final isMobile = constraints.maxWidth < 500;
-                    return Flex(
-                      direction: isMobile ? Axis.vertical : Axis.horizontal,
+                    final avatar = Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.55),
+                              width: 3,
+                            ),
+                          ),
+                        ),
+                        AppUserAvatar(
+                          name: name,
+                          pictureUrl: data.user.picture,
+                          radius: 42,
+                          backgroundColor: Colors.white.withValues(alpha: 0.25),
+                          textColor: Colors.white,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFD000),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              'Estudante',
+                              style: TextStyle(
+                                color: Color(0xFF523E00),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                    final details = Column(
                       crossAxisAlignment: isMobile
                           ? CrossAxisAlignment.center
                           : CrossAxisAlignment.start,
                       children: [
-                        // Avatar com Anel de Progresso / XP Ring
-                        Stack(
-                          alignment: Alignment.center,
+                        Text(
+                          name,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                          ),
+                          textAlign: isMobile
+                              ? TextAlign.center
+                              : TextAlign.start,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Estudando $primaryLanguage · Aluno Duolinfo',
+                          style: TextStyle(
+                            color: Color(0xEFFFFFFF),
+                            fontSize: 14,
+                          ),
+                          textAlign: isMobile
+                              ? TextAlign.center
+                              : TextAlign.start,
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          alignment: isMobile
+                              ? WrapAlignment.center
+                              : WrapAlignment.start,
+                          spacing: 8,
+                          runSpacing: 6,
                           children: [
-                            SizedBox(
-                              width: 100,
-                              height: 100,
-                              child: CircularProgressIndicator(
-                                value: languages.isNotEmpty ? 0.75 : 0.25,
-                                strokeWidth: 5,
-                                backgroundColor: Colors.white.withValues(
-                                  alpha: 0.25,
-                                ),
-                                valueColor: const AlwaysStoppedAnimation<Color>(
-                                  Color(0xFFFFD000),
-                                ),
-                              ),
+                            _HeaderBadge(
+                              label: activeClass,
+                              icon: Icons.groups_rounded,
+                              backgroundColor: Colors.white,
+                              textColor: _blue,
                             ),
-                            AppUserAvatar(
-                              name: name,
-                              pictureUrl: data.user.picture,
-                              radius: 42,
+                            _HeaderBadge(
+                              label: '${languages.length} Idiomas',
+                              icon: Icons.language_rounded,
                               backgroundColor: Colors.white.withValues(
-                                alpha: 0.25,
+                                alpha: 0.2,
                               ),
                               textColor: Colors.white,
                             ),
-                            Positioned(
-                              bottom: 0,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
+                            if (enrollments.isNotEmpty)
+                              _HeaderBadge(
+                                label: 'Matrícula ${enrollments.first.status}',
+                                icon: Icons.check_circle_outline_rounded,
+                                backgroundColor: Colors.white.withValues(
+                                  alpha: 0.2,
                                 ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFFD000),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  student?.id != null
-                                      ? 'ID #${student!.id}'
-                                      : 'Estudante',
-                                  style: const TextStyle(
-                                    color: Color(0xFF523E00),
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 11,
-                                  ),
-                                ),
+                                textColor: Colors.white,
                               ),
-                            ),
                           ],
                         ),
-                        SizedBox(
-                          width: isMobile ? 0 : 20,
-                          height: isMobile ? 16 : 0,
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: isMobile
-                                ? CrossAxisAlignment.center
-                                : CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                name,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                                textAlign: isMobile
-                                    ? TextAlign.center
-                                    : TextAlign.start,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Estudando $primaryLanguage · Aluno Duolinfo',
-                                style: const TextStyle(
-                                  color: Color(0xEFFFFFFF),
-                                  fontSize: 14,
-                                ),
-                                textAlign: isMobile
-                                    ? TextAlign.center
-                                    : TextAlign.start,
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                alignment: isMobile
-                                    ? WrapAlignment.center
-                                    : WrapAlignment.start,
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: [
-                                  _HeaderBadge(
-                                    label: activeClass,
-                                    icon: Icons.groups_rounded,
-                                    backgroundColor: Colors.white,
-                                    textColor: _blue,
-                                  ),
-                                  _HeaderBadge(
-                                    label: '${languages.length} Idiomas',
-                                    icon: Icons.language_rounded,
-                                    backgroundColor: Colors.white.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                    textColor: Colors.white,
-                                  ),
-                                  if (enrollments.isNotEmpty)
-                                    _HeaderBadge(
-                                      label:
-                                          'Matrícula ${enrollments.first.status}',
-                                      icon: Icons.check_circle_outline_rounded,
-                                      backgroundColor: Colors.white.withValues(
-                                        alpha: 0.2,
-                                      ),
-                                      textColor: Colors.white,
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                      ],
+                    );
+                    if (isMobile) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [avatar, const SizedBox(height: 16), details],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        avatar,
+                        const SizedBox(width: 20),
+                        Expanded(child: details),
                       ],
                     );
                   },
@@ -505,9 +427,9 @@ class StudentDashboardView extends StatelessWidget {
                   SizedBox(width: isWide ? 12 : 0, height: isWide ? 0 : 12),
                   Expanded(
                     flex: isWide ? 1 : 0,
-                    child: const InfoStatCard(
+                    child: InfoStatCard(
                       title: 'Situação Acadêmica',
-                      value: 'Regular',
+                      value: enrollments.length.toString(),
                       icon: Icons.verified_rounded,
                       accentColor: Color(0xFF32946B),
                       subtitle: 'Matrícula confirmada',
@@ -522,12 +444,14 @@ class StudentDashboardView extends StatelessWidget {
           // Seção: Progresso por Idioma & Detalhes
           _ProfileCard(
             icon: Icons.track_changes_rounded,
-            title: 'Progresso Atual nos Idiomas',
+            title: 'Pontuação acumulada por idioma',
             children: [
               if (languages.isEmpty)
-                const Text(
+                Text(
                   'Nenhum idioma vinculado ao perfil no momento.',
-                  style: TextStyle(color: Color(0xFF73788B)),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 )
               else
                 Column(
@@ -550,16 +474,18 @@ class StudentDashboardView extends StatelessWidget {
                                   const SizedBox(width: 8),
                                   Text(
                                     lang,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF252A3D),
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
                                       fontSize: 15,
                                     ),
                                   ),
                                 ],
                               ),
-                              const Text(
-                                'Ativo',
+                              Text(
+                                '${student?.languageScores[lang.split(':').first.trim()] ?? 0} XP',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -567,16 +493,6 @@ class StudentDashboardView extends StatelessWidget {
                                 ),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: const LinearProgressIndicator(
-                              value: 0.8,
-                              minHeight: 10,
-                              backgroundColor: Color(0xFFEAF2FF),
-                              valueColor: AlwaysStoppedAnimation<Color>(_blue),
-                            ),
                           ),
                         ],
                       ),
@@ -623,29 +539,11 @@ class StudentDashboardView extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Informações Pessoais & Conta
-          _ProfileCard(
-            icon: Icons.badge_outlined,
-            title: 'Dados da Conta',
-            children: [
-              _DetailRow(label: 'Nome completo', value: name),
-              _DetailRow(label: 'Email cadastrado', value: data.user.email),
-              _DetailRow(
-                label: 'Google ID',
-                value: data.user.googleId.isNotEmpty
-                    ? data.user.googleId
-                    : 'Conta local',
-              ),
-              _DetailRow(label: 'Status da conta', value: 'Ativa & Verificada'),
-            ],
-          ),
-          const SizedBox(height: 16),
-
           // Histórico de Matrículas e Turmas
           _ProfileCard(
             icon: Icons.groups_rounded,
             title: 'Histórico de Matrículas e Turmas',
-            children: [_enrollmentContent(data.studentEnrollments)],
+            children: [_enrollmentContent(data.studentEnrollments, context)],
           ),
         ],
       ),
@@ -653,31 +551,37 @@ class StudentDashboardView extends StatelessWidget {
   }
 
   Widget _page({
+    required BuildContext context,
     required String title,
     required String subtitle,
     required Widget child,
   }) => SingleChildScrollView(
-    padding: const EdgeInsets.all(24),
+    padding: responsivePagePadding(context),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 26,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF20243A),
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 6),
-        Text(subtitle, style: const TextStyle(color: Color(0xFF73788B))),
+        Text(
+          subtitle,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: 22),
         child,
       ],
     ),
   );
 
-  Widget _languageContent(List<String> languages) {
+  Widget _languageContent(List<String> languages, BuildContext context) {
     if (languages.isEmpty) {
       return const DashboardEmptyState(
         icon: Icons.translate_rounded,
@@ -704,7 +608,7 @@ class StudentDashboardView extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Color(0xFF245FB8),
                   fontWeight: FontWeight.w700,
                 ),
@@ -716,11 +620,14 @@ class StudentDashboardView extends StatelessWidget {
     );
   }
 
-  Widget _enrollmentContent(List<StudentEnrollment> enrollments) {
+  Widget _enrollmentContent(
+    List<StudentEnrollment> enrollments,
+    BuildContext context,
+  ) {
     if (enrollments.isEmpty) {
-      return const Text(
+      return Text(
         'Nenhuma matrícula ativa vinculada ao perfil.',
-        style: TextStyle(color: Color(0xFF73788B)),
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
       );
     }
     return Column(
@@ -732,9 +639,11 @@ class StudentDashboardView extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(13),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF6F8FC),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE6EAF2)),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -746,8 +655,8 @@ class StudentDashboardView extends StatelessWidget {
                         children: [
                           Text(
                             enrollment.schoolClassName,
-                            style: const TextStyle(
-                              color: Color(0xFF252A3D),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -755,8 +664,10 @@ class StudentDashboardView extends StatelessWidget {
                             const SizedBox(height: 3),
                             Text(
                               'Matrícula em ${enrollment.enrollmentDate}',
-                              style: const TextStyle(
-                                color: Color(0xFF73788B),
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                                 fontSize: 12,
                               ),
                             ),
@@ -788,7 +699,7 @@ class _WelcomeBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(24),
+    padding: responsivePagePadding(context),
     decoration: BoxDecoration(
       gradient: const LinearGradient(
         colors: [Color(0xFF4D8CEF), Color(0xFF3570D5)],
@@ -812,7 +723,7 @@ class _WelcomeBanner extends StatelessWidget {
             children: [
               Text(
                 'Olá, ${name.split(' ').first}!',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 25,
                   fontWeight: FontWeight.w800,
@@ -821,7 +732,7 @@ class _WelcomeBanner extends StatelessWidget {
               const SizedBox(height: 7),
               Text(
                 subtitle,
-                style: const TextStyle(color: Color(0xEFFFFFFF), height: 1.45),
+                style: TextStyle(color: Color(0xEFFFFFFF), height: 1.45),
               ),
             ],
           ),
@@ -859,10 +770,10 @@ class _ProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
     elevation: 0,
-    color: Colors.white,
+    color: Theme.of(context).colorScheme.surface,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(18),
-      side: const BorderSide(color: Color(0xFFE5E8EF)),
+      side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
     ),
     child: Padding(
       padding: const EdgeInsets.all(20),
@@ -875,10 +786,10 @@ class _ProfileCard extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
-                  color: Color(0xFF252A3D),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ],
@@ -905,13 +816,18 @@ class _DetailRow extends StatelessWidget {
       children: [
         SizedBox(
           width: 82,
-          child: Text(label, style: const TextStyle(color: Color(0xFF73788B))),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
         ),
         Expanded(
           child: Text(
             value.isEmpty ? 'Não informado' : value,
-            style: const TextStyle(
-              color: Color(0xFF252A3D),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -1003,17 +919,17 @@ class _AchievementItem extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF252A3D),
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 13,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    color: Color(0xFF73788B),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 11,
                   ),
                 ),

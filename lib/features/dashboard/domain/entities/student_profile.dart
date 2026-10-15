@@ -5,6 +5,7 @@ class StudentProfile {
     required this.name,
     required this.email,
     required this.languages,
+    this.languageScores = const {},
   });
 
   final int? id;
@@ -12,4 +13,5 @@ class StudentProfile {
   final String name;
   final String email;
   final List<String> languages;
+  final Map<String, int> languageScores;
 }

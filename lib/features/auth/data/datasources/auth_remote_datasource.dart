@@ -44,6 +44,24 @@ class AuthRemoteDataSource {
         .toList();
   }
 
+  Future<List<String>> fetchLanguages() async {
+    final response = await _dio.get<List<dynamic>>(
+      AppConfig.languagesCatalogEndpoint.toString(),
+    );
+    return (response.data ?? const [])
+        .map((value) => value.toString())
+        .toList();
+  }
+
+  Future<List<String>> fetchProficiencyLevels() async {
+    final response = await _dio.get<List<dynamic>>(
+      AppConfig.proficiencyLevelsCatalogEndpoint.toString(),
+    );
+    return (response.data ?? const [])
+        .map((value) => value.toString())
+        .toList();
+  }
+
   Future<InstitutionModel> createInstitution(String name) async {
     final cleanName = name.trim();
     final slug = cleanName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');

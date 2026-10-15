@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'app_environment.dart';
 
-/// Configuração centralizada e injetada por `--dart-define` no build.
+/// Configuração centralizada carregada do `.env` ou injetada por `--dart-define`.
 ///
 /// Exemplos:
 /// `flutter run --dart-define=APP_ENV=development --web-port=3000`
@@ -14,7 +15,26 @@ class AppConfig {
     'APP_ENV',
     defaultValue: 'development',
   );
-  static const _apiBaseUrlOverride = String.fromEnvironment('API_BASE_URL');
+  static String get _apiBaseUrlOverride => _envValue('API_BASE_URL');
+
+  static String _envValue(String key) {
+    const compileTimeValues = <String, String>{
+      'API_BASE_URL': String.fromEnvironment('API_BASE_URL'),
+      'GOOGLE_WEB_CLIENT_ID': String.fromEnvironment('GOOGLE_WEB_CLIENT_ID'),
+      'GOOGLE_IOS_CLIENT_ID': String.fromEnvironment('GOOGLE_IOS_CLIENT_ID'),
+      'GOOGLE_SERVER_CLIENT_ID': String.fromEnvironment(
+        'GOOGLE_SERVER_CLIENT_ID',
+      ),
+      'GOOGLE_ANDROID_CLIENT_ID': String.fromEnvironment(
+        'GOOGLE_ANDROID_CLIENT_ID',
+      ),
+    };
+    final compileTimeValue = compileTimeValues[key];
+    if (compileTimeValue != null && compileTimeValue.isNotEmpty) {
+      return compileTimeValue;
+    }
+    return dotenv.env[key]?.trim() ?? '';
+  }
 
   static String get apiBaseUrl {
     if (_apiBaseUrlOverride.isNotEmpty) return _apiBaseUrlOverride;
@@ -25,15 +45,11 @@ class AppConfig {
     return 'http://localhost:8080';
   }
 
-  static const googleWebClientId = String.fromEnvironment(
-    'GOOGLE_WEB_CLIENT_ID',
-  );
-  static const googleIosClientId = String.fromEnvironment(
-    'GOOGLE_IOS_CLIENT_ID',
-  );
-  static const googleServerClientId = String.fromEnvironment(
-    'GOOGLE_SERVER_CLIENT_ID',
-  );
+  static String get googleWebClientId => _envValue('GOOGLE_WEB_CLIENT_ID');
+  static String get googleIosClientId => _envValue('GOOGLE_IOS_CLIENT_ID');
+  static String get googleServerClientId => _envValue('GOOGLE_SERVER_CLIENT_ID');
+  static String get googleAndroidClientId =>
+      _envValue('GOOGLE_ANDROID_CLIENT_ID');
 
   static AppEnvironment get environment =>
       AppEnvironmentParser.fromString(_environmentValue);
@@ -90,6 +106,12 @@ class AppConfig {
 
   static Uri get institutionsEndpoint =>
       Uri.parse(apiBaseUrl).resolve('/api/institutions');
+
+  static Uri get languagesCatalogEndpoint =>
+      Uri.parse(apiBaseUrl).resolve('/api/catalog/languages');
+
+  static Uri get proficiencyLevelsCatalogEndpoint =>
+      Uri.parse(apiBaseUrl).resolve('/api/catalog/proficiency-levels');
 
   static Uri institutionSearchByNameEndpoint(String name) => Uri.parse(
     apiBaseUrl,

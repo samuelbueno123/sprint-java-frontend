@@ -123,7 +123,7 @@ class _EditProfileDetailsDialogState extends State<EditProfileDetailsDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(
+                  Row(
                     children: [
                       Icon(Icons.edit_note_rounded, color: Color(0xFF5869D8)),
                       SizedBox(width: 8),
@@ -132,7 +132,7 @@ class _EditProfileDetailsDialogState extends State<EditProfileDetailsDialog> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF252A3D),
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ],
@@ -144,12 +144,12 @@ class _EditProfileDetailsDialogState extends State<EditProfileDetailsDialog> {
                 ],
               ),
               const SizedBox(height: 18),
-              const Text(
+              Text(
                 'Nome completo',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
-                  color: Color(0xFF252A3D),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 6),
@@ -164,12 +164,12 @@ class _EditProfileDetailsDialogState extends State<EditProfileDetailsDialog> {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
+              Text(
                 'Email',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
-                  color: Color(0xFF252A3D),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 6),
@@ -205,10 +205,7 @@ class _EditProfileDetailsDialogState extends State<EditProfileDetailsDialog> {
                   ),
                   child: Text(
                     _errorMessage!,
-                    style: const TextStyle(
-                      color: Color(0xFFB42318),
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Color(0xFFB42318), fontSize: 12),
                   ),
                 ),
               ],
@@ -348,7 +345,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(
+                  Row(
                     children: [
                       Icon(Icons.lock_reset_rounded, color: Color(0xFF5869D8)),
                       SizedBox(width: 8),
@@ -357,7 +354,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF252A3D),
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ],
@@ -369,12 +366,12 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                 ],
               ),
               const SizedBox(height: 18),
-              const Text(
+              Text(
                 'Senha Atual',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
-                  color: Color(0xFF252A3D),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 6),
@@ -390,12 +387,12 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Nova Senha',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
-                  color: Color(0xFF252A3D),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 6),
@@ -411,12 +408,12 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Confirmar Nova Senha',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
-                  color: Color(0xFF252A3D),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 6),
@@ -442,10 +439,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                   ),
                   child: Text(
                     _errorMessage!,
-                    style: const TextStyle(
-                      color: Color(0xFFB42318),
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Color(0xFFB42318), fontSize: 12),
                   ),
                 ),
               ],
@@ -614,7 +608,7 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(
+                  Row(
                     children: [
                       Icon(Icons.camera_alt_rounded, color: Color(0xFF5869D8)),
                       SizedBox(width: 8),
@@ -623,7 +617,7 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF252A3D),
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ],
@@ -652,7 +646,7 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Row(
+              Row(
                 children: [
                   Expanded(child: Divider(color: Color(0xFFE5E8EF))),
                   Padding(
@@ -689,10 +683,7 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
                   ),
                   child: Text(
                     _errorMessage!,
-                    style: const TextStyle(
-                      color: Color(0xFFB42318),
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Color(0xFFB42318), fontSize: 12),
                   ),
                 ),
               ],
