@@ -14,12 +14,14 @@ class UserDashboardView extends StatelessWidget {
     required this.activeSection,
     this.onSectionSelected,
     this.onLogout,
+    this.onRefresh,
   });
 
   final DashboardData data;
   final String activeSection;
   final ValueChanged<String>? onSectionSelected;
   final VoidCallback? onLogout;
+  final VoidCallback? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +30,7 @@ class UserDashboardView extends StatelessWidget {
         data: data,
         onBackToProfile: () => onSectionSelected?.call('profile'),
         onLogout: onLogout ?? () {},
+        onRefresh: onRefresh,
       );
     }
 
@@ -198,8 +201,9 @@ class UserDashboardView extends StatelessWidget {
   }
 
   Widget _buildUserProfileView(BuildContext context) {
-    final initial =
-        data.user.name.isNotEmpty ? data.user.name[0].toUpperCase() : 'U';
+    final initial = data.user.name.isNotEmpty
+        ? data.user.name[0].toUpperCase()
+        : 'U';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),

@@ -35,9 +35,7 @@ class RegistrationChoiceDialog extends StatelessWidget {
     return Dialog(
       elevation: 12,
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
         child: Padding(
@@ -91,7 +89,8 @@ class RegistrationChoiceDialog extends StatelessWidget {
               const SizedBox(height: 22),
               _ChoiceCard(
                 title: 'Sou Estudante',
-                description: 'Cadastre os idiomas que deseja aprender e acompanhe seu nível.',
+                description:
+                    'Cadastre os idiomas que deseja aprender e acompanhe seu nível.',
                 icon: Icons.school_rounded,
                 color: const Color(0xFF3579E8),
                 onTap: () {
@@ -109,7 +108,8 @@ class RegistrationChoiceDialog extends StatelessWidget {
               const SizedBox(height: 14),
               _ChoiceCard(
                 title: 'Sou Professor',
-                description: 'Vincule sua instituição, turmas, idiomas lecionados e currículo.',
+                description:
+                    'Vincule sua instituição, turmas, idiomas lecionados e currículo.',
                 icon: Icons.co_present_rounded,
                 color: const Color(0xFF7651C8),
                 onTap: () {

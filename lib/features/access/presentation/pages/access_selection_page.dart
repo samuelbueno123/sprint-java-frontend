@@ -72,7 +72,7 @@ class AccessSelectionPage extends StatelessWidget {
   ) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => LoginPage(role: role, primaryColor: color, icon: icon),
+        builder: (_) => const LoginPage(),
       ),
     );
   }

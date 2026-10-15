@@ -46,9 +46,7 @@ class AuthRemoteDataSource {
 
   Future<InstitutionModel> createInstitution(String name) async {
     final cleanName = name.trim();
-    final slug = cleanName
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final slug = cleanName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
     final response = await _dio.post<Map<String, dynamic>>(
       AppConfig.institutionsEndpoint.toString(),
       data: {
@@ -79,7 +77,6 @@ class AuthRemoteDataSource {
       },
     );
   }
-
 
   Future<void> createTeacher({
     required String name,

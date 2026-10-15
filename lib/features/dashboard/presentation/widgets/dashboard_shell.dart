@@ -7,6 +7,7 @@ import 'dashboard_top_bar.dart';
 import 'student_dashboard_view.dart';
 import 'teacher_dashboard_view.dart';
 import 'user_dashboard_view.dart';
+import 'learning_features.dart';
 
 class DashboardShell extends StatefulWidget {
   const DashboardShell({
@@ -15,12 +16,14 @@ class DashboardShell extends StatefulWidget {
     required this.activeSection,
     required this.onSectionSelected,
     required this.onLogout,
+    required this.onRefresh,
   });
 
   final DashboardData data;
   final String activeSection;
   final ValueChanged<String> onSectionSelected;
   final VoidCallback onLogout;
+  final VoidCallback onRefresh;
 
   @override
   State<DashboardShell> createState() => _DashboardShellState();
@@ -74,9 +77,6 @@ class _DashboardShellState extends State<DashboardShell> {
                   activeSection: widget.activeSection,
                   onSectionSelected: widget.onSectionSelected,
                   isCollapsed: !_isSidebarExpanded,
-                  onToggleCollapse: () {
-                    setState(() => _isSidebarExpanded = !_isSidebarExpanded);
-                  },
                 ),
               Expanded(
                 child: Center(
@@ -96,18 +96,32 @@ class _DashboardShellState extends State<DashboardShell> {
   Widget _buildMainContent() {
     switch (widget.data.profileType) {
       case UserProfileType.student:
+        if (widget.activeSection == 'classes')
+          return StudentClassesView(
+            data: widget.data,
+            onRefresh: widget.onRefresh,
+          );
+        if (widget.activeSection == 'lesson')
+          return const LessonExecutionPage();
         return StudentDashboardView(
           data: widget.data,
           activeSection: widget.activeSection,
           onSectionSelected: widget.onSectionSelected,
           onLogout: widget.onLogout,
+          onRefresh: widget.onRefresh,
         );
       case UserProfileType.teacher:
+        if (widget.activeSection == 'classes')
+          return TeacherClassManagementView(
+            data: widget.data,
+            onRefresh: widget.onRefresh,
+          );
         return TeacherDashboardView(
           data: widget.data,
           activeSection: widget.activeSection,
           onSectionSelected: widget.onSectionSelected,
           onLogout: widget.onLogout,
+          onRefresh: widget.onRefresh,
         );
       case UserProfileType.user:
         return UserDashboardView(
@@ -115,6 +129,7 @@ class _DashboardShellState extends State<DashboardShell> {
           activeSection: widget.activeSection,
           onSectionSelected: widget.onSectionSelected,
           onLogout: widget.onLogout,
+          onRefresh: widget.onRefresh,
         );
     }
   }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Componente seguro para exibição de avatar de usuário.
-/// Evita erros HTTP 429 / 403 das fotos do Google aplicando política no-referrer
+/// Evita erros HTTP 429 / CORS das fotos do Google utilizando a CDN weserv.nl
 /// e exibe a inicial do nome caso a imagem falhe ao carregar.
 class AppUserAvatar extends StatelessWidget {
   const AppUserAvatar({
@@ -26,10 +26,8 @@ class AppUserAvatar extends StatelessWidget {
     if (pictureUrl == null || pictureUrl!.trim().isEmpty) return null;
     var url = pictureUrl!.trim();
     if (url.contains('googleusercontent.com')) {
-      if (url.contains('=')) {
-        url = url.split('=')[0];
-      }
-      url = '$url=s96-c';
+      final cleanUrl = url.replaceFirst(RegExp(r'^https?://'), '');
+      return 'https://images.weserv.nl/?url=$cleanUrl&w=120&h=120&fit=cover';
     }
     return url;
   }
@@ -44,10 +42,7 @@ class AppUserAvatar extends StatelessWidget {
       width: size,
       height: size,
       alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: bg,
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
       child: Text(
         _initial,
         style: TextStyle(
@@ -70,9 +65,6 @@ class AppUserAvatar extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.cover,
-          headers: const {
-            'referrer-policy': 'no-referrer',
-          },
           errorBuilder: (context, error, stackTrace) => fallback(),
         ),
       ),

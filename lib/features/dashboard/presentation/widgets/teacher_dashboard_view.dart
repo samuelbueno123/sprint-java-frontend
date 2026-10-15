@@ -7,6 +7,9 @@ import 'app_user_avatar.dart';
 import 'dashboard_empty_state.dart';
 import 'info_stat_card.dart';
 import 'teacher_settings_view.dart';
+import '../../../../core/config/app_config.dart';
+import '../../../../core/network/api_client.dart';
+import 'learning_features.dart';
 
 class TeacherDashboardView extends StatelessWidget {
   const TeacherDashboardView({
@@ -15,12 +18,14 @@ class TeacherDashboardView extends StatelessWidget {
     required this.activeSection,
     this.onSectionSelected,
     this.onLogout,
+    this.onRefresh,
   });
 
   final DashboardData data;
   final String activeSection;
   final ValueChanged<String>? onSectionSelected;
   final VoidCallback? onLogout;
+  final VoidCallback? onRefresh;
 
   static const _purple = Color(0xFF7651C8);
 
@@ -31,6 +36,7 @@ class TeacherDashboardView extends StatelessWidget {
         data: data,
         onBackToProfile: () => onSectionSelected?.call('profile'),
         onLogout: onLogout ?? () {},
+        onRefresh: onRefresh,
       );
     }
 
@@ -97,6 +103,93 @@ class TeacherDashboardView extends StatelessWidget {
               child: _tagList(
                 teacher.specializationAreas,
                 const Color(0xFFE5902D),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                onPressed: () async {
+                  final languages = TextEditingController(
+                    text: teacher.taughtLanguages.join(', '),
+                  );
+                  final areas = TextEditingController(
+                    text: teacher.specializationAreas.join(', '),
+                  );
+                  final ok = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                      title: const Text('Gerenciar idiomas e especializações'),
+                      content: SizedBox(
+                        width: 460,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextField(
+                              controller: languages,
+                              decoration: const InputDecoration(
+                                labelText:
+                                    'Idiomas lecionados (separados por vírgula)',
+                              ),
+                            ),
+                            TextField(
+                              controller: areas,
+                              decoration: const InputDecoration(
+                                labelText:
+                                    'Especializações (separadas por vírgula)',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Cancelar'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('Salvar'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (ok == true && teacher.id != null) {
+                    try {
+                      await ApiClient().dio.put(
+                        '${AppConfig.teachersEndpoint}/${teacher.id}',
+                        data: {
+                          'name': teacher.name,
+                          'email': teacher.email,
+                          'googleId': teacher.googleId,
+                          'institutionId': teacher.institutionId,
+                          'taughtLanguages': languages.text
+                              .split(',')
+                              .map((v) => v.trim())
+                              .where((v) => v.isNotEmpty)
+                              .toList(),
+                          'specializationAreas': areas.text
+                              .split(',')
+                              .map((v) => v.trim())
+                              .where((v) => v.isNotEmpty)
+                              .toList(),
+                          'bibliography': teacher.bibliography,
+                        },
+                      );
+                      onRefresh?.call();
+                    } catch (e) {
+                      if (context.mounted) showLearningError(context, e);
+                    }
+                  }
+                  languages.dispose();
+                  areas.dispose();
+                },
+                icon: const Icon(Icons.edit),
+                label: const Text(
+                  'Gerenciar idiomas lecionados / atualizar especializações',
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -248,8 +341,6 @@ class TeacherDashboardView extends StatelessWidget {
   }
 
   Widget _buildTeacherProfileView(TeacherProfile teacher) {
-    final initial =
-        teacher.name.isNotEmpty ? teacher.name[0].toUpperCase() : 'P';
     final assignments = data.teacherAssignments;
     final primarySubject = teacher.taughtLanguages.isNotEmpty
         ? 'Professora de ${teacher.taughtLanguages.join(', ')}'
@@ -296,7 +387,10 @@ class TeacherDashboardView extends StatelessWidget {
                     ),
                     IconButton(
                       onPressed: () => onSectionSelected?.call('settings'),
-                      icon: const Icon(Icons.settings_rounded, color: Colors.white),
+                      icon: const Icon(
+                        Icons.settings_rounded,
+                        color: Colors.white,
+                      ),
                       tooltip: 'Configurações',
                     ),
                   ],
@@ -312,7 +406,7 @@ class TeacherDashboardView extends StatelessWidget {
                           : CrossAxisAlignment.start,
                       children: [
                         AppUserAvatar(
-                          name: teacher?.name ?? data.user.name,
+                          name: teacher.name,
                           pictureUrl: data.user.picture,
                           radius: 42,
                           backgroundColor: Colors.white.withValues(alpha: 0.25),
@@ -368,8 +462,9 @@ class TeacherDashboardView extends StatelessWidget {
                                     label:
                                         '${teacher.taughtLanguages.length} Idiomas',
                                     icon: Icons.record_voice_over_rounded,
-                                    backgroundColor:
-                                        Colors.white.withValues(alpha: 0.2),
+                                    backgroundColor: Colors.white.withValues(
+                                      alpha: 0.2,
+                                    ),
                                     textColor: Colors.white,
                                   ),
                                   if (teacher.specializationAreas.isNotEmpty)
@@ -377,8 +472,9 @@ class TeacherDashboardView extends StatelessWidget {
                                       label:
                                           '${teacher.specializationAreas.length} Especializações',
                                       icon: Icons.workspace_premium_outlined,
-                                      backgroundColor:
-                                          Colors.white.withValues(alpha: 0.2),
+                                      backgroundColor: Colors.white.withValues(
+                                        alpha: 0.2,
+                                      ),
                                       textColor: Colors.white,
                                     ),
                                 ],
@@ -475,10 +571,7 @@ class TeacherDashboardView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                _tagList(
-                  teacher.specializationAreas,
-                  const Color(0xFFE5902D),
-                ),
+                _tagList(teacher.specializationAreas, const Color(0xFFE5902D)),
               ],
             ),
           ),
@@ -878,4 +971,3 @@ class _HeaderBadge extends StatelessWidget {
     );
   }
 }
-

@@ -61,7 +61,8 @@ class _ProfilePictureDialogState extends State<ProfilePictureDialog> {
     }
 
     final lower = url.toLowerCase();
-    final isJpgOrPng = lower.endsWith('.jpg') ||
+    final isJpgOrPng =
+        lower.endsWith('.jpg') ||
         lower.endsWith('.jpeg') ||
         lower.endsWith('.png') ||
         lower.contains('format=jpg') ||
@@ -99,7 +100,9 @@ class _ProfilePictureDialogState extends State<ProfilePictureDialog> {
             stream.removeListener(listener);
           },
           onError: (error, _) {
-            completer.completeError('Não foi possível carregar a imagem da URL informada.');
+            completer.completeError(
+              'Não foi possível carregar a imagem da URL informada.',
+            );
             stream.removeListener(listener);
           },
         );
@@ -177,7 +180,10 @@ class _ProfilePictureDialogState extends State<ProfilePictureDialog> {
                 ),
                 child: Text(
                   _errorMessage!,
-                  style: const TextStyle(color: Color(0xFFB42318), fontSize: 12),
+                  style: const TextStyle(
+                    color: Color(0xFFB42318),
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ],

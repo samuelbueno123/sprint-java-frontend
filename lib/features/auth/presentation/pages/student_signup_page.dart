@@ -6,10 +6,7 @@ import '../viewmodels/registration_view_model.dart';
 import '../widgets/auth_page_frame.dart';
 
 class _SelectedLanguageItem {
-  _SelectedLanguageItem({
-    required this.languageName,
-    this.level = 'Iniciante',
-  });
+  _SelectedLanguageItem({required this.languageName, this.level = 'Iniciante'});
 
   final String languageName;
   String level;
@@ -108,14 +105,12 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
         widget.initialEmail != null && widget.initialEmail!.trim().isNotEmpty;
 
     final availableLanguages = _availableLanguages
-        .where((lang) =>
-            !_selectedLanguages.any((s) => s.languageName == lang))
+        .where((lang) => !_selectedLanguages.any((s) => s.languageName == lang))
         .toList();
 
-    final dropdownValue =
-        availableLanguages.contains(_selectedDropdownLanguage)
-            ? _selectedDropdownLanguage
-            : null;
+    final dropdownValue = availableLanguages.contains(_selectedDropdownLanguage)
+        ? _selectedDropdownLanguage
+        : null;
 
     return AnimatedBuilder(
       animation: _viewModel,
@@ -139,8 +134,9 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                   hintText: 'Ex.: João Silva',
                   prefixIcon: Icon(Icons.person_outline_rounded),
                 ),
-                validator: (value) =>
-                    (value?.trim().isEmpty ?? true) ? 'Informe seu nome.' : null,
+                validator: (value) => (value?.trim().isEmpty ?? true)
+                    ? 'Informe seu nome.'
+                    : null,
               ),
               const SizedBox(height: 14),
               TextFormField(
@@ -159,8 +155,9 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                           size: 18,
                         )
                       : null,
-                  helperText:
-                      isEmailLocked ? 'Email vinculado à sua conta' : null,
+                  helperText: isEmailLocked
+                      ? 'Email vinculado à sua conta'
+                      : null,
                 ),
                 validator: _validateEmail,
               ),
@@ -236,10 +233,10 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                 items: availableLanguages
                     .map(
                       (lang) => DropdownMenuItem<String>(
-                    value: lang,
-                    child: Text(lang),
-                  ),
-                )
+                        value: lang,
+                        child: Text(lang),
+                      ),
+                    )
                     .toList(),
                 onChanged: (value) {
                   if (value == null) return;
@@ -329,10 +326,12 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                             isDense: true,
                           ),
                           items: _proficiencyLevels
-                              .map((lvl) => DropdownMenuItem(
-                                    value: lvl,
-                                    child: Text(lvl),
-                                  ))
+                              .map(
+                                (lvl) => DropdownMenuItem(
+                                  value: lvl,
+                                  child: Text(lvl),
+                                ),
+                              )
                               .toList(),
                           onChanged: (newLevel) {
                             if (newLevel != null) {

@@ -48,9 +48,7 @@ class _LoginPageState extends State<LoginPage> {
 
     if (session.profileType == UserRole.user) {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => const DashboardPage(),
-        ),
+        MaterialPageRoute(builder: (_) => const DashboardPage()),
         (route) => false,
       );
       Future.microtask(() {

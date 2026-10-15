@@ -54,7 +54,7 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
           if (onMenuPressed != null) ...[
@@ -63,25 +63,25 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
               tooltip: 'Menu lateral',
               onPressed: onMenuPressed,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
           ],
           const Icon(
             Icons.menu_book_rounded,
             color: Color(0xFF58CC02),
-            size: 28,
+            size: 26,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           const Text(
             'Duolinfo',
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.w800,
               color: Colors.black87,
             ),
           ),
-          const Spacer(),
+          const Spacer(), // Empurra TODO o bloco de perfil e conta para o canto direito!
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: _roleColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
@@ -95,22 +95,22 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
                       : data.profileType == UserProfileType.teacher
                       ? Icons.co_present_rounded
                       : Icons.person_rounded,
-                  size: 16,
+                  size: 15,
                   color: _roleColor,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 Text(
                   data.profileType.label,
                   style: TextStyle(
                     color: _roleColor,
                     fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                    fontSize: 12,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'settings') {
@@ -124,19 +124,25 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 _buildAvatar(avatarUrl),
                 if (isDesktop) ...[
-                  const SizedBox(width: 10),
-                  Text(
-                    data.user.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                  const SizedBox(width: 8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 120),
+                    child: Text(
+                      data.user.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.arrow_drop_down_rounded, size: 20),
+                  const SizedBox(width: 2),
+                  const Icon(Icons.arrow_drop_down_rounded, size: 18),
                 ],
               ],
             ),

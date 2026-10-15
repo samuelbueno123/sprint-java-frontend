@@ -1,11 +1,8 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../core/network/api_client.dart';
-import '../../data/datasources/dashboard_remote_datasource.dart';
 import '../../domain/entities/dashboard_data.dart';
 import 'app_user_avatar.dart';
-import 'local_image_picker_helper.dart';
+import 'edit_profile_dialogs.dart';
 
 class StudentSettingsView extends StatefulWidget {
   const StudentSettingsView({
@@ -13,11 +10,13 @@ class StudentSettingsView extends StatefulWidget {
     required this.data,
     required this.onBackToProfile,
     required this.onLogout,
+    this.onRefresh,
   });
 
   final DashboardData data;
   final VoidCallback onBackToProfile;
   final VoidCallback onLogout;
+  final VoidCallback? onRefresh;
 
   @override
   State<StudentSettingsView> createState() => _StudentSettingsViewState();
@@ -35,653 +34,506 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
   String _theme = 'light';
   String _dailyGoal = '10';
 
-  // Text controllers
-  late final TextEditingController _firstNameController;
-  late final TextEditingController _lastNameController;
-  late final TextEditingController _emailController;
-  final _currentPasswordController = TextEditingController();
-  final _newPasswordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-
-  bool _isSavingProfile = false;
-  bool _isChangingPassword = false;
-  bool _isUpdatingPicture = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final nameParts = widget.data.user.name.split(' ');
-    final firstName = nameParts.first;
-    final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
-
-    _firstNameController = TextEditingController(text: firstName);
-    _lastNameController = TextEditingController(text: lastName);
-    _emailController = TextEditingController(text: widget.data.user.email);
-  }
-
-  @override
-  void dispose() {
-    _firstNameController.dispose();
-    _lastNameController.dispose();
-    _emailController.dispose();
-    _currentPasswordController.dispose();
-    _newPasswordController.dispose();
-    _confirmPasswordController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickAndUploadLocalImage() async {
-    try {
-      final dataUrl = await LocalImagePickerHelper.pickLocalImage();
-      if (dataUrl == null) return;
-
-      setState(() => _isUpdatingPicture = true);
-      final ds = DashboardRemoteDataSource(ApiClient().dio);
-      await ds.updateProfilePicture(
-        userId: widget.data.user.id,
-        profilePicture: dataUrl,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Foto de perfil alterada com sucesso!')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_parseErrorMessage(e, 'Erro na foto de perfil.')),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isUpdatingPicture = false);
-    }
-  }
-
-  Future<void> _saveProfileData() async {
-    final fullName = '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'.trim();
-    if (fullName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informe seu nome.')),
-      );
-      return;
-    }
-
-    final isGoogle = widget.data.user.googleId.isNotEmpty;
-    final email = _emailController.text.trim();
-
-    setState(() => _isSavingProfile = true);
-    try {
-      final ds = DashboardRemoteDataSource(ApiClient().dio);
-      await ds.updateProfileDetails(
-        userId: widget.data.user.id,
-        name: fullName,
-        email: isGoogle ? null : email,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Perfil do estudante atualizado com sucesso!')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_parseErrorMessage(e, 'Erro ao atualizar perfil.')),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isSavingProfile = false);
-    }
-  }
-
-  Future<void> _changePassword() async {
-    final currentPass = _currentPasswordController.text;
-    final newPass = _newPasswordController.text;
-    final confirmPass = _confirmPasswordController.text;
-
-    if (currentPass.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informe a senha atual.')),
-      );
-      return;
-    }
-    if (newPass.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('A nova senha deve ter pelo menos 6 caracteres.')),
-      );
-      return;
-    }
-    if (newPass != confirmPass) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "As senhas nos campos 'Nova senha' e 'Confirmar senha' não coincidem.",
-          ),
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isChangingPassword = true);
-    try {
-      final ds = DashboardRemoteDataSource(ApiClient().dio);
-      await ds.updatePassword(
-        userId: widget.data.user.id,
-        currentPassword: currentPass,
-        password: newPass,
-      );
-      if (!mounted) return;
-      _currentPasswordController.clear();
-      _newPasswordController.clear();
-      _confirmPasswordController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Senha alterada com sucesso!')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_parseErrorMessage(e, 'Erro ao alterar senha.')),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isChangingPassword = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     const blueColor = Color(0xFF3579E8);
+    final isGoogleAccount = widget.data.user.googleId.isNotEmpty;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
+          constraints: const BoxConstraints(maxWidth: 800),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header
+              // Banner de Cabeçalho Elegante (Azul)
               Container(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF3579E8), Color(0xFF1D52B4)],
+                    colors: [Color(0xFF3579E8), Color(0xFF1E52A8)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF3579E8).withValues(alpha: 0.25),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
                     OutlinedButton.icon(
                       onPressed: widget.onBackToProfile,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white,
-                        side: BorderSide(color: Colors.white.withValues(alpha: 0.4)),
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.4),
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
                         ),
                       ),
                       icon: const Icon(Icons.arrow_back_rounded, size: 18),
                       label: const Text('Voltar ao Perfil'),
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Configurações',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Text(
+                        'Configurações do Aluno',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Gerencie sua conta, notificações e preferências de estudo',
-                      style: TextStyle(color: Color(0xEFFFFFFF), fontSize: 14),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
 
-              // Card 1: Perfil
-              _SettingsCard(
-                icon: Icons.person_outline_rounded,
-                title: 'Perfil do Estudante',
-                iconColor: blueColor,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        GestureDetector(
-                          onTap: _isUpdatingPicture ? null : _pickAndUploadLocalImage,
-                          child: Stack(
-                            children: [
-                              AppUserAvatar(
-                                name: widget.data.user.name,
-                                pictureUrl: widget.data.user.picture,
-                                radius: 36,
-                                backgroundColor: blueColor.withValues(alpha: 0.15),
-                                textColor: blueColor,
-                              ),
-                              Positioned(
-                                right: 0,
-                                bottom: 0,
-                                child: CircleAvatar(
-                                  radius: 14,
-                                  backgroundColor: blueColor,
-                                  child: _isUpdatingPicture
-                                      ? const SizedBox.square(
-                                          dimension: 12,
-                                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                        )
-                                      : const Icon(
-                                          Icons.camera_alt_rounded,
-                                          size: 14,
-                                          color: Colors.white,
-                                        ),
-                                ),
-                              ),
-                            ],
+              // Card 1: Perfil do Estudante
+              Card(
+                elevation: 0,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  side: const BorderSide(color: Color(0xFFE5E8EF)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.school_rounded,
+                            color: blueColor,
+                            size: 22,
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.data.user.name,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF252A3D)),
-                              ),
-                              Text(
-                                widget.data.user.email,
-                                style: const TextStyle(color: Color(0xFF73788B), fontSize: 13),
-                              ),
-                              const SizedBox(height: 4),
-                              TextButton.icon(
-                                onPressed: _isUpdatingPicture ? null : _pickAndUploadLocalImage,
-                                style: TextButton.styleFrom(
-                                  padding: EdgeInsets.zero,
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                icon: const Icon(Icons.upload_file_rounded, size: 14, color: blueColor),
-                                label: const Text(
-                                  'Escolher foto local (JPG/PNG <= 1024x1024)',
-                                  style: TextStyle(fontSize: 12, color: blueColor, fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Nome', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
-                              const SizedBox(height: 6),
-                              TextField(
-                                controller: _firstNameController,
-                                decoration: _inputDecoration('Nome'),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Sobrenome', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
-                              const SizedBox(height: 6),
-                              TextField(
-                                controller: _lastNameController,
-                                decoration: _inputDecoration('Sobrenome'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    const Text('Email', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
-                    const SizedBox(height: 6),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _emailController,
-                                readOnly: widget.data.user.googleId.isNotEmpty,
-                                decoration: _inputDecoration('Email'),
-                              ),
-                            ),
-                            if (widget.data.user.googleId.isNotEmpty)
-                              const Padding(
-                                padding: EdgeInsets.only(left: 8),
-                                child: Icon(
-                                  Icons.lock_outline_rounded,
-                                  size: 18,
-                                  color: Color(0xFF8A8FA1),
-                                ),
-                              ),
-                          ],
-                        ),
-                        if (widget.data.user.googleId.isNotEmpty)
-                          const Padding(
-                            padding: EdgeInsets.only(
-                              top: 6,
-                              left: 12,
-                            ),
-                            child: Text(
-                              'Contas vinculadas ao Google não podem alterar o e-mail.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF8A8FA1),
-                              ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Perfil do Estudante',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: blueColor,
                             ),
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    ElevatedButton(
-                      onPressed: _isSavingProfile ? null : _saveProfileData,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: blueColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ],
                       ),
-                      child: _isSavingProfile
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                            )
-                          : const Text('Salvar Alterações', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Card 2: Segurança e Senha (sem decoration fake com "••••••••")
-              _SettingsCard(
-                icon: Icons.shield_outlined,
-                title: 'Segurança e Senha',
-                iconColor: blueColor,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Senha Atual', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _currentPasswordController,
-                      obscureText: true,
-                      decoration: _inputDecoration('Digite sua senha atual'),
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Nova Senha', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
-                              const SizedBox(height: 6),
-                              TextField(
-                                controller: _newPasswordController,
-                                obscureText: true,
-                                decoration: _inputDecoration('Digite a nova senha'),
-                              ),
-                            ],
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          AppUserAvatar(
+                            name: widget.data.user.name,
+                            pictureUrl: widget.data.user.picture,
+                            radius: 38,
+                            backgroundColor: blueColor.withValues(alpha: .15),
+                            textColor: blueColor,
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Confirmar Nova Senha', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
-                              const SizedBox(height: 6),
-                              TextField(
-                                controller: _confirmPasswordController,
-                                obscureText: true,
-                                decoration: _inputDecoration('Confirme a nova senha'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    OutlinedButton(
-                      onPressed: _isChangingPassword ? null : _changePassword,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: blueColor,
-                        side: const BorderSide(color: blueColor),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: _isChangingPassword
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Alterar Senha', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Card 3: Notificações
-              _SettingsCard(
-                icon: Icons.notifications_none_rounded,
-                title: 'Notificações',
-                iconColor: blueColor,
-                child: Column(
-                  children: [
-                    _SwitchRow(
-                      title: 'Lembrete diário de estudo',
-                      subtitle: 'Receba um lembrete para estudar todos os dias',
-                      value: _notifDaily,
-                      activeColor: blueColor,
-                      onChanged: (val) => setState(() => _notifDaily = val),
-                    ),
-                    _SwitchRow(
-                      title: 'Novas conquistas',
-                      subtitle: 'Notificar quando desbloquear uma conquista',
-                      value: _notifAchievement,
-                      activeColor: blueColor,
-                      onChanged: (val) => setState(() => _notifAchievement = val),
-                    ),
-                    _SwitchRow(
-                      title: 'Atualizações de ranking',
-                      subtitle: 'Quando sua posição no ranking mudar',
-                      value: _notifRanking,
-                      activeColor: blueColor,
-                      onChanged: (val) => setState(() => _notifRanking = val),
-                    ),
-                    _SwitchRow(
-                      title: 'Feedback do professor',
-                      subtitle: 'Quando o professor enviar aviso ou feedback',
-                      value: _notifTeacher,
-                      activeColor: blueColor,
-                      onChanged: (val) => setState(() => _notifTeacher = val),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Card 4: Preferências
-              _SettingsCard(
-                icon: Icons.palette_outlined,
-                title: 'Preferências de Estudo',
-                iconColor: blueColor,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Tema do Aplicativo', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => setState(() => _theme = 'light'),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: _theme == 'light' ? const Color(0xFFEAF2FF) : Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _theme == 'light' ? blueColor : const Color(0xFFE5E8EF),
-                                  width: _theme == 'light' ? 2 : 1,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.wb_sunny_rounded, color: _theme == 'light' ? blueColor : Colors.grey),
-                                  const SizedBox(width: 10),
-                                  const Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('Claro', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                      Text('Fundo claro', style: TextStyle(color: Color(0xFF73788B), fontSize: 11)),
-                                    ],
+                          const SizedBox(width: 18),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.data.user.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 17,
+                                    color: Color(0xFF252A3D),
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => setState(() => _theme = 'dark'),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: _theme == 'dark' ? const Color(0xFFEAF2FF) : Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _theme == 'dark' ? blueColor : const Color(0xFFE5E8EF),
-                                  width: _theme == 'dark' ? 2 : 1,
                                 ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.nightlight_round, color: _theme == 'dark' ? blueColor : Colors.grey),
-                                  const SizedBox(width: 10),
-                                  const Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('Escuro', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                      Text('Fundo escuro', style: TextStyle(color: Color(0xFF73788B), fontSize: 11)),
-                                    ],
+                                const SizedBox(height: 2),
+                                Text(
+                                  widget.data.user.email,
+                                  style: const TextStyle(
+                                    color: Color(0xFF73788B),
+                                    fontSize: 13,
                                   ),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEAF2FF),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Text(
+                                    'Estudante Ativo',
+                                    style: TextStyle(
+                                      color: blueColor,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      OutlinedButton.icon(
+                        onPressed: () => EditProfilePictureDialog.show(
+                          context,
+                          data: widget.data,
+                          onSaved: () {
+                            setState(() {});
+                            widget.onRefresh?.call();
+                          },
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Idioma do App', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
-                              const SizedBox(height: 6),
-                              DropdownButtonFormField<String>(
-                                value: _language,
-                                decoration: _inputDecoration(''),
-                                items: const [
-                                  DropdownMenuItem(value: 'pt', child: Text('Português')),
-                                  DropdownMenuItem(value: 'en', child: Text('English')),
-                                  DropdownMenuItem(value: 'es', child: Text('Español')),
-                                ],
-                                onChanged: (val) => setState(() => _language = val ?? 'pt'),
-                              ),
-                            ],
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: blueColor,
+                          side: const BorderSide(color: blueColor),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Meta Diária', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF252A3D))),
-                              const SizedBox(height: 6),
-                              DropdownButtonFormField<String>(
-                                value: _dailyGoal,
-                                decoration: _inputDecoration(''),
-                                items: const [
-                                  DropdownMenuItem(value: '5', child: Text('5 XP — Casual')),
-                                  DropdownMenuItem(value: '10', child: Text('10 XP — Regular')),
-                                  DropdownMenuItem(value: '20', child: Text('20 XP — Intenso')),
-                                  DropdownMenuItem(value: '50', child: Text('50 XP — Máximo')),
-                                ],
-                                onChanged: (val) => setState(() => _dailyGoal = val ?? '10'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        icon: const Icon(Icons.camera_alt_rounded, size: 18),
+                        label: const Text('Alterar Foto de Perfil'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
 
-              // Card 5: Zona de Perigo
-              _SettingsCard(
-                icon: Icons.delete_outline_rounded,
-                title: 'Zona de Perigo',
-                iconColor: Colors.redAccent,
-                child: Column(
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: widget.onLogout,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.redAccent,
-                        side: const BorderSide(color: Colors.redAccent),
-                        minimumSize: const Size(double.infinity, 48),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              // Card 2: Informações Pessoais
+              Card(
+                elevation: 0,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  side: const BorderSide(color: Color(0xFFE5E8EF)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.badge_outlined,
+                            color: blueColor,
+                            size: 22,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Informações Pessoais',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: blueColor,
+                            ),
+                          ),
+                        ],
                       ),
-                      icon: const Icon(Icons.logout_rounded, size: 18),
-                      label: const Text('Sair da Conta', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(height: 10),
-                    TextButton.icon(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Para excluir sua conta, entre em contato com o suporte.')),
-                        );
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.red.shade300,
-                        minimumSize: const Size(double.infinity, 44),
+                      const SizedBox(height: 14),
+                      _DetailRow(
+                        label: 'Nome completo',
+                        value: widget.data.user.name,
+                        icon: Icons.person_outline_rounded,
                       ),
-                      icon: const Icon(Icons.delete_forever_rounded, size: 18),
-                      label: const Text('Excluir Conta'),
+                      const Divider(height: 16, color: Color(0xFFF0F2F6)),
+                      _DetailRow(
+                        label: 'E-mail',
+                        value: widget.data.user.email,
+                        icon: Icons.email_outlined,
+                        badge: isGoogleAccount ? 'Somente Leitura' : null,
+                      ),
+                      const SizedBox(height: 18),
+                      OutlinedButton.icon(
+                        onPressed: () => EditProfileDetailsDialog.show(
+                          context,
+                          data: widget.data,
+                          onSaved: () {
+                            setState(() {});
+                            widget.onRefresh?.call();
+                          },
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: blueColor,
+                          side: const BorderSide(color: blueColor),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        icon: const Icon(Icons.edit_note_rounded, size: 20),
+                        label: const Text('Editar Nome e E-mail'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Card 3: Segurança e Senha
+              Card(
+                elevation: 0,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  side: const BorderSide(color: Color(0xFFE5E8EF)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.security_rounded,
+                            color: blueColor,
+                            size: 22,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Segurança e Senha',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: blueColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Altere sua senha de acesso a qualquer momento.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF73788B),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: () => ChangePasswordDialog.show(
+                          context,
+                          data: widget.data,
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: blueColor,
+                          side: const BorderSide(color: blueColor),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        icon: const Icon(Icons.lock_reset_rounded, size: 20),
+                        label: const Text('Alterar Senha de Acesso'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Card 4: Preferências de Estudo
+              Card(
+                elevation: 0,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  side: const BorderSide(color: Color(0xFFE5E8EF)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.tune_rounded, color: blueColor, size: 22),
+                          SizedBox(width: 8),
+                          Text(
+                            'Preferências de Estudo',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: blueColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Meta Diária de Estudos',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Color(0xFF252A3D),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        value: _dailyGoal,
+                        decoration: _inputDecoration('Meta'),
+                        items: const [
+                          DropdownMenuItem(
+                            value: '5',
+                            child: Text('5 minutos / dia (Casual)'),
+                          ),
+                          DropdownMenuItem(
+                            value: '10',
+                            child: Text('10 minutos / dia (Regular)'),
+                          ),
+                          DropdownMenuItem(
+                            value: '15',
+                            child: Text('15 minutos / dia (Sério)'),
+                          ),
+                          DropdownMenuItem(
+                            value: '20',
+                            child: Text('20 minutos / dia (Intenso)'),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setState(() => _dailyGoal = val);
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Idioma da Interface',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Color(0xFF252A3D),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        value: _language,
+                        decoration: _inputDecoration('Idioma'),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'pt',
+                            child: Text('Português (Brasil)'),
+                          ),
+                          DropdownMenuItem(value: 'en', child: Text('English')),
+                          DropdownMenuItem(value: 'es', child: Text('Español')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setState(() => _language = val);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Card 5: Notificações
+              Card(
+                elevation: 0,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  side: const BorderSide(color: Color(0xFFE5E8EF)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.notifications_none_rounded,
+                            color: blueColor,
+                            size: 22,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Notificações por Email',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: blueColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SwitchListTile(
+                        value: _notifDaily,
+                        activeColor: blueColor,
+                        title: const Text(
+                          'Lembretes Diários de Estudo',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        onChanged: (val) => setState(() => _notifDaily = val),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      SwitchListTile(
+                        value: _notifAchievement,
+                        activeColor: blueColor,
+                        title: const Text(
+                          'Conquistas e Progresso',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        onChanged: (val) =>
+                            setState(() => _notifAchievement = val),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      SwitchListTile(
+                        value: _notifTeacher,
+                        activeColor: blueColor,
+                        title: const Text(
+                          'Notificações das Turmas',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        onChanged: (val) => setState(() => _notifTeacher = val),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Encerramento de sessão
+              Center(
+                child: TextButton.icon(
+                  onPressed: widget.onLogout,
+                  icon: const Icon(
+                    Icons.logout_rounded,
+                    color: Colors.redAccent,
+                  ),
+                  label: const Text(
+                    'Sair da Conta',
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.bold,
                     ),
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -694,113 +546,74 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
   InputDecoration _inputDecoration(String hint) {
     return InputDecoration(
       hintText: hint,
+      isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E8EF))),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E8EF))),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF3579E8), width: 2)),
-    );
-  }
-
-  String _parseErrorMessage(Object error, String fallback) {
-    if (error is DioException) {
-      final data = error.response?.data;
-      if (data is Map<String, dynamic>) {
-        final msg = data['message'] ?? data['detail'] ?? data['error'];
-        if (msg != null && msg.toString().trim().isNotEmpty) {
-          return msg.toString().trim();
-        }
-      } else if (data is String && data.trim().isNotEmpty) {
-        return data.trim();
-      }
-    }
-    return fallback;
-  }
-}
-
-class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({
-    required this.icon,
-    required this.title,
-    required this.iconColor,
-    required this.child,
-  });
-
-  final IconData icon;
-  final String title;
-  final Color iconColor;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: Color(0xFFE5E8EF)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFFE5E8EF)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: iconColor, size: 21),
-                const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: iconColor),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            child,
-          ],
-        ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFFE5E8EF)),
       ),
     );
   }
 }
 
-class _SwitchRow extends StatelessWidget {
-  const _SwitchRow({
-    required this.title,
-    required this.subtitle,
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({
+    required this.label,
     required this.value,
-    required this.activeColor,
-    required this.onChanged,
+    required this.icon,
+    this.badge,
   });
 
-  final String title;
-  final String subtitle;
-  final bool value;
-  final Color activeColor;
-  final ValueChanged<bool> onChanged;
+  final String label;
+  final String value;
+  final IconData icon;
+  final String? badge;
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF252A3D))),
-                const SizedBox(height: 2),
-                Text(subtitle, style: const TextStyle(color: Color(0xFF73788B), fontSize: 12)),
-              ],
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFF3579E8)),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 110,
+          child: Text(
+            label,
+            style: const TextStyle(color: Color(0xFF73788B), fontSize: 13),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value.isEmpty ? 'Não informado' : value,
+            style: const TextStyle(
+              color: Color(0xFF252A3D),
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
             ),
           ),
-          Switch(
-            value: value,
-            activeColor: activeColor,
-            onChanged: onChanged,
+        ),
+        if (badge != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F2F6),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              badge!,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF73788B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
-        ],
-      ),
-    );
-  }
+      ],
+    ),
+  );
 }

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:js_interop';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -32,7 +31,10 @@ class LocalImagePickerHelper {
         final name = file.name.toLowerCase();
 
         // 1. Validação de Formato (APENAS JPG/PNG)
-        final isJpg = name.endsWith('.jpg') || name.endsWith('.jpeg') || file.type == 'image/jpeg';
+        final isJpg =
+            name.endsWith('.jpg') ||
+            name.endsWith('.jpeg') ||
+            file.type == 'image/jpeg';
         final isPng = name.endsWith('.png') || file.type == 'image/png';
 
         if (!isJpg && !isPng) {

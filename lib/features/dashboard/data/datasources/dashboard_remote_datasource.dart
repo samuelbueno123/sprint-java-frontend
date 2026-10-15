@@ -121,12 +121,7 @@ class DashboardRemoteDataSource {
   }) async {
     final endpoint = AppConfig.authenticatedUserEndpoint.toString();
 
-    await _dio.put<void>(
-      endpoint,
-      data: {
-        'profilePicture': profilePicture,
-      },
-    );
+    await _dio.put<void>(endpoint, data: {'profilePicture': profilePicture});
   }
 
   Future<void> updateProfileDetails({
@@ -138,7 +133,8 @@ class DashboardRemoteDataSource {
 
     final Map<String, dynamic> body = {};
     if (name != null && name.trim().isNotEmpty) body['name'] = name.trim();
-    if (email != null && email.trim().isNotEmpty) body['email'] = email.trim().toLowerCase();
+    if (email != null && email.trim().isNotEmpty)
+      body['email'] = email.trim().toLowerCase();
 
     await _dio.put<void>(endpoint, data: body);
   }
@@ -152,10 +148,7 @@ class DashboardRemoteDataSource {
 
     await _dio.put<void>(
       endpoint,
-      data: {
-        'currentPassword': currentPassword,
-        'password': password,
-      },
+      data: {'currentPassword': currentPassword, 'password': password},
     );
   }
 
@@ -176,8 +169,10 @@ class DashboardRemoteDataSource {
     if (name.trim().isNotEmpty) body['name'] = name.trim();
     if (email.trim().isNotEmpty) body['email'] = email.trim().toLowerCase();
     if (googleId != null && googleId.isNotEmpty) body['googleId'] = googleId;
-    if (profilePicture != null && profilePicture.isNotEmpty) body['profilePicture'] = profilePicture;
-    if (currentPassword != null && currentPassword.isNotEmpty) body['currentPassword'] = currentPassword;
+    if (profilePicture != null && profilePicture.isNotEmpty)
+      body['profilePicture'] = profilePicture;
+    if (currentPassword != null && currentPassword.isNotEmpty)
+      body['currentPassword'] = currentPassword;
     if (password != null && password.isNotEmpty) body['password'] = password;
 
     await _dio.put<void>(endpoint, data: body);

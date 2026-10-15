@@ -1,6 +1,7 @@
 class TeacherClassAssignment {
   const TeacherClassAssignment({
     required this.id,
+    this.schoolClassId,
     required this.schoolClassName,
     required this.startDate,
     required this.endDate,
@@ -8,6 +9,7 @@ class TeacherClassAssignment {
   });
 
   final int? id;
+  final int? schoolClassId;
   final String schoolClassName;
   final String startDate;
   final String? endDate;

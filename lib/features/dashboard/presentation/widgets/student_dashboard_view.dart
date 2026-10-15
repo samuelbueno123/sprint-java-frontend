@@ -6,6 +6,7 @@ import 'app_user_avatar.dart';
 import 'dashboard_empty_state.dart';
 import 'info_stat_card.dart';
 import 'student_settings_view.dart';
+import 'learning_features.dart';
 
 class StudentDashboardView extends StatelessWidget {
   const StudentDashboardView({
@@ -14,12 +15,14 @@ class StudentDashboardView extends StatelessWidget {
     required this.activeSection,
     this.onSectionSelected,
     this.onLogout,
+    this.onRefresh,
   });
 
   final DashboardData data;
   final String activeSection;
   final ValueChanged<String>? onSectionSelected;
   final VoidCallback? onLogout;
+  final VoidCallback? onRefresh;
 
   static const _blue = Color(0xFF3579E8);
 
@@ -30,6 +33,7 @@ class StudentDashboardView extends StatelessWidget {
         data: data,
         onBackToProfile: () => onSectionSelected?.call('profile'),
         onLogout: onLogout ?? () {},
+        onRefresh: onRefresh,
       );
     }
 
@@ -82,6 +86,22 @@ class StudentDashboardView extends StatelessWidget {
               icon: Icons.translate_rounded,
               title: 'Idiomas em Estudo',
               children: [_languageContent(languages)],
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                onPressed: () async {
+                  final changed = await showDialog<bool>(
+                    context: context,
+                    builder: (_) => StudentLanguageManager(data: data),
+                  );
+                  if (changed == true) onRefresh?.call();
+                },
+                icon: const Icon(Icons.add),
+                label: const Text(
+                  'Adicionar novo idioma / editar proficiência',
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             Container(
@@ -143,7 +163,6 @@ class StudentDashboardView extends StatelessWidget {
           const SizedBox(height: 20),
           LayoutBuilder(
             builder: (context, constraints) {
-              final isWide = constraints.maxWidth > 650;
               return Column(
                 children: [
                   Row(
@@ -214,7 +233,9 @@ class StudentDashboardView extends StatelessWidget {
               _DetailRow(label: 'Email', value: data.user.email),
               _DetailRow(
                 label: 'Matrícula',
-                value: student?.id != null ? '#${student!.id}' : 'Não informada',
+                value: student?.id != null
+                    ? '#${student!.id}'
+                    : 'Não informada',
               ),
             ],
           ),
@@ -226,9 +247,9 @@ class StudentDashboardView extends StatelessWidget {
   Widget _buildStudentProfileView(String name, List<String> languages) {
     final student = data.studentProfile;
     final enrollments = data.studentEnrollments;
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'A';
-    final primaryLanguage =
-        languages.isNotEmpty ? languages.first : 'Idiomas não informados';
+    final primaryLanguage = languages.isNotEmpty
+        ? languages.first
+        : 'Idiomas não informados';
     final activeClass = enrollments.isNotEmpty
         ? enrollments.first.schoolClassName
         : 'Sem turma ativa';
@@ -273,7 +294,10 @@ class StudentDashboardView extends StatelessWidget {
                       children: [
                         IconButton(
                           onPressed: () => onSectionSelected?.call('settings'),
-                          icon: const Icon(Icons.settings_rounded, color: Colors.white),
+                          icon: const Icon(
+                            Icons.settings_rounded,
+                            color: Colors.white,
+                          ),
                           tooltip: 'Configurações',
                         ),
                         Container(
@@ -330,8 +354,9 @@ class StudentDashboardView extends StatelessWidget {
                               child: CircularProgressIndicator(
                                 value: languages.isNotEmpty ? 0.75 : 0.25,
                                 strokeWidth: 5,
-                                backgroundColor:
-                                    Colors.white.withValues(alpha: 0.25),
+                                backgroundColor: Colors.white.withValues(
+                                  alpha: 0.25,
+                                ),
                                 valueColor: const AlwaysStoppedAnimation<Color>(
                                   Color(0xFFFFD000),
                                 ),
@@ -341,7 +366,9 @@ class StudentDashboardView extends StatelessWidget {
                               name: name,
                               pictureUrl: data.user.picture,
                               radius: 42,
-                              backgroundColor: Colors.white.withValues(alpha: 0.25),
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.25,
+                              ),
                               textColor: Colors.white,
                             ),
                             Positioned(
@@ -418,8 +445,9 @@ class StudentDashboardView extends StatelessWidget {
                                   _HeaderBadge(
                                     label: '${languages.length} Idiomas',
                                     icon: Icons.language_rounded,
-                                    backgroundColor:
-                                        Colors.white.withValues(alpha: 0.2),
+                                    backgroundColor: Colors.white.withValues(
+                                      alpha: 0.2,
+                                    ),
                                     textColor: Colors.white,
                                   ),
                                   if (enrollments.isNotEmpty)
@@ -427,8 +455,9 @@ class StudentDashboardView extends StatelessWidget {
                                       label:
                                           'Matrícula ${enrollments.first.status}',
                                       icon: Icons.check_circle_outline_rounded,
-                                      backgroundColor:
-                                          Colors.white.withValues(alpha: 0.2),
+                                      backgroundColor: Colors.white.withValues(
+                                        alpha: 0.2,
+                                      ),
                                       textColor: Colors.white,
                                     ),
                                 ],
@@ -607,10 +636,7 @@ class StudentDashboardView extends StatelessWidget {
                     ? data.user.googleId
                     : 'Conta local',
               ),
-              _DetailRow(
-                label: 'Status da conta',
-                value: 'Ativa & Verificada',
-              ),
+              _DetailRow(label: 'Status da conta', value: 'Ativa & Verificada'),
             ],
           ),
           const SizedBox(height: 16),
@@ -999,4 +1025,3 @@ class _AchievementItem extends StatelessWidget {
     );
   }
 }
-

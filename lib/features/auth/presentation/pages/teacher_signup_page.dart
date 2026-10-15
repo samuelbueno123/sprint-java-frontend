@@ -25,7 +25,8 @@ class _TeacherDocumentItem {
 
   String get formattedSize {
     if (fileSize < 1024) return '$fileSize B';
-    if (fileSize < 1024 * 1024) return '${(fileSize / 1024).toStringAsFixed(1)} KB';
+    if (fileSize < 1024 * 1024)
+      return '${(fileSize / 1024).toStringAsFixed(1)} KB';
     return '${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
@@ -120,20 +121,22 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
           }
 
           setState(() {
-            _attachedDocuments.add(_TeacherDocumentItem(
-              fileName: file.name,
-              contentType: mimeType,
-              fileSize: file.size,
-              fileBytes: file.bytes!,
-            ));
+            _attachedDocuments.add(
+              _TeacherDocumentItem(
+                fileName: file.name,
+                contentType: mimeType,
+                fileSize: file.size,
+                fileBytes: file.bytes!,
+              ),
+            );
           });
         }
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao selecionar arquivo: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao selecionar arquivo: $e')));
     }
   }
 
@@ -326,10 +329,9 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
         .where((lang) => !_selectedLanguages.contains(lang))
         .toList();
 
-    final dropdownValue =
-        availableLanguages.contains(_selectedLanguageDropdown)
-            ? _selectedLanguageDropdown
-            : null;
+    final dropdownValue = availableLanguages.contains(_selectedLanguageDropdown)
+        ? _selectedLanguageDropdown
+        : null;
 
     return Form(
       key: _profileFormKey,
@@ -382,10 +384,7 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
               prefixIcon: Icon(Icons.language_rounded),
             ),
             items: availableLanguages
-                .map((lang) => DropdownMenuItem(
-                      value: lang,
-                      child: Text(lang),
-                    ))
+                .map((lang) => DropdownMenuItem(value: lang, child: Text(lang)))
                 .toList(),
             onChanged: (value) {
               if (value != null) {
@@ -488,44 +487,51 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
             label: const Text('Anexar diploma / currículo'),
           ),
           const SizedBox(height: 10),
-          ..._attachedDocuments.map((doc) => Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                elevation: 0,
-                color: const Color(0xFFF6F8FA),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: const BorderSide(color: Color(0xFFE1E4EC)),
+          ..._attachedDocuments.map(
+            (doc) => Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              elevation: 0,
+              color: const Color(0xFFF6F8FA),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: const BorderSide(color: Color(0xFFE1E4EC)),
+              ),
+              child: ListTile(
+                dense: true,
+                leading: const Icon(
+                  Icons.description_outlined,
+                  color: Color(0xFF7651C8),
                 ),
-                child: ListTile(
-                  dense: true,
-                  leading: const Icon(
-                    Icons.description_outlined,
-                    color: Color(0xFF7651C8),
-                  ),
-                  title: Text(
-                    doc.fileName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      color: Color(0xFF33384A),
-                    ),
-                  ),
-                  subtitle: Text(
-                    doc.formattedSize,
-                    style:
-                        const TextStyle(fontSize: 11, color: Color(0xFF73788B)),
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.close_rounded,
-                        size: 18, color: Colors.grey),
-                    onPressed: () {
-                      setState(() {
-                        _attachedDocuments.remove(doc);
-                      });
-                    },
+                title: Text(
+                  doc.fileName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: Color(0xFF33384A),
                   ),
                 ),
-              )),
+                subtitle: Text(
+                  doc.formattedSize,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF73788B),
+                  ),
+                ),
+                trailing: IconButton(
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: Colors.grey,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _attachedDocuments.remove(doc);
+                    });
+                  },
+                ),
+              ),
+            ),
+          ),
           if (_viewModel.errorMessage != null) ...[
             const SizedBox(height: 16),
             _FormError(message: _viewModel.errorMessage!),
@@ -665,12 +671,7 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
           onSelected: (option) {
             _handleSelectOption(option, (opt) {});
           },
-          fieldViewBuilder: (
-            context,
-            controller,
-            focusNode,
-            onFieldSubmitted,
-          ) {
+          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
             return TextFormField(
               controller: controller,
               focusNode: focusNode,

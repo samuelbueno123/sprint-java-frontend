@@ -11,7 +11,12 @@ class StudentModel {
 
   factory StudentModel.fromJson(Map<String, dynamic> json) {
     final rawLangs = json['languages'] as List<dynamic>? ?? const [];
-    final languages = rawLangs.map((value) => value.toString()).toList();
+    final levels = json['languageLevels'] as Map<String, dynamic>? ?? const {};
+    final languages = rawLangs.map((value) {
+      final name = value.toString();
+      final level = levels[name];
+      return level == null ? name : '$name: $level';
+    }).toList();
 
     return StudentModel(
       id: (json['id'] as num?)?.toInt(),

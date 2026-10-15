@@ -3,6 +3,7 @@ import '../../domain/entities/teacher_class_assignment.dart';
 class TeacherClassAssignmentModel {
   const TeacherClassAssignmentModel({
     required this.id,
+    this.schoolClassId,
     required this.schoolClassName,
     required this.startDate,
     required this.endDate,
@@ -12,6 +13,7 @@ class TeacherClassAssignmentModel {
   factory TeacherClassAssignmentModel.fromJson(Map<String, dynamic> json) =>
       TeacherClassAssignmentModel(
         id: (json['id'] as num?)?.toInt(),
+        schoolClassId: (json['schoolClassId'] as num?)?.toInt(),
         schoolClassName: json['schoolClassName'] as String? ?? '',
         startDate: json['startDate']?.toString() ?? '',
         endDate: json['endDate']?.toString(),
@@ -19,6 +21,7 @@ class TeacherClassAssignmentModel {
       );
 
   final int? id;
+  final int? schoolClassId;
   final String schoolClassName;
   final String startDate;
   final String? endDate;
@@ -26,6 +29,7 @@ class TeacherClassAssignmentModel {
 
   TeacherClassAssignment toEntity() => TeacherClassAssignment(
     id: id,
+    schoolClassId: schoolClassId,
     schoolClassName: schoolClassName,
     startDate: startDate,
     endDate: endDate,
