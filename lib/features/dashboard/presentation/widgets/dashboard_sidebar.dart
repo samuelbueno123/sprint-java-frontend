@@ -22,6 +22,8 @@ class DashboardSidebar extends StatelessWidget {
         return const Color(0xFF3579E8);
       case UserProfileType.teacher:
         return const Color(0xFF7651C8);
+      case UserProfileType.admin:
+        return const Color(0xFFD97706);
       case UserProfileType.user:
         return Colors.blueGrey;
     }
@@ -46,14 +48,37 @@ class DashboardSidebar extends StatelessWidget {
           children: [
             const SizedBox(height: 16),
             _NavItem(
-              icon: Icons.person_outline_rounded,
-              label: 'Início',
+              icon: profileType == UserProfileType.admin
+                  ? Icons.dashboard_customize_rounded
+                  : Icons.person_outline_rounded,
+              label: profileType == UserProfileType.admin
+                  ? 'Painel Geral'
+                  : 'Início',
               isSelected: activeSection == 'profile',
               accentColor: _accentColor,
               isCollapsed: isCollapsed,
               onTap: () => onSectionSelected('profile'),
             ),
-            if (profileType != UserProfileType.user)
+            if (profileType == UserProfileType.admin) ...[
+              _NavItem(
+                icon: Icons.storage_rounded,
+                label: 'Tabelas do Banco',
+                isSelected: activeSection == 'database',
+                accentColor: _accentColor,
+                isCollapsed: isCollapsed,
+                onTap: () => onSectionSelected('database'),
+              ),
+              _NavItem(
+                icon: Icons.admin_panel_settings_rounded,
+                label: 'Usuários & ADMs',
+                isSelected: activeSection == 'users',
+                accentColor: _accentColor,
+                isCollapsed: isCollapsed,
+                onTap: () => onSectionSelected('users'),
+              ),
+            ],
+            if (profileType != UserProfileType.user &&
+                profileType != UserProfileType.admin)
               _NavItem(
                 icon: profileType == UserProfileType.teacher
                     ? Icons.menu_book_rounded

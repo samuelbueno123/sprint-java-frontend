@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/user_profile_type.dart';
+import 'admin_dashboard_view.dart';
 import 'dashboard_sidebar.dart';
 import 'dashboard_top_bar.dart';
 import 'student_dashboard_view.dart';
@@ -82,7 +83,11 @@ class _DashboardShellState extends State<DashboardShell> {
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1200),
+                    constraints: BoxConstraints(
+                      maxWidth: widget.data.profileType == UserProfileType.admin
+                          ? 1440
+                          : 1200,
+                    ),
                     child: _buildMainContent(),
                   ),
                 ),
@@ -140,6 +145,14 @@ class _DashboardShellState extends State<DashboardShell> {
           );
         }
         return TeacherDashboardView(
+          data: widget.data,
+          activeSection: widget.activeSection,
+          onSectionSelected: widget.onSectionSelected,
+          onLogout: widget.onLogout,
+          onRefresh: widget.onRefresh,
+        );
+      case UserProfileType.admin:
+        return AdminDashboardView(
           data: widget.data,
           activeSection: widget.activeSection,
           onSectionSelected: widget.onSectionSelected,

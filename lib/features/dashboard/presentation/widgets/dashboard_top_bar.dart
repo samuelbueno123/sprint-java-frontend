@@ -29,6 +29,8 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
         return const Color(0xFF3579E8);
       case UserProfileType.teacher:
         return const Color(0xFF7651C8);
+      case UserProfileType.admin:
+        return const Color(0xFFD97706);
       case UserProfileType.user:
         return Colors.grey.shade700;
     }
@@ -104,6 +106,8 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
                         ? Icons.school_rounded
                         : data.profileType == UserProfileType.teacher
                         ? Icons.co_present_rounded
+                        : data.profileType == UserProfileType.admin
+                        ? Icons.admin_panel_settings_rounded
                         : Icons.person_rounded,
                     size: 15,
                     color: _roleColor,

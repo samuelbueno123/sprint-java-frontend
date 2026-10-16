@@ -1,6 +1,7 @@
 enum UserProfileType {
   student('STUDENT', 'Aluno(a)'),
   teacher('TEACHER', 'Professor(a)'),
+  admin('ADMIN', 'Administrador(a)'),
   user('USER', 'Usuário');
 
   const UserProfileType(this.apiValue, this.label);
@@ -14,6 +15,8 @@ enum UserProfileType {
         return UserProfileType.student;
       case 'TEACHER':
         return UserProfileType.teacher;
+      case 'ADMIN':
+        return UserProfileType.admin;
       default:
         return UserProfileType.user;
     }

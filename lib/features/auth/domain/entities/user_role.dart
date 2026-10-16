@@ -1,7 +1,8 @@
 enum UserRole {
   user,
   student,
-  teacher;
+  teacher,
+  admin;
 
   static UserRole fromApiValue(String? value) {
     switch (value?.toUpperCase()) {
@@ -9,6 +10,8 @@ enum UserRole {
         return UserRole.student;
       case 'TEACHER':
         return UserRole.teacher;
+      case 'ADMIN':
+        return UserRole.admin;
       default:
         return UserRole.user;
     }
