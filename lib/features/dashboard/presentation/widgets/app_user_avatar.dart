@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/config/app_config.dart';
+
 /// Componente seguro para exibição de avatar de usuário.
 /// Evita erros HTTP 429 / CORS das fotos do Google utilizando a CDN weserv.nl
 /// e exibe a inicial do nome caso a imagem falhe ao carregar.
@@ -25,6 +27,9 @@ class AppUserAvatar extends StatelessWidget {
   String? get _safePictureUrl {
     if (pictureUrl == null || pictureUrl!.trim().isEmpty) return null;
     var url = pictureUrl!.trim();
+    if (url.startsWith('/')) {
+      url = Uri.parse(AppConfig.apiBaseUrl).resolve(url).toString();
+    }
     if (url.contains('googleusercontent.com')) {
       final cleanUrl = url.replaceFirst(RegExp(r'^https?://'), '');
       return 'https://images.weserv.nl/?url=$cleanUrl&w=120&h=120&fit=cover';

@@ -549,6 +549,7 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = _parseErrorMsg(e, 'Erro ao carregar foto local.');
       });
@@ -585,6 +586,7 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = _parseErrorMsg(e, 'Erro ao atualizar foto de perfil.');
       });

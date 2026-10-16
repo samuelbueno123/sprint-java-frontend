@@ -122,11 +122,6 @@ class RegistrationViewModel extends ChangeNotifier {
         documents: documents,
       );
       result = await _authenticate(email, password);
-      if (result.profileType != UserRole.teacher) {
-        throw const RegistrationException(
-          'O perfil foi criado, mas o backend não confirmou o acesso de professor. Entre novamente.',
-        );
-      }
     });
     return result;
   }

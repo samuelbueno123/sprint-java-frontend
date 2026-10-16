@@ -7,7 +7,6 @@ import '../../domain/entities/teacher_profile.dart';
 import '../../domain/entities/user_profile_type.dart';
 import '../../domain/repositories/dashboard_repository.dart';
 import '../datasources/dashboard_remote_datasource.dart';
-import '../models/teacher_model.dart';
 
 class DashboardRepositoryImpl implements DashboardRepository {
   const DashboardRepositoryImpl(this._remoteDataSource);
@@ -20,22 +19,14 @@ class DashboardRepositoryImpl implements DashboardRepository {
 
     StudentProfile? studentProfile;
     TeacherProfile? teacherProfile;
+    var hasTeacherProfile = false;
+    var teacherApprovalPending = false;
     var studentEnrollments = const <StudentEnrollment>[];
     var teacherAssignments = const <TeacherClassAssignment>[];
 
     if (home.profileType == UserProfileType.student) {
-      if (home.user.googleId.isNotEmpty) {
-        final model = await _remoteDataSource.getStudentByGoogleId(
-          home.user.googleId,
-        );
-        studentProfile = model?.toEntity();
-      }
-      if (studentProfile == null && home.user.email.isNotEmpty) {
-        final model = await _remoteDataSource.getStudentByEmail(
-          home.user.email,
-        );
-        studentProfile = model?.toEntity();
-      }
+      final model = await _remoteDataSource.getOwnStudentProfile();
+      studentProfile = model?.toEntity();
       if (studentProfile?.id != null) {
         try {
           studentEnrollments =
@@ -47,15 +38,7 @@ class DashboardRepositoryImpl implements DashboardRepository {
         }
       }
     } else if (home.profileType == UserProfileType.teacher) {
-      TeacherModel? model;
-      if (home.user.googleId.isNotEmpty) {
-        model = await _remoteDataSource.getTeacherByGoogleId(
-          home.user.googleId,
-        );
-      }
-      if (model == null && home.user.email.isNotEmpty) {
-        model = await _remoteDataSource.getTeacherByEmail(home.user.email);
-      }
+      final model = await _remoteDataSource.getOwnTeacherProfile();
       if (model != null) {
         var institutionName = model.institution;
         if (model.institutionId != null) {
@@ -81,6 +64,12 @@ class DashboardRepositoryImpl implements DashboardRepository {
           }
         }
       }
+    } else if (home.profileType == UserProfileType.user) {
+      final teacher = await _remoteDataSource.getOwnTeacherProfile();
+      if (teacher != null) {
+        hasTeacherProfile = true;
+        teacherApprovalPending = !teacher.approved;
+      }
     }
 
     final displayName = studentProfile?.name ?? teacherProfile?.name;
@@ -93,6 +82,8 @@ class DashboardRepositoryImpl implements DashboardRepository {
       profileCompleted: home.profileCompleted,
       studentProfile: studentProfile,
       teacherProfile: teacherProfile,
+      hasTeacherProfile: hasTeacherProfile,
+      teacherApprovalPending: teacherApprovalPending,
       studentEnrollments: studentEnrollments,
       teacherAssignments: teacherAssignments,
     );

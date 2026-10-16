@@ -34,6 +34,10 @@ class UserDashboardView extends StatelessWidget {
       );
     }
 
+    if (data.hasTeacherProfile) {
+      return _buildTeacherApprovalStatus(context);
+    }
+
     if (activeSection == 'profile') {
       return _buildUserProfileView(context);
     }
@@ -115,6 +119,64 @@ class UserDashboardView extends StatelessWidget {
                 ],
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTeacherApprovalStatus(BuildContext context) {
+    final approved = !data.teacherApprovalPending;
+    final color = approved ? const Color(0xFF15803D) : const Color(0xFFD97706);
+    final title = approved ? 'Cadastro aprovado' : 'Cadastro em análise';
+    final message = approved
+        ? 'Seu acesso de professor foi liberado. Atualize o painel para carregar suas permissões.'
+        : 'Recebemos sua solicitação para ser professor. Você poderá acessar as funções de ensino depois da aprovação.';
+
+    return SingleChildScrollView(
+      padding: responsivePagePadding(context),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    approved
+                        ? Icons.verified_user_rounded
+                        : Icons.pending_actions_rounded,
+                    size: 48,
+                    color: color,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 23,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(message, textAlign: TextAlign.center),
+                  const SizedBox(height: 20),
+                  if (approved)
+                    FilledButton.icon(
+                      onPressed: onRefresh,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Atualizar acesso'),
+                    )
+                  else
+                    OutlinedButton.icon(
+                      onPressed: onRefresh,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Atualizar situação'),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -402,41 +464,6 @@ class _PendingProfileCard extends StatelessWidget {
           ],
         ),
       ),
-    ),
-  );
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 7),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 82,
-          child: Text(
-            label,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value.isEmpty ? 'Não informado' : value,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
     ),
   );
 }

@@ -40,6 +40,8 @@ class DashboardData {
     required this.profileCompleted,
     this.studentProfile,
     this.teacherProfile,
+    this.hasTeacherProfile = false,
+    this.teacherApprovalPending = false,
     this.studentEnrollments = const [],
     this.teacherAssignments = const [],
   });
@@ -49,6 +51,8 @@ class DashboardData {
   final bool profileCompleted;
   final StudentProfile? studentProfile;
   final TeacherProfile? teacherProfile;
+  final bool hasTeacherProfile;
+  final bool teacherApprovalPending;
   final List<StudentEnrollment> studentEnrollments;
   final List<TeacherClassAssignment> teacherAssignments;
 }

@@ -19,10 +19,10 @@ class DashboardRemoteDataSource {
     return HomeResponseModel.fromJson(response.data ?? const {});
   }
 
-  Future<StudentModel?> getStudentByGoogleId(String googleId) async {
+  Future<StudentModel?> getOwnStudentProfile() async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
-        AppConfig.studentByGoogleIdEndpoint(googleId).toString(),
+        Uri.parse(AppConfig.apiBaseUrl).resolve('/api/students/me').toString(),
       );
       if (response.data != null) {
         return StudentModel.fromJson(response.data!);
@@ -34,40 +34,10 @@ class DashboardRemoteDataSource {
     return null;
   }
 
-  Future<StudentModel?> getStudentByEmail(String email) async {
+  Future<TeacherModel?> getOwnTeacherProfile() async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
-        AppConfig.studentByEmailEndpoint(email).toString(),
-      );
-      if (response.data != null) {
-        return StudentModel.fromJson(response.data!);
-      }
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) return null;
-      rethrow;
-    }
-    return null;
-  }
-
-  Future<TeacherModel?> getTeacherByGoogleId(String googleId) async {
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        AppConfig.teacherByGoogleIdEndpoint(googleId).toString(),
-      );
-      if (response.data != null) {
-        return TeacherModel.fromJson(response.data!);
-      }
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) return null;
-      rethrow;
-    }
-    return null;
-  }
-
-  Future<TeacherModel?> getTeacherByEmail(String email) async {
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        AppConfig.teacherByEmailEndpoint(email).toString(),
+        Uri.parse(AppConfig.apiBaseUrl).resolve('/api/teachers/me').toString(),
       );
       if (response.data != null) {
         return TeacherModel.fromJson(response.data!);
@@ -133,8 +103,9 @@ class DashboardRemoteDataSource {
 
     final Map<String, dynamic> body = {};
     if (name != null && name.trim().isNotEmpty) body['name'] = name.trim();
-    if (email != null && email.trim().isNotEmpty)
+    if (email != null && email.trim().isNotEmpty) {
       body['email'] = email.trim().toLowerCase();
+    }
 
     await _dio.put<void>(endpoint, data: body);
   }
@@ -169,10 +140,12 @@ class DashboardRemoteDataSource {
     if (name.trim().isNotEmpty) body['name'] = name.trim();
     if (email.trim().isNotEmpty) body['email'] = email.trim().toLowerCase();
     if (googleId != null && googleId.isNotEmpty) body['googleId'] = googleId;
-    if (profilePicture != null && profilePicture.isNotEmpty)
+    if (profilePicture != null && profilePicture.isNotEmpty) {
       body['profilePicture'] = profilePicture;
-    if (currentPassword != null && currentPassword.isNotEmpty)
+    }
+    if (currentPassword != null && currentPassword.isNotEmpty) {
       body['currentPassword'] = currentPassword;
+    }
     if (password != null && password.isNotEmpty) body['password'] = password;
 
     await _dio.put<void>(endpoint, data: body);

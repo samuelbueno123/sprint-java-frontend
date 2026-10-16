@@ -659,11 +659,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 children: [
                   if (tableData != null)
                     FilledButton.icon(
-                      onPressed: () => _showRowEditorDialog(
-                        context,
-                        tableData: tableData,
-                        existingRow: null,
-                      ),
+                      onPressed: tableData.readOnly
+                          ? null
+                          : () => _showRowEditorDialog(
+                              context,
+                              tableData: tableData,
+                              existingRow: null,
+                            ),
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF15803D),
                         foregroundColor: Colors.white,
@@ -682,6 +684,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               ),
             ],
           ),
+          if (tableData?.readOnly == true) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'A tabela de usuários é somente para consulta. Use “Usuários & ADMs” para gerenciar contas.',
+              style: TextStyle(color: Color(0xFF8A4B08), fontSize: 13),
+            ),
+          ],
           const SizedBox(height: 14),
           // Seletor de tabelas
           SizedBox(
@@ -892,11 +901,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         ),
                         const SizedBox(height: 12),
                         FilledButton.icon(
-                          onPressed: () => _showRowEditorDialog(
-                            context,
-                            tableData: tableData,
-                            existingRow: null,
-                          ),
+                          onPressed: tableData.readOnly
+                              ? null
+                              : () => _showRowEditorDialog(
+                                  context,
+                                  tableData: tableData,
+                                  existingRow: null,
+                                ),
                           icon: const Icon(Icons.add_rounded, size: 18),
                           label: const Text('Inserir Primeiro Registro'),
                         ),
@@ -961,11 +972,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           ],
                           rows: tableData.rows.map((row) {
                             return DataRow(
-                              onSelectChanged: (_) => _showRowEditorDialog(
-                                context,
-                                tableData: tableData,
-                                existingRow: row,
-                              ),
+                              onSelectChanged: tableData.readOnly
+                                  ? null
+                                  : (_) => _showRowEditorDialog(
+                                      context,
+                                      tableData: tableData,
+                                      existingRow: row,
+                                    ),
                               cells: [
                                 DataCell(
                                   Row(
@@ -978,11 +991,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                           color: Color(0xFF2563EB),
                                         ),
                                         tooltip: 'Editar linha',
-                                        onPressed: () => _showRowEditorDialog(
-                                          context,
-                                          tableData: tableData,
-                                          existingRow: row,
-                                        ),
+                                        onPressed: tableData.readOnly
+                                            ? null
+                                            : () => _showRowEditorDialog(
+                                                context,
+                                                tableData: tableData,
+                                                existingRow: row,
+                                              ),
                                       ),
                                       IconButton(
                                         icon: const Icon(
@@ -991,11 +1006,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                           color: Color(0xFFB42318),
                                         ),
                                         tooltip: 'Excluir linha',
-                                        onPressed: () => _confirmDeleteRow(
-                                          context,
-                                          tableData: tableData,
-                                          row: row,
-                                        ),
+                                        onPressed: tableData.readOnly
+                                            ? null
+                                            : () => _confirmDeleteRow(
+                                                context,
+                                                tableData: tableData,
+                                                row: row,
+                                              ),
                                       ),
                                     ],
                                   ),
@@ -2205,6 +2222,7 @@ class _DbTableMeta {
     required this.rowCount,
     required this.primaryKeys,
     required this.columns,
+    required this.readOnly,
   });
 
   factory _DbTableMeta.fromJson(Map<String, dynamic> json) {
@@ -2219,6 +2237,7 @@ class _DbTableMeta {
           .whereType<Map<String, dynamic>>()
           .map(_DbColumnMeta.fromJson)
           .toList(),
+      readOnly: json['readOnly'] == true,
     );
   }
 
@@ -2227,6 +2246,7 @@ class _DbTableMeta {
   final int rowCount;
   final List<String> primaryKeys;
   final List<_DbColumnMeta> columns;
+  final bool readOnly;
 }
 
 class _DbTableData {
@@ -2237,6 +2257,7 @@ class _DbTableData {
     required this.primaryKeys,
     required this.columns,
     required this.rows,
+    required this.readOnly,
   });
 
   factory _DbTableData.fromJson(Map<String, dynamic> json) {
@@ -2255,6 +2276,7 @@ class _DbTableData {
           .whereType<Map<String, dynamic>>()
           .map((e) => Map<String, dynamic>.from(e))
           .toList(),
+      readOnly: json['readOnly'] == true,
     );
   }
 
@@ -2264,6 +2286,7 @@ class _DbTableData {
   final List<String> primaryKeys;
   final List<_DbColumnMeta> columns;
   final List<Map<String, dynamic>> rows;
+  final bool readOnly;
 }
 
 class _AdminUserItem {
