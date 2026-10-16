@@ -60,15 +60,20 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       await _identity.signOut();
     } finally {
-      SessionStore.clear();
+      await SessionStore.clear();
     }
   }
 
-  AuthSession _activateSession(BackendAuthSessionModel model) {
-    if (model.accessToken.isEmpty || model.user.id.isEmpty) {
+  Future<AuthSession> _activateSession(BackendAuthSessionModel model) async {
+    if (model.accessToken.isEmpty ||
+        model.refreshToken.isEmpty ||
+        model.user.id.isEmpty) {
       throw const AuthException('O backend retornou uma sessão inválida.');
     }
-    SessionStore.setAccessToken(model.accessToken);
+    await SessionStore.setSession(
+      accessToken: model.accessToken,
+      refreshToken: model.refreshToken,
+    );
     return model.toEntity();
   }
 }

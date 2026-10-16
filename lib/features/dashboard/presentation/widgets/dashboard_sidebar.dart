@@ -61,6 +61,14 @@ class DashboardSidebar extends StatelessWidget {
             ),
             if (profileType == UserProfileType.admin) ...[
               _NavItem(
+                icon: Icons.notifications_none_rounded,
+                label: 'Notificações',
+                isSelected: activeSection == 'notifications',
+                accentColor: _accentColor,
+                isCollapsed: isCollapsed,
+                onTap: () => onSectionSelected('notifications'),
+              ),
+              _NavItem(
                 icon: Icons.storage_rounded,
                 label: 'Tabelas do Banco',
                 isSelected: activeSection == 'database',

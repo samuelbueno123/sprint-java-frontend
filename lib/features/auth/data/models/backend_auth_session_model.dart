@@ -5,6 +5,7 @@ import '../../domain/entities/user_role.dart';
 class BackendAuthSessionModel {
   const BackendAuthSessionModel({
     required this.accessToken,
+    required this.refreshToken,
     required this.user,
     required this.profileType,
   });
@@ -13,6 +14,7 @@ class BackendAuthSessionModel {
     final user = json['user'] as Map<String, dynamic>? ?? const {};
     return BackendAuthSessionModel(
       accessToken: json['token'] as String? ?? '',
+      refreshToken: json['refreshToken'] as String? ?? '',
       user: AuthenticatedUser(
         id: user['id']?.toString() ?? '',
         email: user['email'] as String? ?? '',
@@ -26,11 +28,13 @@ class BackendAuthSessionModel {
   }
 
   final String accessToken;
+  final String refreshToken;
   final AuthenticatedUser user;
   final UserRole profileType;
 
   AuthSession toEntity() => AuthSession(
     accessToken: accessToken,
+    refreshToken: refreshToken,
     user: user,
     profileType: profileType,
   );

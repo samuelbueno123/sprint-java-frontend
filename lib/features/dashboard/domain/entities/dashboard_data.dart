@@ -37,6 +37,7 @@ class DashboardData {
   const DashboardData({
     required this.user,
     required this.profileType,
+    this.availableProfileTypes = const [],
     required this.profileCompleted,
     this.studentProfile,
     this.teacherProfile,
@@ -48,6 +49,7 @@ class DashboardData {
 
   final DashboardUser user;
   final UserProfileType profileType;
+  final List<UserProfileType> availableProfileTypes;
   final bool profileCompleted;
   final StudentProfile? studentProfile;
   final TeacherProfile? teacherProfile;
@@ -55,4 +57,17 @@ class DashboardData {
   final bool teacherApprovalPending;
   final List<StudentEnrollment> studentEnrollments;
   final List<TeacherClassAssignment> teacherAssignments;
+
+  DashboardData copyWith({UserProfileType? profileType}) => DashboardData(
+    user: user,
+    profileType: profileType ?? this.profileType,
+    availableProfileTypes: availableProfileTypes,
+    profileCompleted: profileCompleted,
+    studentProfile: studentProfile,
+    teacherProfile: teacherProfile,
+    hasTeacherProfile: hasTeacherProfile,
+    teacherApprovalPending: teacherApprovalPending,
+    studentEnrollments: studentEnrollments,
+    teacherAssignments: teacherAssignments,
+  );
 }

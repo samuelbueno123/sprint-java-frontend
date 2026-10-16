@@ -226,8 +226,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                     .toList(),
                 onChanged:
                     _viewModel.isCatalogLoading ||
-                        _viewModel.catalogErrorMessage != null ||
-                        _viewModel.proficiencyLevels.isEmpty
+                        _viewModel.catalogErrorMessage != null
                     ? null
                     : (value) {
                         if (value == null) return;
@@ -315,7 +314,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                         ),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
-                          value: item.level,
+                          initialValue: item.level,
                           decoration: const InputDecoration(
                             labelText: 'Nível de proficiência',
                             contentPadding: EdgeInsets.symmetric(

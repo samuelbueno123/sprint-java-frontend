@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'core/theme/app_theme_controller.dart';
 import 'features/auth/presentation/pages/login_page.dart';
+import 'features/dashboard/presentation/pages/dashboard_page.dart';
+import 'core/network/session_store.dart';
 
 class App extends StatelessWidget {
   const App({super.key});
@@ -70,7 +72,7 @@ class App extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginPage(),
+      home: SessionStore.hasSession ? const DashboardPage() : const LoginPage(),
     ),
   );
 }

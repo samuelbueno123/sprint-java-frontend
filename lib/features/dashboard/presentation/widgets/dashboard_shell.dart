@@ -18,6 +18,7 @@ class DashboardShell extends StatefulWidget {
     required this.onSectionSelected,
     required this.onLogout,
     required this.onRefresh,
+    required this.onProfileTypeSelected,
   });
 
   final DashboardData data;
@@ -25,6 +26,7 @@ class DashboardShell extends StatefulWidget {
   final ValueChanged<String> onSectionSelected;
   final VoidCallback onLogout;
   final VoidCallback onRefresh;
+  final ValueChanged<UserProfileType> onProfileTypeSelected;
 
   @override
   State<DashboardShell> createState() => _DashboardShellState();
@@ -38,7 +40,6 @@ class _DashboardShellState extends State<DashboardShell> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isDesktop = constraints.maxWidth >= 1200;
         final hasNavigationRail = constraints.maxWidth >= 768;
 
         return Scaffold(
@@ -48,7 +49,16 @@ class _DashboardShellState extends State<DashboardShell> {
             data: widget.data,
             onLogout: widget.onLogout,
             onOpenSettings: () => widget.onSectionSelected('settings'),
-            isDesktop: isDesktop,
+            onProfileTypeChanged: widget.onProfileTypeSelected,
+            onOpenNotifications:
+                widget.data.availableProfileTypes.contains(
+                  UserProfileType.admin,
+                )
+                ? () {
+                    widget.onProfileTypeSelected(UserProfileType.admin);
+                    widget.onSectionSelected('notifications');
+                  }
+                : null,
             onMenuPressed: () {
               if (hasNavigationRail) {
                 setState(() => _isSidebarExpanded = !_isSidebarExpanded);
@@ -102,11 +112,12 @@ class _DashboardShellState extends State<DashboardShell> {
   Widget _buildMainContent() {
     switch (widget.data.profileType) {
       case UserProfileType.student:
-        if (widget.activeSection == 'classes')
+        if (widget.activeSection == 'classes') {
           return StudentClassesView(
             data: widget.data,
             onRefresh: widget.onRefresh,
           );
+        }
         if (const {
           'lesson',
           'history',
@@ -127,11 +138,12 @@ class _DashboardShellState extends State<DashboardShell> {
           onRefresh: widget.onRefresh,
         );
       case UserProfileType.teacher:
-        if (widget.activeSection == 'classes')
+        if (widget.activeSection == 'classes') {
           return TeacherClassManagementView(
             data: widget.data,
             onRefresh: widget.onRefresh,
           );
+        }
         if (const {
           'manageExercises',
           'createExercise',

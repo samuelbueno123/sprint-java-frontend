@@ -26,8 +26,9 @@ class _TeacherDocumentItem {
 
   String get formattedSize {
     if (fileSize < 1024) return '$fileSize B';
-    if (fileSize < 1024 * 1024)
+    if (fileSize < 1024 * 1024) {
       return '${(fileSize / 1024).toStringAsFixed(1)} KB';
+    }
     return '${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
@@ -349,6 +350,8 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
           _InstitutionSearchField(
             viewModel: _viewModel,
             selectedInstitution: _selectedInstitution,
+            requesterName: _nameController.text,
+            requesterEmail: _emailController.text,
             onSelected: (institution) {
               setState(() => _selectedInstitution = institution);
             },
@@ -582,11 +585,15 @@ class _InstitutionSearchField extends StatefulWidget {
   const _InstitutionSearchField({
     required this.viewModel,
     required this.selectedInstitution,
+    required this.requesterName,
+    required this.requesterEmail,
     required this.onSelected,
   });
 
   final RegistrationViewModel viewModel;
   final InstitutionModel? selectedInstitution;
+  final String requesterName;
+  final String requesterEmail;
   final ValueChanged<InstitutionModel?> onSelected;
 
   @override
@@ -599,7 +606,10 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
   late final FocusNode _focusNode;
   List<InstitutionModel> _searchResults = [];
   bool _isSearching = false;
-  bool _isCreating = false;
+  bool _isSubmittingRequest = false;
+  String? _searchError;
+  Timer? _searchDebounce;
+  int _searchRequestId = 0;
 
   @override
   void initState() {
@@ -614,51 +624,194 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
   Future<void> _performSearch() async {
     final query = _controller.text.trim();
-    if (query.isEmpty) return;
-
-    setState(() => _isSearching = true);
-    final results = await widget.viewModel.searchInstitutions(query);
-    final list = List<InstitutionModel>.from(results);
-
-    if (!list.any((item) => item.name.toLowerCase() == query.toLowerCase())) {
-      list.add(
-        InstitutionModel(
-          id: -1,
-          name: query,
-          code: 'NOVA',
-          city: 'Nova instituição',
-        ),
-      );
+    final requestId = ++_searchRequestId;
+    if (query.isEmpty) {
+      if (mounted) setState(() => _searchResults = []);
+      return;
     }
 
-    setState(() {
-      _searchResults = list;
-      _isSearching = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isSearching = true;
+        _searchError = null;
+      });
+    }
+    try {
+      final results = await widget.viewModel.searchInstitutions(query);
+      if (!mounted || requestId != _searchRequestId) return;
+      final list = List<InstitutionModel>.from(results);
+
+      if (!list.any((item) => item.name.toLowerCase() == query.toLowerCase())) {
+        list.add(
+          InstitutionModel(
+            id: -1,
+            name: query,
+            code: 'REQUEST',
+            city: 'Solicitar cadastro',
+          ),
+        );
+      }
+
+      setState(() {
+        _searchResults = list;
+        _isSearching = false;
+      });
+    } catch (error) {
+      if (!mounted || requestId != _searchRequestId) return;
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+        _searchError = registrationErrorMessage(error);
+      });
+    }
   }
 
-  Future<void> _handleSelectOption(
-    InstitutionModel option,
-    ValueChanged<InstitutionModel> onSelectedOption,
-  ) async {
+  void _scheduleSearch(String _) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), _performSearch);
+  }
+
+  Future<void> _handleSelectOption(InstitutionModel option) async {
     if (option.id == -1) {
-      setState(() => _isCreating = true);
-      final created = await widget.viewModel.createInstitution(option.name);
-      setState(() => _isCreating = false);
-      if (created != null) {
-        _controller.text = created.name;
-        widget.onSelected(created);
-        setState(() => _searchResults = []);
-      }
-    } else {
-      _controller.text = option.name;
-      widget.onSelected(option);
+      await _submitInstitutionRequest(option.name);
+      return;
+    }
+
+    _controller.text = option.name;
+    widget.onSelected(option);
+    setState(() => _searchResults = []);
+  }
+
+  Future<void> _submitInstitutionRequest(String requestedName) async {
+    setState(() => _isSubmittingRequest = true);
+    final nameController = TextEditingController(text: requestedName);
+    final cityController = TextEditingController();
+    final stateController = TextEditingController();
+    final messageController = TextEditingController();
+    String? errorMessage;
+    var isSubmitting = false;
+
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Solicitar instituição'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  maxLength: 150,
+                  decoration: const InputDecoration(
+                    labelText: 'Nome da instituição',
+                  ),
+                ),
+                TextField(
+                  controller: cityController,
+                  maxLength: 100,
+                  decoration: const InputDecoration(labelText: 'Cidade'),
+                ),
+                TextField(
+                  controller: stateController,
+                  maxLength: 2,
+                  decoration: const InputDecoration(labelText: 'Estado (UF)'),
+                ),
+                TextField(
+                  controller: messageController,
+                  maxLines: 3,
+                  maxLength: 500,
+                  decoration: const InputDecoration(
+                    labelText: 'Observação (opcional)',
+                  ),
+                ),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      errorMessage!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final cleanName = nameController.text.trim();
+                      if (cleanName.isEmpty) {
+                        setDialogState(
+                          () => errorMessage = 'Informe o nome da instituição.',
+                        );
+                        return;
+                      }
+                      setDialogState(() {
+                        isSubmitting = true;
+                        errorMessage = null;
+                      });
+                      try {
+                        await widget.viewModel.requestInstitution(
+                          requestedName: cleanName,
+                          requesterName: widget.requesterName,
+                          requesterEmail: widget.requesterEmail,
+                          city: cityController.text,
+                          state: stateController.text,
+                          message: messageController.text,
+                        );
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop(true);
+                        }
+                      } catch (error) {
+                        setDialogState(() {
+                          isSubmitting = false;
+                          errorMessage = registrationErrorMessage(error);
+                        });
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Enviar solicitação'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (mounted) setState(() => _isSubmittingRequest = false);
+    nameController.dispose();
+    cityController.dispose();
+    stateController.dispose();
+    messageController.dispose();
+    if (submitted == true && mounted) {
       setState(() => _searchResults = []);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Solicitação enviada para análise do administrador.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -674,21 +827,23 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
             return _searchResults;
           },
           onSelected: (option) {
-            _handleSelectOption(option, (opt) {});
+            _handleSelectOption(option);
           },
           fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
             return TextFormField(
               controller: controller,
               focusNode: focusNode,
               textInputAction: TextInputAction.search,
+              onChanged: _scheduleSearch,
               onFieldSubmitted: (_) => _performSearch(),
               decoration: InputDecoration(
                 labelText: 'Nome da instituição',
-                hintText: 'Digite o nome e pressione Enter…',
+                hintText: 'Digite para pesquisar instituições...',
+                errorText: _searchError,
                 helperText: widget.selectedInstitution != null
                     ? 'Instituição selecionada: ${widget.selectedInstitution!.name}'
-                    : 'Pressione Enter ou a lupa para buscar a instituição.',
-                prefixIcon: _isSearching || _isCreating
+                    : 'Instituição ausente? Solicite o cadastro para análise.',
+                prefixIcon: _isSearching || _isSubmittingRequest
                     ? const SizedBox.square(
                         dimension: 20,
                         child: Center(
@@ -719,7 +874,7 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
               ),
               validator: (value) {
                 if (widget.selectedInstitution == null) {
-                  return 'Pressione Enter para pesquisar e selecione a instituição.';
+                  return 'Selecione uma instituição já cadastrada.';
                 }
                 return null;
               },
@@ -745,7 +900,7 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     shrinkWrap: true,
                     itemCount: options.length,
-                    separatorBuilder: (_, __) =>
+                    separatorBuilder: (_, _) =>
                         const Divider(height: 1, color: Color(0xFFF0F2F6)),
                     itemBuilder: (context, index) {
                       final option = options.elementAt(index);
@@ -760,16 +915,13 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
                             size: 20,
                           ),
                           title: Text(
-                            'Cadastrar "${option.name}" como nova instituição',
+                            'Solicitar cadastro de "${option.name}"',
                             style: const TextStyle(
                               fontWeight: FontWeight.w700,
                               color: Color(0xFF7651C8),
                             ),
                           ),
-                          onTap: () {
-                            onSelectedOption(option);
-                            _handleSelectOption(option, onSelectedOption);
-                          },
+                          onTap: () => _handleSelectOption(option),
                         );
                       }
 

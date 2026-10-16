@@ -24,7 +24,7 @@ class DashboardRepositoryImpl implements DashboardRepository {
     var studentEnrollments = const <StudentEnrollment>[];
     var teacherAssignments = const <TeacherClassAssignment>[];
 
-    if (home.profileType == UserProfileType.student) {
+    if (home.availableProfileTypes.contains(UserProfileType.student)) {
       final model = await _remoteDataSource.getOwnStudentProfile();
       studentProfile = model?.toEntity();
       if (studentProfile?.id != null) {
@@ -37,7 +37,8 @@ class DashboardRepositoryImpl implements DashboardRepository {
           // The student's core profile remains available if enrollment data fails.
         }
       }
-    } else if (home.profileType == UserProfileType.teacher) {
+    }
+    if (home.availableProfileTypes.contains(UserProfileType.teacher)) {
       final model = await _remoteDataSource.getOwnTeacherProfile();
       if (model != null) {
         var institutionName = model.institution;
@@ -64,7 +65,8 @@ class DashboardRepositoryImpl implements DashboardRepository {
           }
         }
       }
-    } else if (home.profileType == UserProfileType.user) {
+    }
+    if (home.profileType == UserProfileType.user && teacherProfile == null) {
       final teacher = await _remoteDataSource.getOwnTeacherProfile();
       if (teacher != null) {
         hasTeacherProfile = true;
@@ -79,6 +81,7 @@ class DashboardRepositoryImpl implements DashboardRepository {
           ? home.user
           : home.user.copyWith(name: displayName),
       profileType: home.profileType,
+      availableProfileTypes: home.availableProfileTypes,
       profileCompleted: home.profileCompleted,
       studentProfile: studentProfile,
       teacherProfile: teacherProfile,
@@ -96,6 +99,6 @@ class DashboardRepositoryImpl implements DashboardRepository {
     } catch (_) {
       // Ignora erro do endpoint de logout para garantir que o cliente conclua o signout
     }
-    SessionStore.clear();
+    await SessionStore.clear();
   }
 }

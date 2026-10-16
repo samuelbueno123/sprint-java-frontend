@@ -10,15 +10,17 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
     required this.data,
     required this.onLogout,
     this.onOpenSettings,
+    this.onProfileTypeChanged,
+    this.onOpenNotifications,
     this.onMenuPressed,
-    this.isDesktop = true,
   });
 
   final DashboardData data;
   final VoidCallback onLogout;
   final VoidCallback? onOpenSettings;
+  final ValueChanged<UserProfileType>? onProfileTypeChanged;
+  final VoidCallback? onOpenNotifications;
   final VoidCallback? onMenuPressed;
-  final bool isDesktop;
 
   @override
   Size get preferredSize => const Size.fromHeight(64);
@@ -50,6 +52,66 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final avatarUrl = data.user.picture;
     final isCompact = MediaQuery.sizeOf(context).width < 380;
+
+    Widget roleIndicator = Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 7 : 10,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: _roleColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_roleIcon(data.profileType), size: 15, color: _roleColor),
+          if (!isCompact) ...[
+            const SizedBox(width: 4),
+            Text(
+              data.profileType.label,
+              style: TextStyle(
+                color: _roleColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ],
+          if (data.availableProfileTypes.length > 1) ...[
+            const SizedBox(width: 2),
+            Icon(Icons.arrow_drop_down_rounded, size: 18, color: _roleColor),
+          ],
+        ],
+      ),
+    );
+    if (data.availableProfileTypes.length > 1 && onProfileTypeChanged != null) {
+      roleIndicator = PopupMenuButton<UserProfileType>(
+        tooltip: 'Trocar painel',
+        onSelected: onProfileTypeChanged,
+        itemBuilder: (context) => data.availableProfileTypes.map((role) {
+          return PopupMenuItem(
+            value: role,
+            child: Row(
+              children: [
+                Icon(_roleIcon(role), size: 18),
+                const SizedBox(width: 10),
+                Text('Painel ${role.label.toLowerCase()}'),
+                if (role == data.profileType) ...[
+                  const Spacer(),
+                  const Icon(Icons.check_rounded, size: 18),
+                ],
+              ],
+            ),
+          );
+        }).toList(),
+        child: roleIndicator,
+      );
+    } else {
+      roleIndicator = Tooltip(
+        message: data.profileType.label,
+        child: roleIndicator,
+      );
+    }
 
     return Container(
       height: preferredSize.height,
@@ -87,48 +149,16 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
             ),
           ),
           const Spacer(), // Empurra TODO o bloco de perfil e conta para o canto direito!
-          Tooltip(
-            message: data.profileType.label,
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: isCompact ? 7 : 10,
-                vertical: 5,
-              ),
-              decoration: BoxDecoration(
-                color: _roleColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    data.profileType == UserProfileType.student
-                        ? Icons.school_rounded
-                        : data.profileType == UserProfileType.teacher
-                        ? Icons.co_present_rounded
-                        : data.profileType == UserProfileType.admin
-                        ? Icons.admin_panel_settings_rounded
-                        : Icons.person_rounded,
-                    size: 15,
-                    color: _roleColor,
-                  ),
-                  if (!isCompact) ...[
-                    const SizedBox(width: 4),
-                    Text(
-                      data.profileType.label,
-                      style: TextStyle(
-                        color: _roleColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+          if (onOpenNotifications != null)
+            IconButton(
+              tooltip: 'Notificações administrativas',
+              onPressed: onOpenNotifications,
+              icon: const Icon(Icons.notifications_none_rounded),
             ),
-          ),
+          roleIndicator,
           SizedBox(width: isCompact ? 6 : 12),
           PopupMenuButton<String>(
+            tooltip: 'Abrir menu do perfil',
             onSelected: (value) {
               if (value == 'settings') {
                 onOpenSettings?.call();
@@ -140,29 +170,7 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildAvatar(avatarUrl),
-                if (isDesktop) ...[
-                  const SizedBox(width: 8),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 120),
-                    child: Text(
-                      data.user.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  ),
-                  const SizedBox(width: 2),
-                  const Icon(Icons.arrow_drop_down_rounded, size: 18),
-                ],
-              ],
-            ),
+            child: _buildAvatar(avatarUrl),
             itemBuilder: (context) => [
               PopupMenuItem(
                 enabled: false,
@@ -222,5 +230,18 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
         ],
       ),
     );
+  }
+
+  IconData _roleIcon(UserProfileType role) {
+    switch (role) {
+      case UserProfileType.student:
+        return Icons.school_rounded;
+      case UserProfileType.teacher:
+        return Icons.co_present_rounded;
+      case UserProfileType.admin:
+        return Icons.admin_panel_settings_rounded;
+      case UserProfileType.user:
+        return Icons.person_rounded;
+    }
   }
 }

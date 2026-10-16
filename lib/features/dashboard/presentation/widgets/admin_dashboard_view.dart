@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
@@ -42,20 +44,45 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   String? _tableDataError;
   _DbTableData? _currentTableData;
   final TextEditingController _tableSearchController = TextEditingController();
+  final ScrollController _tableTabsController = ScrollController();
+  final ScrollController _tableVerticalController = ScrollController();
+  final ScrollController _tableHorizontalController = ScrollController();
+  Timer? _tableSearchDebounce;
+  int _tableSearchRequestId = 0;
 
   final TextEditingController _userSearchController = TextEditingController();
   String _userFilter = 'ALL';
+  bool _isLoadingNotifications = false;
+  String? _notificationError;
+  List<_AdminNotification> _notifications = [];
+  List<_InstitutionRequest> _institutionRequests = [];
 
   @override
   void initState() {
     super.initState();
     _loadAdminOverview();
+    if (widget.activeSection == 'notifications') {
+      _loadNotifications();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminDashboardView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.activeSection != 'notifications' &&
+        widget.activeSection == 'notifications') {
+      _loadNotifications();
+    }
   }
 
   @override
   void dispose() {
     _tableSearchController.dispose();
     _userSearchController.dispose();
+    _tableSearchDebounce?.cancel();
+    _tableTabsController.dispose();
+    _tableVerticalController.dispose();
+    _tableHorizontalController.dispose();
     super.dispose();
   }
 
@@ -152,6 +179,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   }
 
   Future<void> _loadTableRows(String tableName, {String? search}) async {
+    _tableSearchDebounce?.cancel();
+    _tableSearchDebounce = null;
+    final requestId = ++_tableSearchRequestId;
     setState(() {
       _selectedTableName = tableName;
       _isLoadingTableData = true;
@@ -170,12 +200,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       );
 
       final parsed = _DbTableData.fromJson(response.data ?? const {});
-      if (!mounted) return;
+      if (!mounted || requestId != _tableSearchRequestId) return;
       setState(() {
         _currentTableData = parsed;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || requestId != _tableSearchRequestId) return;
       setState(() {
         _tableDataError = _extractErrorMessage(
           e,
@@ -183,12 +213,29 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         );
       });
     } finally {
-      if (mounted) {
+      if (mounted && requestId == _tableSearchRequestId) {
         setState(() {
           _isLoadingTableData = false;
         });
       }
     }
+  }
+
+  void _scheduleTableSearch(String value) {
+    _tableSearchDebounce?.cancel();
+    if (mounted) setState(() {});
+    final tableName = _selectedTableName;
+    if (tableName == null) return;
+    _tableSearchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (mounted && tableName == _selectedTableName) {
+        _loadTableRows(tableName, search: value);
+      }
+    });
+  }
+
+  void _openUsersWithFilter(String filter) {
+    setState(() => _userFilter = filter);
+    widget.onSectionSelected('users');
   }
 
   void _openTableInEditor(String tableName) {
@@ -211,10 +258,266 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         return _buildDatabaseEditorSection(context);
       case 'users':
         return _buildUsersAdminSection(context);
+      case 'notifications':
+        return _buildNotificationsSection(context);
       case 'profile':
       default:
         return _buildOverviewSection(context);
     }
+  }
+
+  Future<void> _loadNotifications() async {
+    setState(() {
+      _isLoadingNotifications = true;
+      _notificationError = null;
+    });
+    try {
+      final responses = await Future.wait([
+        _dio.get<List<dynamic>>(
+          _adminUri('/api/admin/notifications').toString(),
+        ),
+        _dio.get<List<dynamic>>(
+          _adminUri('/api/admin/institution-requests', {
+            'status': 'PENDING',
+          }).toString(),
+        ),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _notifications = (responses[0].data ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(_AdminNotification.fromJson)
+            .toList();
+        _institutionRequests = (responses[1].data ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(_InstitutionRequest.fromJson)
+            .toList();
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _notificationError = _extractErrorMessage(
+          error,
+          'Não foi possível carregar as notificações.',
+        );
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingNotifications = false);
+      }
+    }
+  }
+
+  Future<void> _decideInstitutionRequest(
+    _InstitutionRequest request, {
+    required bool approve,
+  }) async {
+    String? institutionName;
+    if (approve) {
+      institutionName = await _askInstitutionName(request.requestedName);
+      if (institutionName == null || !mounted) return;
+    }
+
+    try {
+      await _dio.patch<void>(
+        _adminUri('/api/admin/institution-requests/${request.id}').toString(),
+        data: {
+          'decision': approve ? 'APPROVE' : 'REJECT',
+          if (approve) 'institutionName': institutionName,
+        },
+      );
+      _showSnack(approve ? 'Instituição criada.' : 'Solicitação recusada.');
+      await _loadNotifications();
+      await _loadAdminOverview();
+    } catch (error) {
+      _showSnack(
+        _extractErrorMessage(error, 'Não foi possível processar o pedido.'),
+        isError: true,
+      );
+    }
+  }
+
+  Future<String?> _askInstitutionName(String initialName) async {
+    final controller = TextEditingController(text: initialName);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Aprovar instituição'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 150,
+          decoration: const InputDecoration(labelText: 'Nome da instituição'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Criar instituição'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (result != null && result.trim().isEmpty) {
+      _showSnack('Informe o nome da instituição.', isError: true);
+      return null;
+    }
+    return result;
+  }
+
+  _InstitutionRequest? _requestForNotification(
+    _AdminNotification notification,
+  ) {
+    for (final request in _institutionRequests) {
+      if (request.id == notification.referenceId) return request;
+    }
+    return null;
+  }
+
+  Future<void> _markNotificationRead(_AdminNotification notification) async {
+    if (notification.isRead) return;
+    try {
+      await _dio.patch<void>(
+        _adminUri(
+          '/api/admin/notifications/${notification.id}/read',
+        ).toString(),
+      );
+      await _loadNotifications();
+    } catch (error) {
+      _showSnack(
+        _extractErrorMessage(
+          error,
+          'Não foi possível atualizar a notificação.',
+        ),
+        isError: true,
+      );
+    }
+  }
+
+  Widget _buildNotificationsSection(BuildContext context) {
+    final pendingCount = _institutionRequests.length;
+    return SingleChildScrollView(
+      padding: responsivePagePadding(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.notifications_active_outlined),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Notificações${pendingCount > 0 ? ' ($pendingCount pendentes)' : ''}',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Atualizar notificações',
+                onPressed: _loadNotifications,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_notificationError != null)
+            _buildErrorBanner(_notificationError!, onRetry: _loadNotifications),
+          if (_isLoadingNotifications) const LinearProgressIndicator(),
+          if (!_isLoadingNotifications && _notifications.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: Center(child: Text('Nenhuma notificação por enquanto.')),
+            ),
+          ..._notifications.map((notification) {
+            final request = _requestForNotification(notification);
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          notification.isRead
+                              ? Icons.notifications_none_rounded
+                              : Icons.notifications_active_rounded,
+                          color: notification.isRead
+                              ? Colors.grey
+                              : const Color(0xFFD97706),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            notification.title,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        Text(
+                          notification.createdAt,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(notification.message),
+                    if (request == null && !notification.isRead)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => _markNotificationRead(notification),
+                          child: const Text('Marcar como lida'),
+                        ),
+                      ),
+                    if (request != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Solicitante: ${request.requesterName} • ${request.requesterEmail}',
+                      ),
+                      if (request.city.isNotEmpty || request.state.isNotEmpty)
+                        Text(
+                          'Local: ${[request.city, request.state].where((v) => v.isNotEmpty).join(' - ')}',
+                        ),
+                      if (request.message.isNotEmpty)
+                        Text('Detalhes: ${request.message}'),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () => _decideInstitutionRequest(
+                              request,
+                              approve: false,
+                            ),
+                            icon: const Icon(Icons.close_rounded),
+                            label: const Text('Recusar'),
+                          ),
+                          FilledButton.icon(
+                            onPressed: () => _decideInstitutionRequest(
+                              request,
+                              approve: true,
+                            ),
+                            icon: const Icon(Icons.check_rounded),
+                            label: const Text('Aprovar e criar'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
   }
 
   // ===========================================================================
@@ -234,7 +537,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             padding: responsiveBannerPadding(context),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFFB45309), Color(0xFFD97706), Color(0xFFF59E0B)],
+                colors: [
+                  Color(0xFFB45309),
+                  Color(0xFFD97706),
+                  Color(0xFFF59E0B),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -346,7 +653,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     IconButton(
                       onPressed: () => _loadAdminOverview(),
                       tooltip: 'Atualizar indicadores',
-                      icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                      icon: const Icon(
+                        Icons.refresh_rounded,
+                        color: Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -380,6 +690,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       subtitle: 'Schema public ativo',
                       icon: Icons.table_view_rounded,
                       accentColor: const Color(0xFFD97706),
+                      onTap: () => widget.onSectionSelected('database'),
                     ),
                   ),
                   SizedBox(
@@ -390,6 +701,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       subtitle: 'Soma de todas as tabelas',
                       icon: Icons.dataset_rounded,
                       accentColor: const Color(0xFF2563EB),
+                      onTap: () => widget.onSectionSelected('database'),
                     ),
                   ),
                   SizedBox(
@@ -400,6 +712,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       subtitle: 'Contas na tabela users',
                       icon: Icons.people_alt_rounded,
                       accentColor: const Color(0xFF7C3AED),
+                      onTap: () => _openUsersWithFilter('ALL'),
                     ),
                   ),
                   SizedBox(
@@ -410,6 +723,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       subtitle: 'Contas com permissão ADM',
                       icon: Icons.shield_rounded,
                       accentColor: const Color(0xFF059669),
+                      onTap: () => _openUsersWithFilter('ADMIN'),
                     ),
                   ),
                 ],
@@ -694,57 +1008,65 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           const SizedBox(height: 14),
           // Seletor de tabelas
           SizedBox(
-            height: 42,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _tables.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final t = _tables[index];
-                final isSelected = t.tableName == _selectedTableName;
-                return ChoiceChip(
-                  selected: isSelected,
-                  selectedColor: const Color(0xFFD97706).withValues(alpha: 0.18),
-                  label: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        t.tableName,
-                        style: TextStyle(
-                          fontWeight: isSelected
-                              ? FontWeight.w800
-                              : FontWeight.w600,
-                          color: isSelected
-                              ? const Color(0xFFB45309)
-                              : Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? const Color(0xFFD97706)
-                              : Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${t.rowCount}',
+            height: 48,
+            child: Scrollbar(
+              controller: _tableTabsController,
+              thumbVisibility: true,
+              trackVisibility: true,
+              child: ListView.separated(
+                controller: _tableTabsController,
+                scrollDirection: Axis.horizontal,
+                itemCount: _tables.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final t = _tables[index];
+                  final isSelected = t.tableName == _selectedTableName;
+                  return ChoiceChip(
+                    selected: isSelected,
+                    selectedColor: const Color(
+                      0xFFD97706,
+                    ).withValues(alpha: 0.18),
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          t.tableName,
                           style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected ? Colors.white : Colors.black87,
+                            fontWeight: isSelected
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                            color: isSelected
+                                ? const Color(0xFFB45309)
+                                : Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  onSelected: (_) => _loadTableRows(t.tableName),
-                );
-              },
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFFD97706)
+                                : Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${t.rowCount}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isSelected ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    onSelected: (_) => _loadTableRows(t.tableName),
+                  );
+                },
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -754,24 +1076,19 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               Expanded(
                 child: TextField(
                   controller: _tableSearchController,
-                  onSubmitted: (val) {
-                    if (_selectedTableName != null) {
-                      _loadTableRows(_selectedTableName!, search: val);
-                    }
-                  },
+                  onChanged: _scheduleTableSearch,
                   decoration: InputDecoration(
                     hintText: _selectedTableName == null
                         ? 'Buscar registros...'
-                        : 'Filtrar registros em "$_selectedTableName" (pressione Enter para buscar)...',
+                        : 'Filtrar registros em "$_selectedTableName"...',
                     prefixIcon: const Icon(Icons.search_rounded),
                     suffixIcon: _tableSearchController.text.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear_rounded),
                             onPressed: () {
                               _tableSearchController.clear();
-                              if (_selectedTableName != null) {
-                                _loadTableRows(_selectedTableName!, search: '');
-                              }
+                              _scheduleTableSearch('');
+                              setState(() {});
                             },
                           )
                         : null,
@@ -834,7 +1151,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+            color: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
             child: Wrap(
               spacing: 12,
               runSpacing: 8,
@@ -915,122 +1234,133 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     ),
                   )
                 : Scrollbar(
+                    controller: _tableVerticalController,
                     thumbVisibility: true,
                     child: SingleChildScrollView(
+                      controller: _tableVerticalController,
                       scrollDirection: Axis.vertical,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                          headingRowHeight: 54,
-                          dataRowMinHeight: 46,
-                          dataRowMaxHeight: 60,
-                          showCheckboxColumn: false,
-                          columns: [
-                            const DataColumn(
-                              label: Text(
-                                'Ações',
-                                style: TextStyle(fontWeight: FontWeight.w800),
-                              ),
-                            ),
-                            ...tableData.columns.map((col) {
-                              return DataColumn(
-                                label: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (col.isPrimaryKey) ...[
-                                          const Icon(
-                                            Icons.key_rounded,
-                                            size: 14,
-                                            color: Color(0xFFD97706),
-                                          ),
-                                          const SizedBox(width: 4),
-                                        ],
-                                        Text(
-                                          col.name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    Text(
-                                      '${col.udtName}${col.nullable ? "" : " *"}',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ],
+                      child: Scrollbar(
+                        controller: _tableHorizontalController,
+                        thumbVisibility: true,
+                        trackVisibility: true,
+                        notificationPredicate: (notification) =>
+                            notification.metrics.axis == Axis.horizontal,
+                        child: SingleChildScrollView(
+                          controller: _tableHorizontalController,
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            headingRowHeight: 54,
+                            dataRowMinHeight: 46,
+                            dataRowMaxHeight: 60,
+                            showCheckboxColumn: false,
+                            columns: [
+                              const DataColumn(
+                                label: Text(
+                                  'Ações',
+                                  style: TextStyle(fontWeight: FontWeight.w800),
                                 ),
-                              );
-                            }),
-                          ],
-                          rows: tableData.rows.map((row) {
-                            return DataRow(
-                              onSelectChanged: tableData.readOnly
-                                  ? null
-                                  : (_) => _showRowEditorDialog(
-                                      context,
-                                      tableData: tableData,
-                                      existingRow: row,
-                                    ),
-                              cells: [
-                                DataCell(
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
+                              ),
+                              ...tableData.columns.map((col) {
+                                return DataColumn(
+                                  label: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.edit_rounded,
-                                          size: 18,
-                                          color: Color(0xFF2563EB),
-                                        ),
-                                        tooltip: 'Editar linha',
-                                        onPressed: tableData.readOnly
-                                            ? null
-                                            : () => _showRowEditorDialog(
-                                                context,
-                                                tableData: tableData,
-                                                existingRow: row,
-                                              ),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (col.isPrimaryKey) ...[
+                                            const Icon(
+                                              Icons.key_rounded,
+                                              size: 14,
+                                              color: Color(0xFFD97706),
+                                            ),
+                                            const SizedBox(width: 4),
+                                          ],
+                                          Text(
+                                            col.name,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.delete_outline_rounded,
-                                          size: 18,
-                                          color: Color(0xFFB42318),
+                                      Text(
+                                        '${col.udtName}${col.nullable ? "" : " *"}',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.grey.shade600,
                                         ),
-                                        tooltip: 'Excluir linha',
-                                        onPressed: tableData.readOnly
-                                            ? null
-                                            : () => _confirmDeleteRow(
-                                                context,
-                                                tableData: tableData,
-                                                row: row,
-                                              ),
                                       ),
                                     ],
                                   ),
-                                ),
-                                ...tableData.columns.map((col) {
-                                  final val = row[col.name];
-                                  return DataCell(
-                                    ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        maxWidth: 260,
+                                );
+                              }),
+                            ],
+                            rows: tableData.rows.map((row) {
+                              return DataRow(
+                                onSelectChanged: tableData.readOnly
+                                    ? null
+                                    : (_) => _showRowEditorDialog(
+                                        context,
+                                        tableData: tableData,
+                                        existingRow: row,
                                       ),
-                                      child: _buildCellPreview(val),
+                                cells: [
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.edit_rounded,
+                                            size: 18,
+                                            color: Color(0xFF2563EB),
+                                          ),
+                                          tooltip: 'Editar linha',
+                                          onPressed: tableData.readOnly
+                                              ? null
+                                              : () => _showRowEditorDialog(
+                                                  context,
+                                                  tableData: tableData,
+                                                  existingRow: row,
+                                                ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.delete_outline_rounded,
+                                            size: 18,
+                                            color: Color(0xFFB42318),
+                                          ),
+                                          tooltip: 'Excluir linha',
+                                          onPressed: tableData.readOnly
+                                              ? null
+                                              : () => _confirmDeleteRow(
+                                                  context,
+                                                  tableData: tableData,
+                                                  row: row,
+                                                ),
+                                        ),
+                                      ],
                                     ),
-                                  );
-                                }),
-                              ],
-                            );
-                          }).toList(),
+                                  ),
+                                  ...tableData.columns.map((col) {
+                                    final val = row[col.name];
+                                    return DataCell(
+                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 260,
+                                        ),
+                                        child: _buildCellPreview(val),
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              );
+                            }).toList(),
+                          ),
                         ),
                       ),
                     ),
@@ -1135,8 +1465,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         controllers[col.name] = TextEditingController(
           text: initialVal == null ? '' : initialVal.toString(),
         );
-        nullFlags[col.name] =
-            isEditing && initialVal == null && col.nullable;
+        nullFlags[col.name] = isEditing && initialVal == null && col.nullable;
       }
     }
 
@@ -1844,9 +2173,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   ).withValues(alpha: 0.18),
                   checkmarkColor: const Color(0xFFB45309),
                   avatar: Icon(
-                    user.isAdmin
-                        ? Icons.shield_rounded
-                        : Icons.shield_outlined,
+                    user.isAdmin ? Icons.shield_rounded : Icons.shield_outlined,
                     size: 16,
                     color: user.isAdmin
                         ? const Color(0xFFB45309)
@@ -2322,4 +2649,68 @@ class _AdminUserItem {
   final bool isAdmin;
   final String baseProfileType;
   final String effectiveRole;
+}
+
+class _AdminNotification {
+  const _AdminNotification({
+    required this.id,
+    required this.title,
+    required this.message,
+    required this.isRead,
+    required this.referenceType,
+    required this.referenceId,
+    required this.createdAt,
+  });
+
+  factory _AdminNotification.fromJson(Map<String, dynamic> json) {
+    return _AdminNotification(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      title: json['title']?.toString() ?? '',
+      message: json['message']?.toString() ?? '',
+      isRead: json['read'] == true,
+      referenceType: json['referenceType']?.toString() ?? '',
+      referenceId: (json['referenceId'] as num?)?.toInt(),
+      createdAt: json['createdAt']?.toString() ?? '',
+    );
+  }
+
+  final int id;
+  final String title;
+  final String message;
+  final bool isRead;
+  final String referenceType;
+  final int? referenceId;
+  final String createdAt;
+}
+
+class _InstitutionRequest {
+  const _InstitutionRequest({
+    required this.id,
+    required this.requestedName,
+    required this.requesterName,
+    required this.requesterEmail,
+    required this.city,
+    required this.state,
+    required this.message,
+  });
+
+  factory _InstitutionRequest.fromJson(Map<String, dynamic> json) {
+    return _InstitutionRequest(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      requestedName: json['requestedName']?.toString() ?? '',
+      requesterName: json['requesterName']?.toString() ?? '',
+      requesterEmail: json['requesterEmail']?.toString() ?? '',
+      city: json['city']?.toString() ?? '',
+      state: json['state']?.toString() ?? '',
+      message: json['message']?.toString() ?? '',
+    );
+  }
+
+  final int id;
+  final String requestedName;
+  final String requesterName;
+  final String requesterEmail;
+  final String city;
+  final String state;
+  final String message;
 }

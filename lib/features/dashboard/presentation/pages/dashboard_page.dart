@@ -88,7 +88,11 @@ class _DashboardPageState extends State<DashboardPage> {
 
         if (state is DashboardSuccess) {
           return DashboardShell(
-            data: state.data,
+            data: state.data.copyWith(
+              profileType:
+                  _viewModel.activeProfileType ?? state.data.profileType,
+            ),
+            onProfileTypeSelected: _viewModel.setActiveProfileType,
             activeSection: _viewModel.activeSection,
             onSectionSelected: _viewModel.setActiveSection,
             onLogout: _handleLogout,

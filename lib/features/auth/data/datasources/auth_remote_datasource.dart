@@ -62,19 +62,27 @@ class AuthRemoteDataSource {
         .toList();
   }
 
-  Future<InstitutionModel> createInstitution(String name) async {
-    final cleanName = name.trim();
-    final slug = cleanName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-    final response = await _dio.post<Map<String, dynamic>>(
-      AppConfig.institutionsEndpoint.toString(),
+  Future<void> requestInstitution({
+    required String requestedName,
+    required String requesterName,
+    required String requesterEmail,
+    String? city,
+    String? state,
+    String? message,
+  }) async {
+    await _dio.post<void>(
+      Uri.parse(
+        AppConfig.apiBaseUrl,
+      ).resolve('/api/institutions/requests').toString(),
       data: {
-        'name': cleanName,
-        'code': 'INST-${DateTime.now().millisecondsSinceEpoch}',
-        'email': 'contato@${slug.isEmpty ? "instituicao" : slug}.edu.br',
-        'active': true,
+        'requestedName': requestedName.trim(),
+        'requesterName': requesterName.trim(),
+        'requesterEmail': requesterEmail.trim().toLowerCase(),
+        'city': city?.trim(),
+        'state': state?.trim(),
+        'message': message?.trim(),
       },
     );
-    return InstitutionModel.fromJson(response.data ?? const {});
   }
 
   Future<void> createStudent({

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../domain/entities/user_profile_type.dart';
 import '../../domain/usecases/get_home_data.dart';
 import '../../domain/usecases/logout.dart';
 import 'dashboard_state.dart';
@@ -15,9 +16,11 @@ class DashboardViewModel extends ChangeNotifier {
 
   DashboardState _state = const DashboardInitial();
   String _activeSection = 'profile';
+  UserProfileType? _activeProfileType;
 
   DashboardState get state => _state;
   String get activeSection => _activeSection;
+  UserProfileType? get activeProfileType => _activeProfileType;
 
   void setActiveSection(String section) {
     if (_activeSection != section) {
@@ -26,12 +29,28 @@ class DashboardViewModel extends ChangeNotifier {
     }
   }
 
+  void setActiveProfileType(UserProfileType profileType) {
+    final currentState = _state;
+    if (currentState is! DashboardSuccess ||
+        !currentState.data.availableProfileTypes.contains(profileType)) {
+      return;
+    }
+    if (_activeProfileType == profileType) return;
+    _activeProfileType = profileType;
+    _activeSection = 'profile';
+    notifyListeners();
+  }
+
   Future<void> loadDashboardData() async {
     _state = const DashboardLoading();
     notifyListeners();
 
     try {
       final data = await getHomeData();
+      if (_activeProfileType != null &&
+          !data.availableProfileTypes.contains(_activeProfileType)) {
+        _activeProfileType = null;
+      }
       _state = DashboardSuccess(data);
     } on DioException catch (e) {
       final status = e.response?.statusCode;

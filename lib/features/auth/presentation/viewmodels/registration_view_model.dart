@@ -41,9 +41,9 @@ class RegistrationViewModel extends ChangeNotifier {
         _remote.fetchProficiencyLevels(),
       ]);
       _availableLanguages = values[0];
-      _proficiencyLevels = values[1];
-      if (_availableLanguages.isEmpty || _proficiencyLevels.isEmpty) {
-        _catalogErrorMessage = 'O catálogo de idiomas ou níveis está vazio.';
+      _proficiencyLevels = values[1].isEmpty ? const ['Iniciante'] : values[1];
+      if (_availableLanguages.isEmpty) {
+        _catalogErrorMessage = 'O catálogo de idiomas está vazio.';
       }
     } catch (error) {
       _catalogErrorMessage = registrationErrorMessage(error);
@@ -54,21 +54,27 @@ class RegistrationViewModel extends ChangeNotifier {
   }
 
   Future<List<InstitutionModel>> searchInstitutions([String? query]) async {
-    try {
-      if (!AppConfig.hasValidApiBaseUrl) return const [];
-      return await _remote.fetchInstitutions(query);
-    } catch (_) {
-      return const [];
-    }
+    _requireApiConfiguration();
+    return _remote.fetchInstitutions(query);
   }
 
-  Future<InstitutionModel?> createInstitution(String name) async {
-    try {
-      if (!AppConfig.hasValidApiBaseUrl || name.trim().isEmpty) return null;
-      return await _remote.createInstitution(name);
-    } catch (_) {
-      return null;
-    }
+  Future<void> requestInstitution({
+    required String requestedName,
+    required String requesterName,
+    required String requesterEmail,
+    String? city,
+    String? state,
+    String? message,
+  }) async {
+    _requireApiConfiguration();
+    await _remote.requestInstitution(
+      requestedName: requestedName,
+      requesterName: requesterName,
+      requesterEmail: requesterEmail,
+      city: city,
+      state: state,
+      message: message,
+    );
   }
 
   Future<AuthSession> registerStudent({
@@ -132,12 +138,17 @@ class RegistrationViewModel extends ChangeNotifier {
       email: email.trim(),
       password: password,
     );
-    if (model.accessToken.isEmpty || model.user.id.isEmpty) {
+    if (model.accessToken.isEmpty ||
+        model.refreshToken.isEmpty ||
+        model.user.id.isEmpty) {
       throw const RegistrationException(
         'O backend retornou uma sessão inválida.',
       );
     }
-    SessionStore.setAccessToken(model.accessToken);
+    await SessionStore.setSession(
+      accessToken: model.accessToken,
+      refreshToken: model.refreshToken,
+    );
     return model.toEntity();
   }
 

@@ -6,6 +6,7 @@ class HomeResponseModel {
     required this.success,
     required this.user,
     required this.profileType,
+    required this.availableProfileTypes,
     required this.profileCompleted,
   });
 
@@ -25,6 +26,11 @@ class HomeResponseModel {
             userJson['picture'] as String?,
       ),
       profileType: UserProfileType.fromString(role),
+      availableProfileTypes: (json['roles'] as List<dynamic>? ?? [role])
+          .whereType<String>()
+          .map(UserProfileType.fromString)
+          .toSet()
+          .toList(),
       profileCompleted:
           json['profileCompleted'] == true ||
           (role != null && role.toUpperCase() != 'USER'),
@@ -34,5 +40,6 @@ class HomeResponseModel {
   final bool success;
   final DashboardUser user;
   final UserProfileType profileType;
+  final List<UserProfileType> availableProfileTypes;
   final bool profileCompleted;
 }
