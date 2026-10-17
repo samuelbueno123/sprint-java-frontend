@@ -74,6 +74,13 @@ class DashboardRepositoryImpl implements DashboardRepository {
       }
     }
 
+    var unreadNotificationsCount = 0;
+    if (home.availableProfileTypes.contains(UserProfileType.admin) ||
+        home.user.isAdmin) {
+      unreadNotificationsCount =
+          await _remoteDataSource.getUnreadNotificationsCount();
+    }
+
     final displayName = studentProfile?.name ?? teacherProfile?.name;
 
     return DashboardData(
@@ -89,6 +96,7 @@ class DashboardRepositoryImpl implements DashboardRepository {
       teacherApprovalPending: teacherApprovalPending,
       studentEnrollments: studentEnrollments,
       teacherAssignments: teacherAssignments,
+      unreadNotificationsCount: unreadNotificationsCount,
     );
   }
 

@@ -12,6 +12,9 @@ class TeacherModel {
     required this.specializationAreas,
     this.bibliography,
     this.approved = true,
+    this.gender,
+    this.institutionAdmin = false,
+    this.primaryInstitutionAdmin = false,
   });
 
   factory TeacherModel.fromJson(Map<String, dynamic> json) {
@@ -36,6 +39,9 @@ class TeacherModel {
       specializationAreas: specs,
       bibliography: json['bibliography'] as String?,
       approved: json['approved'] == true,
+      gender: json['gender'] as String?,
+      institutionAdmin: json['institutionAdmin'] == true,
+      primaryInstitutionAdmin: json['primaryInstitutionAdmin'] == true,
     );
   }
 
@@ -49,6 +55,9 @@ class TeacherModel {
   final List<String> specializationAreas;
   final String? bibliography;
   final bool approved;
+  final String? gender;
+  final bool institutionAdmin;
+  final bool primaryInstitutionAdmin;
 
   TeacherProfile toEntity({String? institutionName}) => TeacherProfile(
     id: id,
@@ -60,5 +69,8 @@ class TeacherModel {
     taughtLanguages: taughtLanguages,
     specializationAreas: specializationAreas,
     bibliography: bibliography,
+    gender: gender,
+    institutionAdmin: institutionAdmin,
+    primaryInstitutionAdmin: primaryInstitutionAdmin,
   );
 }

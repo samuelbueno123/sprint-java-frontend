@@ -91,6 +91,8 @@ class AuthRemoteDataSource {
     required String password,
     required String googleId,
     required List<dynamic> languages,
+    String gender = 'MASCULINO',
+    int? institutionId,
   }) async {
     await _dio.post<Map<String, dynamic>>(
       AppConfig.studentsEndpoint.toString(),
@@ -100,6 +102,8 @@ class AuthRemoteDataSource {
         'password': password,
         'googleId': googleId.isEmpty ? null : googleId,
         'languages': languages,
+        'gender': gender,
+        if (institutionId != null) 'institutionId': institutionId,
       },
     );
   }
@@ -113,6 +117,7 @@ class AuthRemoteDataSource {
     required List<String> taughtLanguages,
     required List<String> specializationAreas,
     required String bibliography,
+    String gender = 'MASCULINO',
     List<dynamic>? documents,
   }) async {
     await _dio.post<Map<String, dynamic>>(
@@ -126,6 +131,7 @@ class AuthRemoteDataSource {
         'taughtLanguages': taughtLanguages,
         'specializationAreas': specializationAreas,
         'bibliography': bibliography.trim(),
+        'gender': gender,
         'documents': documents,
       },
     );

@@ -8,6 +8,9 @@ class StudentModel {
     required this.email,
     required this.languages,
     this.languageScores = const {},
+    this.gender,
+    this.institutionId,
+    this.institutionName,
   });
 
   factory StudentModel.fromJson(Map<String, dynamic> json) {
@@ -31,6 +34,9 @@ class StudentModel {
       email: json['email'] as String? ?? '',
       languages: languages,
       languageScores: scores,
+      gender: json['gender'] as String?,
+      institutionId: (json['institutionId'] as num?)?.toInt(),
+      institutionName: json['institutionName'] as String?,
     );
   }
 
@@ -40,6 +46,9 @@ class StudentModel {
   final String email;
   final List<String> languages;
   final Map<String, int> languageScores;
+  final String? gender;
+  final int? institutionId;
+  final String? institutionName;
 
   StudentProfile toEntity() => StudentProfile(
     id: id,
@@ -48,5 +57,8 @@ class StudentModel {
     email: email,
     languages: languages,
     languageScores: languageScores,
+    gender: gender,
+    institutionId: institutionId,
+    institutionName: institutionName,
   );
 }

@@ -70,8 +70,8 @@ class UserDashboardView extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      'Bem-vindo, ${data.user.name.split(' ').first}!',
-                      style: TextStyle(
+                      '${data.welcomePrefix}, ${data.user.name.split(' ').first}!',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 25,
                         fontWeight: FontWeight.w800,
@@ -79,8 +79,11 @@ class UserDashboardView extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Sua conta foi autenticada com sucesso! Para começar a usar a plataforma, escolha se você deseja continuar como Estudante ou Professor.',
-                      style: TextStyle(color: Color(0xEFFFFFFF), height: 1.45),
+                      'Sua conta foi autenticada com sucesso! Para começar a usar a plataforma, escolha se você deseja continuar como ${data.isFemale ? 'Aluna ou Professora' : 'Aluno ou Professor'}.',
+                      style: const TextStyle(
+                        color: Color(0xEFFFFFFF),
+                        height: 1.45,
+                      ),
                     ),
                   ],
                 ),
@@ -99,7 +102,7 @@ class UserDashboardView extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _PendingProfileCard(
-                      title: 'Sou Estudante',
+                      title: data.isFemale ? 'Sou Aluna' : 'Sou Estudante',
                       description: 'Cadastre seus idiomas e acesse cursos.',
                       icon: Icons.school_rounded,
                       color: const Color(0xFF3579E8),
@@ -109,7 +112,7 @@ class UserDashboardView extends StatelessWidget {
                   const SizedBox(width: 14),
                   Expanded(
                     child: _PendingProfileCard(
-                      title: 'Sou Professor',
+                      title: data.isFemale ? 'Sou Professora' : 'Sou Professor',
                       description: 'Vincule sua instituição e turmas.',
                       icon: Icons.co_present_rounded,
                       color: const Color(0xFF7651C8),
@@ -128,10 +131,11 @@ class UserDashboardView extends StatelessWidget {
   Widget _buildTeacherApprovalStatus(BuildContext context) {
     final approved = !data.teacherApprovalPending;
     final color = approved ? const Color(0xFF15803D) : const Color(0xFFD97706);
+    final roleWord = data.isFemale ? 'professora' : 'professor';
     final title = approved ? 'Cadastro aprovado' : 'Cadastro em análise';
     final message = approved
-        ? 'Seu acesso de professor foi liberado. Atualize o painel para carregar suas permissões.'
-        : 'Recebemos sua solicitação para ser professor. Você poderá acessar as funções de ensino depois da aprovação.';
+        ? 'Seu acesso de $roleWord foi liberado. Atualize o painel para carregar suas permissões.'
+        : 'Recebemos sua solicitação para ser $roleWord. Você poderá acessar as funções de ensino depois da aprovação.';
 
     return SingleChildScrollView(
       padding: responsivePagePadding(context),
@@ -207,6 +211,7 @@ class UserDashboardView extends StatelessWidget {
 
   Widget _buildUserProfileView(BuildContext context) {
     final isMobile = isCompactLayout(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(
       padding: responsivePagePadding(context),
@@ -269,7 +274,7 @@ class UserDashboardView extends StatelessWidget {
                               textAlign: isMobile
                                   ? TextAlign.center
                                   : TextAlign.start,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -282,7 +287,7 @@ class UserDashboardView extends StatelessWidget {
                                   ? TextAlign.center
                                   : TextAlign.start,
                               softWrap: true,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Color(0xEFFFFFFF),
                                 fontSize: 14,
                               ),
@@ -297,7 +302,7 @@ class UserDashboardView extends StatelessWidget {
                                 color: Colors.white.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Text(
+                              child: const Text(
                                 'Pendente de Perfil',
                                 style: TextStyle(
                                   color: Colors.white,
@@ -329,30 +334,39 @@ class UserDashboardView extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
               // Conclusão de Perfil
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEAF2FF),
+                  color: isDark
+                      ? const Color(0xFF1E293B)
+                      : const Color(0xFFEAF2FF),
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFD4E3FC)),
+                  border: Border.all(
+                    color: isDark
+                        ? const Color(0xFF334155)
+                        : const Color(0xFFD4E3FC),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.assignment_ind_rounded,
                           color: Color(0xFF3579E8),
                           size: 28,
                         ),
-                        SizedBox(width: 14),
+                        const SizedBox(width: 14),
                         Text(
                           'Complete seu cadastro',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF245FB8),
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF245FB8),
                             fontSize: 16,
                           ),
                         ),
@@ -379,7 +393,7 @@ class UserDashboardView extends StatelessWidget {
                             foregroundColor: Colors.white,
                           ),
                           icon: const Icon(Icons.school_rounded, size: 18),
-                          label: Text('Estudante'),
+                          label: Text(data.isFemale ? 'Aluna' : 'Estudante'),
                         ),
                         ElevatedButton.icon(
                           onPressed: () => _openTeacherSignup(context),
@@ -388,7 +402,9 @@ class UserDashboardView extends StatelessWidget {
                             foregroundColor: Colors.white,
                           ),
                           icon: const Icon(Icons.co_present_rounded, size: 18),
-                          label: Text('Professor'),
+                          label: Text(
+                            data.isFemale ? 'Professora' : 'Professor',
+                          ),
                         ),
                       ],
                     ),
@@ -419,51 +435,54 @@ class _PendingProfileCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: color.withValues(alpha: .06),
-    borderRadius: BorderRadius.circular(16),
-    child: InkWell(
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: color.withValues(alpha: isDark ? .14 : .06),
       borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: .22)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: .14),
-                borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: .3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: .2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 22),
               ),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: TextStyle(
-                color: color,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: TextStyle(
+                  color: isDark ? Colors.white : color,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              description,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 12,
-                height: 1.35,
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                  height: 1.35,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

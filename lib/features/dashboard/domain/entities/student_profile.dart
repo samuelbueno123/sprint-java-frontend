@@ -6,6 +6,9 @@ class StudentProfile {
     required this.email,
     required this.languages,
     this.languageScores = const {},
+    this.gender,
+    this.institutionId,
+    this.institutionName,
   });
 
   final int? id;
@@ -14,4 +17,11 @@ class StudentProfile {
   final String email;
   final List<String> languages;
   final Map<String, int> languageScores;
+  final String? gender;
+  final int? institutionId;
+  final String? institutionName;
+
+  bool get isFemale =>
+      gender?.trim().toUpperCase() == 'FEMININO' ||
+      gender?.trim().toUpperCase() == 'F';
 }

@@ -47,21 +47,21 @@ class DashboardErrorState extends StatelessWidget {
                     style: TextStyle(color: Colors.grey.shade700),
                   ),
                   const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 12,
+                    runSpacing: 12,
                     children: [
                       ElevatedButton.icon(
                         onPressed: onRetry,
                         icon: const Icon(Icons.refresh_rounded),
                         label: const Text('Tentar Novamente'),
                       ),
-                      if (onBackToLogin != null) ...[
-                        const SizedBox(width: 12),
+                      if (onBackToLogin != null)
                         OutlinedButton(
                           onPressed: onBackToLogin,
                           child: const Text('Ir para Login'),
                         ),
-                      ],
                     ],
                   ),
                 ],

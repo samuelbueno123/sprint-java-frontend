@@ -151,6 +151,19 @@ class DashboardRemoteDataSource {
     await _dio.put<void>(endpoint, data: body);
   }
 
+  Future<int> getUnreadNotificationsCount() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        Uri.parse(
+          AppConfig.apiBaseUrl,
+        ).resolve('/api/admin/notifications/unread-count').toString(),
+      );
+      return (response.data?['unreadCount'] as num?)?.toInt() ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   Future<void> logout() async {
     await _dio.post<Map<String, dynamic>>(AppConfig.logoutEndpoint.toString());
   }

@@ -22,11 +22,14 @@ class InfoStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
+        side: BorderSide(
+          color: isDark ? const Color(0xFF343B49) : Colors.grey.shade200,
+        ),
       ),
       color: Theme.of(context).colorScheme.surface,
       child: InkWell(
@@ -39,7 +42,7 @@ class InfoStatCard extends StatelessWidget {
               Container(
                 padding: EdgeInsets.all(isCompactLayout(context) ? 10 : 12),
                 decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.12),
+                  color: accentColor.withValues(alpha: isDark ? 0.22 : 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -59,16 +62,16 @@ class InfoStatCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade600,
+                        color: isDark ? Colors.white70 : Colors.grey.shade600,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       value,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
-                        color: Colors.black87,
+                        color: isDark ? Colors.white : Colors.black87,
                       ),
                     ),
                     if (subtitle != null) ...[
@@ -77,13 +80,21 @@ class InfoStatCard extends StatelessWidget {
                         subtitle!,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade500,
+                          color: isDark
+                              ? const Color(0xFFCBD5E1)
+                              : Colors.grey.shade500,
                         ),
                       ),
                     ],
                   ],
                 ),
               ),
+              if (onTap != null)
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: isDark ? Colors.white54 : Colors.grey.shade400,
+                ),
             ],
           ),
         ),

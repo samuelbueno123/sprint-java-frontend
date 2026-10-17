@@ -16,12 +16,27 @@ class RegistrationViewModel extends ChangeNotifier {
 
   final AuthRemoteDataSource _remote;
 
+  static const List<String> _defaultLanguages = [
+    'Alemão',
+    'Espanhol',
+    'Francês',
+    'Inglês',
+    'Italiano',
+    'Japonês',
+  ];
+
+  static const List<String> _defaultProficiencyLevels = [
+    'Básico',
+    'Intermediário',
+    'Avançado',
+  ];
+
   bool _isLoading = false;
   bool _isCatalogLoading = false;
   String? _errorMessage;
   String? _catalogErrorMessage;
-  List<String> _availableLanguages = const [];
-  List<String> _proficiencyLevels = const [];
+  List<String> _availableLanguages = _defaultLanguages;
+  final List<String> _proficiencyLevels = _defaultProficiencyLevels;
 
   bool get isLoading => _isLoading;
   bool get isCatalogLoading => _isCatalogLoading;
@@ -36,17 +51,10 @@ class RegistrationViewModel extends ChangeNotifier {
     _catalogErrorMessage = null;
     notifyListeners();
     try {
-      final values = await Future.wait([
-        _remote.fetchLanguages(),
-        _remote.fetchProficiencyLevels(),
-      ]);
-      _availableLanguages = values[0];
-      _proficiencyLevels = values[1].isEmpty ? const ['Iniciante'] : values[1];
-      if (_availableLanguages.isEmpty) {
-        _catalogErrorMessage = 'O catálogo de idiomas está vazio.';
-      }
-    } catch (error) {
-      _catalogErrorMessage = registrationErrorMessage(error);
+      final langs = await _remote.fetchLanguages();
+      _availableLanguages = langs.isEmpty ? _defaultLanguages : langs;
+    } catch (_) {
+      _availableLanguages = _defaultLanguages;
     } finally {
       _isCatalogLoading = false;
       notifyListeners();
@@ -82,6 +90,8 @@ class RegistrationViewModel extends ChangeNotifier {
     required String email,
     required String password,
     required List<dynamic> languages,
+    String gender = 'MASCULINO',
+    int? institutionId,
   }) async {
     late AuthSession result;
     await _run(() async {
@@ -92,6 +102,8 @@ class RegistrationViewModel extends ChangeNotifier {
         password: password,
         googleId: '',
         languages: languages,
+        gender: gender,
+        institutionId: institutionId,
       );
       result = await _authenticate(email, password);
       if (result.profileType != UserRole.student) {
@@ -111,6 +123,7 @@ class RegistrationViewModel extends ChangeNotifier {
     required List<String> taughtLanguages,
     required List<String> specializationAreas,
     required String bibliography,
+    String gender = 'MASCULINO',
     List<dynamic>? documents,
   }) async {
     late AuthSession result;
@@ -125,6 +138,7 @@ class RegistrationViewModel extends ChangeNotifier {
         taughtLanguages: taughtLanguages,
         specializationAreas: specializationAreas,
         bibliography: bibliography,
+        gender: gender,
         documents: documents,
       );
       result = await _authenticate(email, password);

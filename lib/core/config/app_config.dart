@@ -37,10 +37,9 @@ class AppConfig {
   }
 
   static String get apiBaseUrl {
-    if (_apiBaseUrlOverride.isNotEmpty) return _apiBaseUrlOverride;
     if (_environmentValue != 'development') return '';
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:8080';
+      return 'http://192.168.15.80:8080';
     }
     return 'http://localhost:8080';
   }

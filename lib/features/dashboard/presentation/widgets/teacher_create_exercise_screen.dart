@@ -74,14 +74,22 @@ class _TeacherCreateExerciseScreenState
       .toList();
   List<String> get _languages => _teacher?.taughtLanguages ?? const [];
 
+  List<String> get _effectiveLevels {
+    if (widget.proficiencyLevels.isNotEmpty) {
+      return widget.proficiencyLevels;
+    }
+    return const ['Fácil', 'Médio', 'Difícil'];
+  }
+
   @override
   void initState() {
     super.initState();
     final assignments = _activeAssignments;
     if (assignments.isNotEmpty) _classId = assignments.first.schoolClassId;
     if (_languages.isNotEmpty) _language = _languages.first;
-    if (widget.proficiencyLevels.isNotEmpty) {
-      _level = widget.proficiencyLevels.first;
+    final levels = _effectiveLevels;
+    if (levels.isNotEmpty) {
+      _level = levels.contains(_level) ? _level : levels.first;
     }
   }
 
@@ -562,19 +570,36 @@ class _TeacherCreateExerciseScreenState
                   SizedBox(
                     width: width,
                     child: DropdownButtonFormField<String>(
-                      initialValue: widget.proficiencyLevels.contains(_level)
+                      initialValue: _effectiveLevels.contains(_level)
                           ? _level
                           : null,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Nível de dificuldade',
+                        prefixIcon: Icon(Icons.signal_cellular_alt_rounded),
                       ),
-                      hint: const Text('Selecione o nível'),
-                      items: widget.proficiencyLevels
+                      hint: const Text('Selecione a dificuldade'),
+                      items: _effectiveLevels
                           .map(
                             (value) => DropdownMenuItem(
                               value: value,
-                              child: Text(value),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.circle,
+                                    size: 10,
+                                    color: value == 'Fácil'
+                                        ? const Color(0xFF2EB872)
+                                        : value == 'Médio'
+                                            ? const Color(0xFFE5902D)
+                                            : value == 'Difícil'
+                                                ? const Color(0xFFE53935)
+                                                : const Color(0xFF5869D8),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(value),
+                                ],
+                              ),
                             ),
                           )
                           .toList(),

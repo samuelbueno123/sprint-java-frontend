@@ -45,6 +45,9 @@ class TeacherDashboardView extends StatelessWidget {
       return _teacherProfileUnavailable(context);
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isFemale = data.isFemale;
+
     if (activeSection == 'languages') {
       return _page(
         context: context,
@@ -115,7 +118,7 @@ class TeacherDashboardView extends StatelessWidget {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(22),
                       ),
-                      title: Text('Gerenciar idiomas e especializações'),
+                      title: const Text('Gerenciar idiomas e especializações'),
                       content: SizedBox(
                         width: 460,
                         child: Column(
@@ -128,6 +131,7 @@ class TeacherDashboardView extends StatelessWidget {
                                     'Idiomas lecionados (separados por vírgula)',
                               ),
                             ),
+                            const SizedBox(height: 12),
                             TextField(
                               controller: areas,
                               decoration: const InputDecoration(
@@ -141,11 +145,11 @@ class TeacherDashboardView extends StatelessWidget {
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx),
-                          child: Text('Cancelar'),
+                          child: const Text('Cancelar'),
                         ),
                         FilledButton(
                           onPressed: () => Navigator.pop(ctx, true),
-                          child: Text('Salvar'),
+                          child: const Text('Salvar'),
                         ),
                       ],
                     ),
@@ -177,11 +181,13 @@ class TeacherDashboardView extends StatelessWidget {
                       if (context.mounted) showLearningError(context, e);
                     }
                   }
-                  languages.dispose();
-                  areas.dispose();
+                  Future.delayed(const Duration(milliseconds: 400), () {
+                    languages.dispose();
+                    areas.dispose();
+                  });
                 },
                 icon: const Icon(Icons.edit),
-                label: Text(
+                label: const Text(
                   'Gerenciar idiomas lecionados / atualizar especializações',
                 ),
               ),
@@ -190,14 +196,20 @@ class TeacherDashboardView extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: const Color(0xFFF3EFFF),
+                color: isDark
+                    ? const Color(0xFF261E3A)
+                    : const Color(0xFFF3EFFF),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2D6FF)),
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0xFF4C3575)
+                      : const Color(0xFFE2D6FF),
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.school_outlined, color: _purple, size: 28),
-                  SizedBox(width: 14),
+                  const Icon(Icons.school_outlined, color: _purple, size: 28),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,11 +218,13 @@ class TeacherDashboardView extends StatelessWidget {
                           'Orientações Didáticas',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF5B3BA6),
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF5B3BA6),
                             fontSize: 15,
                           ),
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
                         Text(
                           'Mantenha os conteúdos das turmas atualizados para garantir um acompanhamento eficiente do aprendizado dos alunos.',
                           style: TextStyle(
@@ -249,18 +263,21 @@ class TeacherDashboardView extends StatelessWidget {
                 value: teacher.taughtLanguages.length.toString(),
                 icon: Icons.record_voice_over_rounded,
                 accentColor: _purple,
+                onTap: () => onSectionSelected?.call('languages'),
               ),
               InfoStatCard(
                 title: 'Especializações',
                 value: teacher.specializationAreas.length.toString(),
                 icon: Icons.workspace_premium_outlined,
                 accentColor: const Color(0xFFE5902D),
+                onTap: () => onSectionSelected?.call('languages'),
               ),
               InfoStatCard(
                 title: 'Turmas Atribuídas',
                 value: data.teacherAssignments.length.toString(),
                 icon: Icons.groups_rounded,
                 accentColor: const Color(0xFF3579E8),
+                onTap: () => onSectionSelected?.call('classes'),
               ),
               InfoStatCard(
                 title: 'Instituição',
@@ -269,6 +286,7 @@ class TeacherDashboardView extends StatelessWidget {
                     : 'Cadastrada',
                 icon: Icons.account_balance_rounded,
                 accentColor: const Color(0xFF32946B),
+                onTap: () => onSectionSelected?.call('classes'),
               ),
             ],
           ),
@@ -322,7 +340,7 @@ class TeacherDashboardView extends StatelessWidget {
     context: context,
     title: activeSection == 'languages'
         ? 'Ensino e idiomas'
-        : 'Perfil do professor',
+        : (data.isFemale ? 'Perfil da professora' : 'Perfil do professor'),
     subtitle: 'Resumo da conta e das turmas vinculadas ao seu perfil.',
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -348,6 +366,7 @@ class TeacherDashboardView extends StatelessWidget {
           icon: Icons.groups_outlined,
           accentColor: _purple,
           subtitle: 'Atribuições recebidas da API',
+          onTap: () => onSectionSelected?.call('classes'),
         ),
         if (activeSection != 'languages') ...[
           const SizedBox(height: 16),
@@ -375,6 +394,7 @@ class TeacherDashboardView extends StatelessWidget {
                         leading: const Icon(Icons.class_outlined),
                         title: Text(assignment.schoolClassName),
                         subtitle: Text('Desde ${assignment.startDate}'),
+                        onTap: () => onSectionSelected?.call('classes'),
                       ),
                 ],
               ),
@@ -393,9 +413,11 @@ class TeacherDashboardView extends StatelessWidget {
     final activeAssignments = assignments
         .where((assignment) => assignment.isActive)
         .length;
+    final isFemale = data.isFemale;
+    final roleNoun = isFemale ? 'Professora' : 'Professor';
     final primarySubject = teacher.taughtLanguages.isNotEmpty
-        ? 'Professora de ${teacher.taughtLanguages.join(', ')}'
-        : 'Docente Duolinfo';
+        ? '$roleNoun de ${teacher.taughtLanguages.join(', ')}'
+        : '$roleNoun Duolinfo';
     final instName = teacher.institution.isNotEmpty
         ? teacher.institution
         : 'Instituição Cadastrada';
@@ -429,8 +451,8 @@ class TeacherDashboardView extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Painel do Professor',
-                      style: TextStyle(
+                      isFemale ? 'Painel da Professora' : 'Painel do Professor',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -472,7 +494,7 @@ class TeacherDashboardView extends StatelessWidget {
                       children: [
                         Text(
                           teacher.name,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 24,
                             fontWeight: FontWeight.w800,
@@ -484,7 +506,7 @@ class TeacherDashboardView extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           '$primarySubject • $instName',
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: Color(0xEFFFFFFF),
                             fontSize: 14,
                           ),
@@ -500,30 +522,43 @@ class TeacherDashboardView extends StatelessWidget {
                           spacing: 8,
                           runSpacing: 6,
                           children: [
-                            _HeaderBadge(
-                              label: '$activeAssignments Turmas ativas',
-                              icon: Icons.groups_rounded,
-                              backgroundColor: Colors.white,
-                              textColor: _purple,
-                            ),
-                            _HeaderBadge(
-                              label:
-                                  '${teacher.taughtLanguages.length} Idiomas',
-                              icon: Icons.record_voice_over_rounded,
-                              backgroundColor: Colors.white.withValues(
-                                alpha: 0.2,
+                            InkWell(
+                              onTap: () => onSectionSelected?.call('classes'),
+                              borderRadius: BorderRadius.circular(20),
+                              child: _HeaderBadge(
+                                label: '$activeAssignments Turmas ativas',
+                                icon: Icons.groups_rounded,
+                                backgroundColor: Colors.white,
+                                textColor: _purple,
                               ),
-                              textColor: Colors.white,
                             ),
-                            if (teacher.specializationAreas.isNotEmpty)
-                              _HeaderBadge(
+                            InkWell(
+                              onTap: () => onSectionSelected?.call('languages'),
+                              borderRadius: BorderRadius.circular(20),
+                              child: _HeaderBadge(
                                 label:
-                                    '${teacher.specializationAreas.length} Especializações',
-                                icon: Icons.workspace_premium_outlined,
+                                    '${teacher.taughtLanguages.length} Idiomas',
+                                icon: Icons.record_voice_over_rounded,
                                 backgroundColor: Colors.white.withValues(
                                   alpha: 0.2,
                                 ),
                                 textColor: Colors.white,
+                              ),
+                            ),
+                            if (teacher.specializationAreas.isNotEmpty)
+                              InkWell(
+                                onTap: () =>
+                                    onSectionSelected?.call('languages'),
+                                borderRadius: BorderRadius.circular(20),
+                                child: _HeaderBadge(
+                                  label:
+                                      '${teacher.specializationAreas.length} Especializações',
+                                  icon: Icons.workspace_premium_outlined,
+                                  backgroundColor: Colors.white.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                  textColor: Colors.white,
+                                ),
                               ),
                           ],
                         ),
@@ -550,7 +585,7 @@ class TeacherDashboardView extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // Métricas rápidas derivadas do perfil e das atribuições da API.
+          // Métricas rápidas derivadas do perfil e das atribuições da API (clicáveis).
           ResponsiveCardGrid(
             cards: [
               InfoStatCard(
@@ -558,28 +593,32 @@ class TeacherDashboardView extends StatelessWidget {
                 value: activeAssignments.toString(),
                 icon: Icons.groups_rounded,
                 accentColor: _purple,
-                subtitle: 'Sob sua responsabilidade',
+                subtitle: 'Gerenciar turmas',
+                onTap: () => onSectionSelected?.call('classes'),
               ),
               InfoStatCard(
-                title: 'Histórico de turmas',
+                title: 'Minhas atividades',
                 value: assignments.length.toString(),
-                icon: Icons.history_rounded,
+                icon: Icons.library_books_outlined,
                 accentColor: const Color(0xFF3579E8),
-                subtitle: 'Atribuições registradas',
+                subtitle: 'Acessar exercícios',
+                onTap: () => onSectionSelected?.call('manageExercises'),
               ),
               InfoStatCard(
                 title: 'Idiomas lecionados',
                 value: teacher.taughtLanguages.length.toString(),
                 icon: Icons.record_voice_over_rounded,
                 accentColor: const Color(0xFF32946B),
-                subtitle: 'No seu perfil docente',
+                subtitle: 'Editar idiomas',
+                onTap: () => onSectionSelected?.call('languages'),
               ),
               InfoStatCard(
                 title: 'Especializações',
                 value: teacher.specializationAreas.length.toString(),
                 icon: Icons.workspace_premium_outlined,
                 accentColor: const Color(0xFFE5902D),
-                subtitle: 'Áreas de atuação',
+                subtitle: 'Ver competências',
+                onTap: () => onSectionSelected?.call('languages'),
               ),
             ],
           ),
@@ -823,54 +862,47 @@ class TeacherDashboardView extends StatelessWidget {
           .map(
             (assignment) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(13),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.groups_rounded,
-                      color: assignment.isActive
-                          ? _purple
-                          : const Color(0xFF9296A5),
-                      size: 21,
+              child: InkWell(
+                onTap: () => onSectionSelected?.call('classes'),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(13),
+                  decoration: BoxDecoration(
+                    color:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            assignment.schoolClassName,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurface,
-                              fontWeight: FontWeight.w700,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.groups_rounded,
+                        color: assignment.isActive
+                            ? _purple
+                            : const Color(0xFF9296A5),
+                        size: 21,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              assignment.schoolClassName,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            assignment.isActive
-                                ? 'Ativa desde ${assignment.startDate}'
-                                : 'Período: ${assignment.startDate} – ${assignment.endDate}',
-                            style: TextStyle(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                              fontSize: 12,
-                            ),
-                          ),
-                          if (assignment.reason?.trim().isNotEmpty == true) ...[
                             const SizedBox(height: 3),
                             Text(
-                              assignment.reason!,
+                              assignment.isActive
+                                  ? 'Ativa desde ${assignment.startDate}'
+                                  : 'Período: ${assignment.startDate} – ${assignment.endDate}',
                               style: TextStyle(
                                 color: Theme.of(
                                   context,
@@ -878,21 +910,34 @@ class TeacherDashboardView extends StatelessWidget {
                                 fontSize: 12,
                               ),
                             ),
+                            if (assignment.reason?.trim().isNotEmpty ==
+                                true) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                assignment.reason!,
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
-                    ),
-                    Text(
-                      assignment.isActive ? 'Ativa' : 'Encerrada',
-                      style: TextStyle(
-                        color: assignment.isActive
-                            ? const Color(0xFF32946B)
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                      Text(
+                        assignment.isActive ? 'Ativa' : 'Encerrada',
+                        style: TextStyle(
+                          color: assignment.isActive
+                              ? const Color(0xFF32946B)
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -902,6 +947,7 @@ class TeacherDashboardView extends StatelessWidget {
   }
 
   Widget _tagList(List<String> values, Color color, BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (values.isEmpty) {
       return Text(
         'Nenhum dado cadastrado.',
@@ -916,13 +962,16 @@ class TeacherDashboardView extends StatelessWidget {
             (value) => Container(
               padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: .09),
+                color: color.withValues(alpha: isDark ? .22 : .09),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: color.withValues(alpha: .2)),
+                border: Border.all(color: color.withValues(alpha: .35)),
               ),
               child: Text(
                 value,
-                style: TextStyle(color: color, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  color: isDark ? Colors.white : color,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           )

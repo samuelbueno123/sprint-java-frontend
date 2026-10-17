@@ -74,6 +74,9 @@ class _DashboardShellState extends State<DashboardShell> {
                     child: DashboardSidebar(
                       profileType: widget.data.profileType,
                       activeSection: widget.activeSection,
+                      isSuperAdmin: widget.data.user.isSuperAdmin,
+                      unreadNotificationsCount:
+                          widget.data.unreadNotificationsCount,
                       onSectionSelected: (section) {
                         widget.onSectionSelected(section);
                         Navigator.of(context).pop();
@@ -89,6 +92,9 @@ class _DashboardShellState extends State<DashboardShell> {
                   activeSection: widget.activeSection,
                   onSectionSelected: widget.onSectionSelected,
                   isCollapsed: !_isSidebarExpanded,
+                  isSuperAdmin: widget.data.user.isSuperAdmin,
+                  unreadNotificationsCount:
+                      widget.data.unreadNotificationsCount,
                 ),
               Expanded(
                 child: Center(

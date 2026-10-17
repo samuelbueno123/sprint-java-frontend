@@ -62,6 +62,7 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
   final _biographyController = TextEditingController();
   final List<String> _selectedLanguages = [];
   String? _selectedLanguageDropdown;
+  String _selectedGender = 'MASCULINO';
   final List<_TeacherDocumentItem> _attachedDocuments = [];
   InstitutionModel? _selectedInstitution;
   bool _obscurePassword = true;
@@ -168,6 +169,7 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
         taughtLanguages: _selectedLanguages,
         specializationAreas: specialties,
         bibliography: _biographyController.text,
+        gender: _selectedGender,
         documents: _attachedDocuments.map((doc) => doc.toJson()).toList(),
       );
       if (!mounted) return;
@@ -184,11 +186,14 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
   Widget build(BuildContext context) {
     final isEmailLocked =
         widget.initialEmail != null && widget.initialEmail!.trim().isNotEmpty;
+    final isFemale = _selectedGender == 'FEMININO';
 
     return AnimatedBuilder(
       animation: _viewModel,
       builder: (context, _) => AuthPageFrame(
-        title: _profileStep ? 'Perfil de professor' : 'Cadastro de professor',
+        title: _profileStep
+            ? (isFemale ? 'Perfil de professora' : 'Perfil de professor')
+            : (isFemale ? 'Cadastro de professora' : 'Cadastro de professor'),
         subtitle: _profileStep
             ? 'Complete os dados profissionais vinculados ao seu perfil.'
             : 'Crie sua conta para continuar com o cadastro docente.',
@@ -221,6 +226,23 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
           ),
           validator: (value) =>
               (value?.trim().isEmpty ?? true) ? 'Informe seu nome.' : null,
+        ),
+        const SizedBox(height: 14),
+        DropdownButtonFormField<String>(
+          initialValue: _selectedGender,
+          decoration: const InputDecoration(
+            labelText: 'Sexo',
+            prefixIcon: Icon(Icons.wc_rounded),
+          ),
+          items: const [
+            DropdownMenuItem(value: 'MASCULINO', child: Text('Masculino')),
+            DropdownMenuItem(value: 'FEMININO', child: Text('Feminino')),
+          ],
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => _selectedGender = value);
+            }
+          },
         ),
         const SizedBox(height: 14),
         TextFormField(
@@ -563,7 +585,11 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
                         strokeWidth: 2,
                       ),
                     )
-                  : const Text('Criar perfil de professor'),
+                  : Text(
+                      _selectedGender == 'FEMININO'
+                          ? 'Criar perfil de professora'
+                          : 'Criar perfil de professor',
+                    ),
             ),
           ),
         ],
@@ -800,10 +826,12 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
     );
 
     if (mounted) setState(() => _isSubmittingRequest = false);
-    nameController.dispose();
-    cityController.dispose();
-    stateController.dispose();
-    messageController.dispose();
+    Future.delayed(const Duration(milliseconds: 400), () {
+      nameController.dispose();
+      cityController.dispose();
+      stateController.dispose();
+      messageController.dispose();
+    });
     if (submitted == true && mounted) {
       setState(() => _searchResults = []);
       ScaffoldMessenger.of(context).showSnackBar(

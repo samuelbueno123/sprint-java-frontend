@@ -42,18 +42,38 @@ class App extends StatelessWidget {
         ),
       ),
       darkTheme: ThemeData(
+        brightness: Brightness.dark,
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF7DA7FF),
           brightness: Brightness.dark,
           surface: const Color(0xFF1B202A),
+        ).copyWith(
+          onSurface: Colors.white,
+          onSurfaceVariant: const Color(0xFFE2E8F0),
+          onPrimaryContainer: Colors.white,
+          onSecondaryContainer: Colors.white,
         ),
         useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFF10131A),
         cardTheme: const CardThemeData(color: Color(0xFF1B202A)),
         dividerColor: const Color(0xFF343B49),
+        iconTheme: const IconThemeData(color: Colors.white),
+        textTheme: ThemeData.dark().textTheme.apply(
+          bodyColor: Colors.white,
+          displayColor: Colors.white,
+        ),
+        chipTheme: ChipThemeData(
+          backgroundColor: const Color(0xFF242A35),
+          selectedColor: const Color(0xFF3579E8),
+          labelStyle: const TextStyle(color: Colors.white),
+          secondaryLabelStyle: const TextStyle(color: Colors.white),
+          side: const BorderSide(color: Color(0xFF3A4352)),
+        ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: const Color(0xFF242A35),
+          labelStyle: const TextStyle(color: Color(0xFFE2E8F0)),
+          hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 14,
             vertical: 14,

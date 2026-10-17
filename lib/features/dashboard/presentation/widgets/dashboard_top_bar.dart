@@ -52,6 +52,8 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final avatarUrl = data.user.picture;
     final isCompact = MediaQuery.sizeOf(context).width < 380;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final currentRoleLabel = data.roleLabel;
 
     Widget roleIndicator = Container(
       padding: EdgeInsets.symmetric(
@@ -59,7 +61,7 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
         vertical: 5,
       ),
       decoration: BoxDecoration(
-        color: _roleColor.withValues(alpha: 0.12),
+        color: _roleColor.withValues(alpha: isDark ? 0.24 : 0.12),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -69,7 +71,7 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
           if (!isCompact) ...[
             const SizedBox(width: 4),
             Text(
-              data.profileType.label,
+              currentRoleLabel,
               style: TextStyle(
                 color: _roleColor,
                 fontWeight: FontWeight.bold,
@@ -89,13 +91,14 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
         tooltip: 'Trocar painel',
         onSelected: onProfileTypeChanged,
         itemBuilder: (context) => data.availableProfileTypes.map((role) {
+          final label = role.genderLabel(data.effectiveGender);
           return PopupMenuItem(
             value: role,
             child: Row(
               children: [
                 Icon(_roleIcon(role), size: 18),
                 const SizedBox(width: 10),
-                Text('Painel ${role.label.toLowerCase()}'),
+                Text('Painel ${label.toLowerCase()}'),
                 if (role == data.profileType) ...[
                   const Spacer(),
                   const Icon(Icons.check_rounded, size: 18),
@@ -108,10 +111,12 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
       );
     } else {
       roleIndicator = Tooltip(
-        message: data.profileType.label,
+        message: currentRoleLabel,
         child: roleIndicator,
       );
     }
+
+    final unreadCount = data.unreadNotificationsCount;
 
     return Container(
       height: preferredSize.height,
@@ -134,26 +139,45 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
             ),
             const SizedBox(width: 4),
           ],
-          const Icon(
+          Icon(
             Icons.menu_book_rounded,
-            color: Color(0xFF58CC02),
+            color: _roleColor,
             size: 26,
           ),
           SizedBox(width: isCompact ? 5 : 8),
-          const Text(
+          Text(
             'Duolinfo',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
-              color: Colors.black87,
+              color: isDark ? Colors.white : Colors.black87,
             ),
           ),
-          const Spacer(), // Empurra TODO o bloco de perfil e conta para o canto direito!
+          const Spacer(),
           if (onOpenNotifications != null)
             IconButton(
-              tooltip: 'Notificações administrativas',
+              tooltip: unreadCount > 0
+                  ? 'Notificações administrativas ($unreadCount não lida(s))'
+                  : 'Notificações administrativas',
               onPressed: onOpenNotifications,
-              icon: const Icon(Icons.notifications_none_rounded),
+              icon: Badge(
+                isLabelVisible: unreadCount > 0,
+                backgroundColor: Colors.redAccent,
+                label: Text(
+                  unreadCount > 99 ? '99+' : '$unreadCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                child: Icon(
+                  unreadCount > 0
+                      ? Icons.notifications_active_rounded
+                      : Icons.notifications_none_rounded,
+                  color: unreadCount > 0 ? const Color(0xFFD97706) : null,
+                ),
+              ),
             ),
           roleIndicator,
           SizedBox(width: isCompact ? 6 : 12),
@@ -180,30 +204,33 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
                   children: [
                     Text(
                       data.user.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
                     ),
                     Text(
                       data.user.email,
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade600,
+                        color: isDark ? Colors.white70 : Colors.grey.shade600,
                       ),
                     ),
                   ],
                 ),
               ),
               const PopupMenuDivider(),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'settings',
                 child: Row(
                   children: [
                     Icon(
                       Icons.settings_rounded,
-                      color: Colors.black87,
+                      color: isDark ? Colors.white : Colors.black87,
                       size: 20,
                     ),
-                    SizedBox(width: 10),
-                    Text('Configurações'),
+                    const SizedBox(width: 10),
+                    const Text('Configurações'),
                   ],
                 ),
               ),

@@ -11,6 +11,9 @@ class DashboardUser {
     required this.email,
     required this.name,
     this.picture,
+    this.gender,
+    this.isAdmin = false,
+    this.isSuperAdmin = false,
   });
 
   final String id;
@@ -18,18 +21,31 @@ class DashboardUser {
   final String email;
   final String name;
   final String? picture;
+  final String? gender;
+  final bool isAdmin;
+  final bool isSuperAdmin;
+
+  bool get isFemale =>
+      gender?.trim().toUpperCase() == 'FEMININO' ||
+      gender?.trim().toUpperCase() == 'F';
 
   DashboardUser copyWith({
     String? id,
     String? name,
     String? email,
     String? picture,
+    String? gender,
+    bool? isAdmin,
+    bool? isSuperAdmin,
   }) => DashboardUser(
     id: id ?? this.id,
     googleId: googleId,
     email: email ?? this.email,
     name: name ?? this.name,
     picture: picture ?? this.picture,
+    gender: gender ?? this.gender,
+    isAdmin: isAdmin ?? this.isAdmin,
+    isSuperAdmin: isSuperAdmin ?? this.isSuperAdmin,
   );
 }
 
@@ -45,6 +61,7 @@ class DashboardData {
     this.teacherApprovalPending = false,
     this.studentEnrollments = const [],
     this.teacherAssignments = const [],
+    this.unreadNotificationsCount = 0,
   });
 
   final DashboardUser user;
@@ -57,8 +74,24 @@ class DashboardData {
   final bool teacherApprovalPending;
   final List<StudentEnrollment> studentEnrollments;
   final List<TeacherClassAssignment> teacherAssignments;
+  final int unreadNotificationsCount;
 
-  DashboardData copyWith({UserProfileType? profileType}) => DashboardData(
+  String? get effectiveGender =>
+      user.gender ?? studentProfile?.gender ?? teacherProfile?.gender;
+
+  bool get isFemale {
+    final g = effectiveGender?.trim().toUpperCase();
+    return g == 'FEMININO' || g == 'F';
+  }
+
+  String get welcomePrefix => isFemale ? 'Bem-vinda' : 'Bem-vindo';
+
+  String get roleLabel => profileType.genderLabel(effectiveGender);
+
+  DashboardData copyWith({
+    UserProfileType? profileType,
+    int? unreadNotificationsCount,
+  }) => DashboardData(
     user: user,
     profileType: profileType ?? this.profileType,
     availableProfileTypes: availableProfileTypes,
@@ -69,5 +102,7 @@ class DashboardData {
     teacherApprovalPending: teacherApprovalPending,
     studentEnrollments: studentEnrollments,
     teacherAssignments: teacherAssignments,
+    unreadNotificationsCount:
+        unreadNotificationsCount ?? this.unreadNotificationsCount,
   );
 }

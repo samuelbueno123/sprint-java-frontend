@@ -9,6 +9,9 @@ class TeacherProfile {
     required this.taughtLanguages,
     required this.specializationAreas,
     this.bibliography,
+    this.gender,
+    this.institutionAdmin = false,
+    this.primaryInstitutionAdmin = false,
   });
 
   final int? id;
@@ -20,4 +23,11 @@ class TeacherProfile {
   final List<String> taughtLanguages;
   final List<String> specializationAreas;
   final String? bibliography;
+  final String? gender;
+  final bool institutionAdmin;
+  final bool primaryInstitutionAdmin;
+
+  bool get isFemale =>
+      gender?.trim().toUpperCase() == 'FEMININO' ||
+      gender?.trim().toUpperCase() == 'F';
 }

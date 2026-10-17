@@ -5,6 +5,8 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/student_enrollment.dart';
+import '../../domain/entities/student_profile.dart';
+import 'info_stat_card.dart';
 import 'responsive_layout.dart';
 import 'teacher_create_exercise_screen.dart';
 import 'teacher_exercises_overview_screen.dart';
@@ -113,19 +115,26 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
       _dio
           .get('/api/catalog/proficiency-levels')
           .then((response) {
-            _levels = (response.data as List)
+            final fetched = (response.data as List)
                 .map((e) {
+                  if (e is String) return e;
                   final item = Map<String, dynamic>.from(e);
                   return (item['name'] ?? item['value'] ?? item['label'])
                       .toString();
                 })
-                .where((value) => value != 'null')
+                .where((value) => value != 'null' && value.trim().isNotEmpty)
                 .toList();
+            _levels = fetched.isNotEmpty
+                ? fetched
+                : const ['Fácil', 'Médio', 'Difícil'];
           })
           .catchError((error) {
-            errors.add(_parseError(error));
+            _levels = const ['Fácil', 'Médio', 'Difícil'];
           }),
     ]);
+    if (_levels.isEmpty) {
+      _levels = const ['Fácil', 'Médio', 'Difícil'];
+    }
     if (errors.isNotEmpty) _dataLoadError = errors.toSet().join('\n');
   }
 
@@ -465,7 +474,7 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
           context,
         ).showSnackBar(SnackBar(content: Text(_parseError(error))));
     } finally {
-      controller.dispose();
+      Future.delayed(const Duration(milliseconds: 400), controller.dispose);
     }
   }
 }
@@ -475,6 +484,7 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
   late Future<void> _load;
   List<_Exercise> _exercises = [];
   List<_Submission> _submissions = [];
+  List<Map<String, dynamic>> _dbAchievements = [];
   List<Map<String, dynamic>> _ranking = [];
   String? _dataLoadError;
   String _period = 'week';
@@ -505,6 +515,7 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
     _dataLoadError = null;
     _exercises = [];
     _submissions = [];
+    _dbAchievements = [];
     _ranking = [];
     try {
       if (widget.section == 'ranking' || widget.section == 'groupRanking') {
@@ -516,8 +527,23 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
         _ranking = (response.data as List)
             .map((item) => Map<String, dynamic>.from(item))
             .toList();
-      } else if (widget.section == 'history' ||
-          widget.section == 'achievements') {
+      } else if (widget.section == 'achievements') {
+        final responses = await Future.wait([
+          _dio.get('/api/exercises/submissions'),
+          _dio.get('/api/achievements/me').catchError(
+            (_) => Response(requestOptions: RequestOptions(), data: const []),
+          ),
+        ]);
+        _submissions = (responses[0].data as List)
+            .map(
+              (item) => _Submission.fromJson(Map<String, dynamic>.from(item)),
+            )
+            .toList();
+        _dbAchievements = (responses[1].data as List? ?? const [])
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+      } else if (widget.section == 'history') {
         final response = await _dio.get('/api/exercises/submissions');
         _submissions = (response.data as List)
             .map(
@@ -924,10 +950,10 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
       );
 
   Widget _achievementsView({String? dataLoadError}) {
-    final achievements = _buildAchievements(_submissions);
+    final achievements = _buildAchievements(_submissions, _dbAchievements);
 
     final earned = achievements.where((item) => item.earned).length;
-    final progress = earned / achievements.length;
+    final progress = achievements.isEmpty ? 0.0 : earned / achievements.length;
     final grouped = <String, List<_AchievementMilestone>>{};
     for (final achievement in achievements) {
       grouped.putIfAbsent(achievement.category, () => []).add(achievement);
@@ -1035,7 +1061,8 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (dataLoadError != null || _submissions.isEmpty) ...[
+                  if (dataLoadError != null ||
+                      (_submissions.isEmpty && _dbAchievements.isEmpty)) ...[
                     _DatabaseNotice(
                       title: dataLoadError == null
                           ? 'Ainda não há progresso registrado'
@@ -1957,7 +1984,38 @@ class _Submission {
   );
 }
 
-List<_AchievementMilestone> _buildAchievements(List<_Submission> submissions) {
+IconData _achievementIconFromName(String? iconName) {
+  return switch (iconName?.trim()) {
+    'local_fire_department_rounded' => Icons.local_fire_department_rounded,
+    'star_rounded' => Icons.star_rounded,
+    'bolt_rounded' => Icons.bolt_rounded,
+    'menu_book_rounded' => Icons.menu_book_rounded,
+    'gps_fixed_rounded' => Icons.gps_fixed_rounded,
+    'translate_rounded' => Icons.translate_rounded,
+    'groups_rounded' => Icons.groups_rounded,
+    'chat_bubble_outline_rounded' => Icons.chat_bubble_outline_rounded,
+    'workspace_premium_rounded' => Icons.workspace_premium_rounded,
+    _ => Icons.emoji_events_rounded,
+  };
+}
+
+List<_AchievementMilestone> _buildAchievements(
+  List<_Submission> submissions, [
+  List<Map<String, dynamic>> dbAchievements = const [],
+]) {
+  if (dbAchievements.isNotEmpty) {
+    return dbAchievements.map((item) {
+      final earned = item['earned'] == true;
+      final parsedDate = DateTime.tryParse(item['earnedAt']?.toString() ?? '')?.toLocal();
+      return _AchievementMilestone(
+        category: item['category']?.toString() ?? 'Geral',
+        title: item['title']?.toString() ?? 'Conquista',
+        description: item['description']?.toString() ?? '',
+        icon: _achievementIconFromName(item['iconName']?.toString()),
+        earnedAt: earned ? (parsedDate ?? DateTime.now()) : null,
+      );
+    }).toList();
+  }
   final dated = submissions.where((item) => item.submittedAt != null).toList()
     ..sort((a, b) => a.submittedAt!.compareTo(b.submittedAt!));
   final totalXp = submissions.fold<int>(0, (sum, item) => sum + item.xp);
@@ -2350,110 +2408,161 @@ String _initial(Object? name) {
 }
 
 class StudentLanguageManager extends StatefulWidget {
-  const StudentLanguageManager({super.key, required this.data});
-  final DashboardData data;
+  const StudentLanguageManager({
+    super.key,
+    this.data,
+    this.student,
+    this.onChanged,
+  });
+
+  final DashboardData? data;
+  final StudentProfile? student;
+  final VoidCallback? onChanged;
+
   @override
   State<StudentLanguageManager> createState() => _StudentLanguageManagerState();
 }
 
 class _StudentLanguageManagerState extends State<StudentLanguageManager> {
-  final _name = TextEditingController();
-  String _level = 'Iniciante';
-  bool _busy = false;
-  final _levels = const [
-    'Iniciante',
-    'Básico',
-    'Intermediário',
-    'Avançado',
-    'Fluente',
-  ];
-  @override
-  void dispose() {
-    _name.dispose();
-    super.dispose();
-  }
+  static const List<String> _levels = ['Básico', 'Intermediário', 'Avançado'];
 
-  Future<void> _save() async {
-    final profile = widget.data.studentProfile;
-    if (profile?.id == null || _name.text.trim().isEmpty) return;
-    setState(() => _busy = true);
-    try {
-      final languages = [
-        ...profile!.languages.map((v) {
-          final parts = v.split(':');
-          return {
-            'languageName': parts.first.trim(),
-            'level': parts.length > 1 ? parts.last.trim() : 'Iniciante',
-            'score': 0,
-          };
-        }),
-      ];
-      final existing = languages.indexWhere(
-        (v) =>
-            (v['languageName'] as String).toLowerCase() ==
-            _name.text.trim().toLowerCase(),
-      );
-      final item = {
-        'languageName': _name.text.trim(),
-        'level': _level,
-        'score': 0,
-      };
-      if (existing >= 0) {
-        languages[existing] = item;
-      } else {
-        languages.add(item);
-      }
-      await ApiClient().dio.put(
-        '${AppConfig.studentsEndpoint}/${profile.id}',
-        data: {
-          'name': profile.name,
-          'email': profile.email,
-          'googleId': profile.googleId,
-          'languages': languages,
-        },
-      );
-      if (!mounted) return;
-      Navigator.pop(context, true);
-    } catch (e) {
-      if (mounted) showLearningError(context, e);
-    } finally {
-      if (mounted) setState(() => _busy = false);
+  StudentProfile? get _profile => widget.student ?? widget.data?.studentProfile;
+
+  Future<void> _openEditorDialog(BuildContext context) async {
+    final profile = _profile;
+    if (profile?.id == null) return;
+    final nameCtrl = TextEditingController();
+    String selectedLevel = _levels.first;
+    bool busy = false;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          title: const Text('Adicionar ou editar idioma'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Idioma'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: selectedLevel,
+                decoration: const InputDecoration(labelText: 'Proficiência'),
+                items: _levels
+                    .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                    .toList(),
+                onChanged: (v) =>
+                    setDialogState(() => selectedLevel = v ?? selectedLevel),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: busy ? null : () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: busy
+                  ? null
+                  : () async {
+                      if (nameCtrl.text.trim().isEmpty) return;
+                      setDialogState(() => busy = true);
+                      try {
+                        final languages = [
+                          ...profile!.languages.map((v) {
+                            final parts = v.split(':');
+                            final rawLvl = parts.length > 1
+                                ? parts.last.trim()
+                                : 'Básico';
+                            return {
+                              'languageName': parts.first.trim(),
+                              'level': _levels.contains(rawLvl)
+                                  ? rawLvl
+                                  : 'Básico',
+                              'score': 0,
+                            };
+                          }),
+                        ];
+                        final existing = languages.indexWhere(
+                          (v) =>
+                              (v['languageName'] as String).toLowerCase() ==
+                              nameCtrl.text.trim().toLowerCase(),
+                        );
+                        final item = {
+                          'languageName': nameCtrl.text.trim(),
+                          'level': selectedLevel,
+                          'score': 0,
+                        };
+                        if (existing >= 0) {
+                          languages[existing] = item;
+                        } else {
+                          languages.add(item);
+                        }
+                        await ApiClient().dio.put(
+                          '${AppConfig.studentsEndpoint}/${profile.id}',
+                          data: {
+                            'name': profile.name,
+                            'email': profile.email,
+                            'gender': profile.gender,
+                            'googleId': profile.googleId,
+                            'languages': languages,
+                          },
+                        );
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext, true);
+                        }
+                      } catch (e) {
+                        if (ctx.mounted) showLearningError(ctx, e);
+                      } finally {
+                        if (ctx.mounted) setDialogState(() => busy = false);
+                      }
+                    },
+              child: Text(busy ? 'Salvando...' : 'Salvar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    Future.delayed(const Duration(milliseconds: 400), nameCtrl.dispose);
+
+    if (saved == true) {
+      widget.onChanged?.call();
     }
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-    title: const Text('Adicionar ou editar idioma'),
-    content: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        TextField(
-          controller: _name,
-          decoration: const InputDecoration(labelText: 'Idioma'),
+  Widget build(BuildContext context) {
+    if (widget.student != null || widget.onChanged != null) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          onPressed: _profile?.id == null
+              ? null
+              : () => _openEditorDialog(context),
+          icon: const Icon(Icons.add_rounded, size: 18),
+          label: const Text('Adicionar ou editar idioma'),
         ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          value: _level,
-          decoration: const InputDecoration(labelText: 'Proficiência'),
-          items: _levels
-              .map((v) => DropdownMenuItem(value: v, child: Text(v)))
-              .toList(),
-          onChanged: (v) => setState(() => _level = v ?? _level),
+      );
+    }
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      title: const Text('Adicionar ou editar idioma'),
+      content: const Text('Use o botão de idiomas no painel do estudante.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Fechar'),
         ),
       ],
-    ),
-    actions: [
-      TextButton(
-        onPressed: _busy ? null : () => Navigator.pop(context),
-        child: const Text('Cancelar'),
-      ),
-      FilledButton(
-        onPressed: _busy ? null : _save,
-        child: Text(_busy ? 'Salvando...' : 'Salvar'),
-      ),
-    ],
-  );
+    );
+  }
 }
 
 class StudentClassesView extends StatelessWidget {
@@ -2464,108 +2573,6 @@ class StudentClassesView extends StatelessWidget {
   });
   final DashboardData data;
   final VoidCallback onRefresh;
-
-  Future<void> _requestEnrollment(BuildContext context) async {
-    final studentId = data.studentProfile?.id;
-    if (studentId == null) return;
-    final search = TextEditingController();
-    try {
-      final results = await Future.wait([
-        ApiClient().dio.get<List<dynamic>>(
-          '${AppConfig.apiBaseUrl}/api/classes',
-        ),
-        ApiClient().dio.get<List<dynamic>>(
-          '${AppConfig.apiBaseUrl}/api/schools',
-        ),
-      ]);
-      final classes = results[0];
-      final schools = (results[1].data ?? [])
-          .whereType<Map>()
-          .fold<Map<int, String>>({}, (map, school) {
-            final id = (school['id'] as num?)?.toInt();
-            if (id != null) map[id] = '${school['name'] ?? 'Escola'}';
-            return map;
-          });
-      if (!context.mounted) return;
-      final rows = (classes.data ?? [])
-          .whereType<Map>()
-          .where((c) => c['active'] != false)
-          .toList();
-      final selected = await showDialog<Map?>(
-        context: context,
-        builder: (ctx) => StatefulBuilder(
-          builder: (ctx, setState) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(22),
-            ),
-            title: const Text('Solicitar matrícula'),
-            content: SizedBox(
-              width: responsiveDialogWidth(ctx, maxWidth: 520),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: search,
-                    decoration: const InputDecoration(
-                      labelText: 'Filtrar por escola, turma ou ano',
-                      prefixIcon: Icon(Icons.search),
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 300,
-                    child: ListView(
-                      children: rows
-                          .where(
-                            (c) =>
-                                '${c['name']} ${schools[(c['schoolId'] as num?)?.toInt()] ?? ''} ${c['schoolYear']}'
-                                    .toLowerCase()
-                                    .contains(search.text.toLowerCase()),
-                          )
-                          .map(
-                            (c) => ListTile(
-                              title: Text('${c['name'] ?? 'Turma'}'),
-                              subtitle: Text(
-                                '${schools[(c['schoolId'] as num?)?.toInt()] ?? 'Escola'} • ${c['schoolYear'] ?? ''} • ${c['shift'] ?? ''} • ${c['gradeLevel'] ?? ''}',
-                              ),
-                              onTap: () => Navigator.pop(ctx, c),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Fechar'),
-              ),
-            ],
-          ),
-        ),
-      );
-      if (selected == null || !context.mounted) return;
-      await ApiClient().dio.post(
-        '${AppConfig.apiBaseUrl}/api/enrollments',
-        data: {
-          'studentId': studentId,
-          'schoolClassId': selected['id'],
-          'enrollmentDate': DateTime.now().toIso8601String().substring(0, 10),
-        },
-      );
-      onRefresh();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Solicitação de matrícula enviada.')),
-      );
-    } catch (e) {
-      if (context.mounted) showLearningError(context, e);
-    } finally {
-      search.dispose();
-    }
-  }
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -2579,19 +2586,29 @@ class StudentClassesView extends StatelessWidget {
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
           ),
-          FilledButton.icon(
-            onPressed: () => _requestEnrollment(context),
-            icon: const Icon(Icons.add),
-            label: const Text('Solicitar matrícula'),
+          OutlinedButton.icon(
+            onPressed: onRefresh,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Atualizar'),
           ),
         ],
+      ),
+      const SizedBox(height: 8),
+      Text(
+        'A matrícula em turmas é realizada diretamente pelos professores da sua instituição.',
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontSize: 13,
+        ),
       ),
       const SizedBox(height: 16),
       if (data.studentEnrollments.isEmpty)
         const Card(
           child: Padding(
             padding: EdgeInsets.all(24),
-            child: Text('Você ainda não possui turmas ativas.'),
+            child: Text(
+              'Você ainda não possui turmas ativas. Aguarde seu professor adicioná-lo a uma turma.',
+            ),
           ),
         ),
       ...data.studentEnrollments.map(
@@ -2614,10 +2631,11 @@ class _EnrollmentCard extends StatelessWidget {
       trailing: PopupMenuButton<String>(
         onSelected: (v) async {
           try {
-            if (v == 'cancel')
+            if (v == 'cancel') {
               await ApiClient().dio.post(
                 '${AppConfig.apiBaseUrl}/api/enrollments/${enrollment.id}/cancel',
               );
+            }
             if (v == 'transfer') {
               final idController = TextEditingController();
               final ok = await showDialog<bool>(
@@ -2646,11 +2664,16 @@ class _EnrollmentCard extends StatelessWidget {
                   ],
                 ),
               );
-              if (ok == true) {
+              final targetClassId = int.tryParse(idController.text.trim());
+              Future.delayed(
+                const Duration(milliseconds: 400),
+                idController.dispose,
+              );
+              if (ok == true && targetClassId != null) {
                 await ApiClient().dio.post(
                   '${AppConfig.apiBaseUrl}/api/enrollments/student/${enrollment.studentId}/transfer',
                   data: {
-                    'newSchoolClassId': int.tryParse(idController.text),
+                    'newSchoolClassId': targetClassId,
                     'transferDate': DateTime.now().toIso8601String().substring(
                       0,
                       10,
@@ -2659,7 +2682,6 @@ class _EnrollmentCard extends StatelessWidget {
                   },
                 );
               }
-              idController.dispose();
             }
             onRefresh();
           } catch (e) {
@@ -2678,7 +2700,7 @@ class _EnrollmentCard extends StatelessWidget {
   );
 }
 
-class TeacherClassManagementView extends StatelessWidget {
+class TeacherClassManagementView extends StatefulWidget {
   const TeacherClassManagementView({
     super.key,
     required this.data,
@@ -2686,147 +2708,543 @@ class TeacherClassManagementView extends StatelessWidget {
   });
   final DashboardData data;
   final VoidCallback onRefresh;
+
+  @override
+  State<TeacherClassManagementView> createState() =>
+      _TeacherClassManagementViewState();
+}
+
+class _TeacherClassManagementViewState
+    extends State<TeacherClassManagementView> {
+  int? _selectedClassId;
+  String? _selectedClassName;
+  bool _loadingDashboard = false;
+  String? _dashboardError;
+  Map<String, dynamic>? _classDashboard;
+
   Future<void> _create(BuildContext context) async {
-    final school = TextEditingController();
     final name = TextEditingController();
     final year = TextEditingController(text: DateTime.now().year.toString());
+    String shift = 'MANHÃ';
+    final gradeCtrl = TextEditingController(text: 'Geral');
+
     final result = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        title: const Text('Criar turma'),
-        content: SizedBox(
-          width: responsiveDialogWidth(ctx, maxWidth: 440),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: school,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'ID da escola'),
-              ),
-              TextField(
-                controller: name,
-                decoration: const InputDecoration(labelText: 'Nome da turma'),
-              ),
-              TextField(
-                controller: year,
-                decoration: const InputDecoration(labelText: 'Ano letivo'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Criar'),
-          ),
-        ],
-      ),
-    );
-    if (result != true) return;
-    try {
-      final response = await ApiClient().dio.post<Map<String, dynamic>>(
-        '${AppConfig.apiBaseUrl}/api/classes/school/${school.text}',
-        data: {
-          'name': name.text,
-          'schoolYear': year.text,
-          'shift': 'MANHÃ',
-          'gradeLevel': 'Geral',
-          'active': true,
-        },
-      );
-      final classId = response.data?['id'];
-      final teacherId = data.teacherProfile?.id;
-      if (classId != null && teacherId != null) {
-        await ApiClient().dio.post(
-          '${AppConfig.apiBaseUrl}/api/class-teacher-assignments',
-          data: {
-            'schoolClassId': classId,
-            'teacherId': teacherId,
-            'startDate': DateTime.now().toIso8601String().substring(0, 10),
-            'reason': 'Turma criada pelo professor',
-          },
-        );
-      }
-      onRefresh();
-    } catch (e) {
-      if (context.mounted) showLearningError(context, e);
-    }
-    school.dispose();
-    name.dispose();
-    year.dispose();
-  }
-
-  Future<void> _showStudents(BuildContext context, int? classId) async {
-    if (classId == null) return;
-    try {
-      final responses = await Future.wait([
-        ApiClient().dio.get<List<dynamic>>(
-          '${AppConfig.apiBaseUrl}/api/students/class/$classId/active',
-        ),
-        ApiClient().dio.get<List<dynamic>>(
-          '${AppConfig.apiBaseUrl}/api/enrollments/class/$classId',
-        ),
-      ]);
-      final students = (responses[0].data ?? []).whereType<Map>().toList();
-      final enrollments = (responses[1].data ?? []).whereType<Map>().toList();
-      if (!context.mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
-          title: const Text('Estudantes ativos'),
+          title: const Text('Criar turma na instituição'),
           content: SizedBox(
-            width: responsiveDialogWidth(ctx, maxWidth: 500),
-            height: 360,
-            child: students.isEmpty
-                ? const Center(
-                    child: Text('Esta turma ainda não tem estudantes.'),
-                  )
-                : ListView(
-                    children: students.map((s) {
-                      final matching = enrollments.where(
-                        (e) => e['studentId'] == s['id'],
-                      );
-                      final enrollment = matching.isEmpty
-                          ? null
-                          : matching.first;
-                      return ListTile(
-                        leading: const CircleAvatar(child: Icon(Icons.person)),
-                        title: Text('${s['name'] ?? 'Estudante'}'),
-                        subtitle: Text(
-                          '${s['email'] ?? ''} • ${enrollment?['status'] ?? 'Ativo'}',
+            width: responsiveDialogWidth(ctx, maxWidth: 440),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if ((widget.data.teacherProfile?.institution ?? '')
+                    .isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7B4CE2).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.business_rounded,
+                          size: 18,
+                          color: Color(0xFF7B4CE2),
                         ),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (action) async {
-                            if (enrollment?['id'] == null) return;
-                            final newStatus = switch (action) {
-                              'approve' || 'resume' => 'ACTIVE',
-                              'suspend' => 'SUSPENDED',
-                              _ => 'CANCELLED',
-                            };
-                            try {
-                              await ApiClient().dio.put(
-                                '${AppConfig.apiBaseUrl}/api/enrollments/${enrollment!['id']}/status',
-                                data: {
-                                  'status': newStatus,
-                                  'notes': 'Atualizado pelo professor',
-                                },
-                              );
-                              Navigator.pop(ctx);
-                              onRefresh();
-                            } catch (e) {
-                              if (context.mounted)
-                                showLearningError(context, e);
-                            }
-                          },
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Instituição: ${widget.data.teacherProfile?.institution ?? ""}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                TextField(
+                  controller: name,
+                  decoration: const InputDecoration(labelText: 'Nome da turma'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: year,
+                  decoration: const InputDecoration(labelText: 'Ano letivo'),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  initialValue: shift,
+                  decoration: const InputDecoration(labelText: 'Turno'),
+                  items: const [
+                    DropdownMenuItem(value: 'MANHÃ', child: Text('Manhã')),
+                    DropdownMenuItem(value: 'TARDE', child: Text('Tarde')),
+                    DropdownMenuItem(value: 'NOITE', child: Text('Noite')),
+                    DropdownMenuItem(
+                      value: 'INTEGRAL',
+                      child: Text('Integral'),
+                    ),
+                  ],
+                  onChanged: (v) => setDialogState(() => shift = v ?? shift),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: gradeCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nível / Série',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Criar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final className = name.text.trim();
+    final schoolYear = year.text.trim();
+    final gradeLevel = gradeCtrl.text.trim().isEmpty
+        ? 'Geral'
+        : gradeCtrl.text.trim();
+
+    Future.delayed(const Duration(milliseconds: 400), () {
+      name.dispose();
+      year.dispose();
+      gradeCtrl.dispose();
+    });
+
+    if (result != true || className.isEmpty) return;
+
+    try {
+      await ApiClient().dio.post<Map<String, dynamic>>(
+        '${AppConfig.apiBaseUrl}/api/classes/my-institution',
+        data: {
+          'name': className,
+          'schoolYear': schoolYear.isEmpty
+              ? DateTime.now().year.toString()
+              : schoolYear,
+          'shift': shift,
+          'gradeLevel': gradeLevel,
+          'active': true,
+        },
+      );
+      widget.onRefresh();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Turma criada e vinculada automaticamente à sua instituição!',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) showLearningError(context, e);
+    }
+  }
+
+  Future<void> _openClassDashboard(int classId, String className) async {
+    setState(() {
+      _selectedClassId = classId;
+      _selectedClassName = className;
+      _loadingDashboard = true;
+      _dashboardError = null;
+    });
+    try {
+      final response = await ApiClient().dio.get<Map<String, dynamic>>(
+        '${AppConfig.apiBaseUrl}/api/classes/$classId/dashboard',
+      );
+      if (!mounted) return;
+      setState(() {
+        _classDashboard = response.data;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _dashboardError = parseLearningError(e);
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loadingDashboard = false);
+      }
+    }
+  }
+
+  Future<void> _addStudentToClass(BuildContext context, int classId) async {
+    final searchCtrl = TextEditingController();
+    try {
+      final response = await ApiClient().dio.get<List<dynamic>>(
+        '${AppConfig.apiBaseUrl}/api/students',
+      );
+      final allStudents = (response.data ?? const [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+
+      if (!context.mounted) return;
+
+      final selectedStudent = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final q = searchCtrl.text.trim().toLowerCase();
+            final filtered = allStudents.where((s) {
+              if (q.isEmpty) return true;
+              final n = '${s['name'] ?? ''}'.toLowerCase();
+              final em = '${s['email'] ?? ''}'.toLowerCase();
+              return n.contains(q) || em.contains(q);
+            }).toList();
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+              title: const Text('Adicionar estudante à turma'),
+              content: SizedBox(
+                width: responsiveDialogWidth(ctx, maxWidth: 520),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: searchCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Pesquisar estudante por nome ou e-mail',
+                        prefixIcon: Icon(Icons.search_rounded),
+                      ),
+                      onChanged: (_) => setDialogState(() {}),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 300,
+                      child: filtered.isEmpty
+                          ? const Center(
+                              child: Text('Nenhum estudante encontrado.'),
+                            )
+                          : ListView.builder(
+                              itemCount: filtered.length,
+                              itemBuilder: (_, idx) {
+                                final s = filtered[idx];
+                                return ListTile(
+                                  leading: const CircleAvatar(
+                                    child: Icon(Icons.person_rounded),
+                                  ),
+                                  title: Text('${s['name'] ?? 'Estudante'}'),
+                                  subtitle: Text('${s['email'] ?? ''}'),
+                                  trailing: const Icon(
+                                    Icons.person_add_alt_1_rounded,
+                                  ),
+                                  onTap: () => Navigator.pop(ctx, s),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancelar'),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      if (selectedStudent == null || !context.mounted) return;
+
+      await ApiClient().dio.post(
+        '${AppConfig.apiBaseUrl}/api/enrollments',
+        data: {
+          'studentId': selectedStudent['id'],
+          'schoolClassId': classId,
+          'enrollmentDate': DateTime.now().toIso8601String().substring(0, 10),
+        },
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${selectedStudent['name']} adicionado(a) à turma com sucesso!',
+            ),
+          ),
+        );
+      }
+      await _openClassDashboard(classId, _selectedClassName ?? 'Turma');
+      widget.onRefresh();
+    } catch (e) {
+      if (context.mounted) showLearningError(context, e);
+    } finally {
+      Future.delayed(const Duration(milliseconds: 400), searchCtrl.dispose);
+    }
+  }
+
+  Future<void> _updateEnrollmentStatus(
+    int enrollmentId,
+    String action,
+    int classId,
+  ) async {
+    final newStatus = switch (action) {
+      'approve' || 'resume' => 'ACTIVE',
+      'suspend' => 'SUSPENDED',
+      _ => 'CANCELLED',
+    };
+    try {
+      await ApiClient().dio.put(
+        '${AppConfig.apiBaseUrl}/api/enrollments/$enrollmentId/status',
+        data: {'status': newStatus, 'notes': 'Atualizado pelo professor'},
+      );
+      await _openClassDashboard(classId, _selectedClassName ?? 'Turma');
+      widget.onRefresh();
+    } catch (e) {
+      if (mounted) showLearningError(context, e);
+    }
+  }
+
+  Widget _buildClassDashboardView(BuildContext context) {
+    final classId = _selectedClassId!;
+    final dash = _classDashboard;
+    final totalStudents = (dash?['totalStudents'] as num?)?.toInt() ?? 0;
+    final totalExercises = (dash?['totalExercises'] as num?)?.toInt() ?? 0;
+    final totalSubmissions = (dash?['totalSubmissions'] as num?)?.toInt() ?? 0;
+    final avgAccuracy =
+        (dash?['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0;
+    final avgCorrect =
+        (dash?['averageCorrectAnswers'] as num?)?.toDouble() ?? 0.0;
+    final avgQuestions =
+        (dash?['averageQuestionsCount'] as num?)?.toDouble() ?? 0.0;
+    final totalXp = (dash?['totalXpEarned'] as num?)?.toInt() ?? 0;
+    final students = (dash?['students'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    final exercises = (dash?['exercises'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    return ListView(
+      padding: responsivePagePadding(context),
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Voltar para lista de turmas',
+                  onPressed: () => setState(() {
+                    _selectedClassId = null;
+                    _classDashboard = null;
+                  }),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                ),
+                const SizedBox(width: 4),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dash?['name']?.toString() ??
+                          _selectedClassName ??
+                          'Dashboard da Turma',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      [
+                        if (dash?['institutionName'] != null)
+                          '${dash!['institutionName']}',
+                        if (dash?['schoolYear'] != null)
+                          'Ano ${dash!['schoolYear']}',
+                        if (dash?['shift'] != null) '${dash!['shift']}',
+                        if (dash?['gradeLevel'] != null)
+                          '${dash!['gradeLevel']}',
+                      ].join(' • '),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: () => _addStudentToClass(context, classId),
+                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                  label: const Text('Adicionar Estudante'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _openClassDashboard(
+                    classId,
+                    _selectedClassName ?? 'Turma',
+                  ),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Atualizar'),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        if (_loadingDashboard)
+          const Padding(
+            padding: EdgeInsets.all(36),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_dashboardError != null)
+          _ErrorPanel(
+            message: _dashboardError!,
+            onRetry: () =>
+                _openClassDashboard(classId, _selectedClassName ?? 'Turma'),
+          )
+        else ...[
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cols = constraints.maxWidth >= 900
+                  ? 4
+                  : constraints.maxWidth >= 560
+                  ? 2
+                  : 1;
+              final w = (constraints.maxWidth - (14 * (cols - 1))) / cols;
+              return Wrap(
+                spacing: 14,
+                runSpacing: 14,
+                children: [
+                  SizedBox(
+                    width: w,
+                    child: InfoStatCard(
+                      title: 'Taxa Média de Acertos',
+                      value: '${avgAccuracy.toStringAsFixed(1)}%',
+                      subtitle:
+                          'Média: ${avgCorrect.toStringAsFixed(1)} / ${avgQuestions.toStringAsFixed(1)} questões',
+                      icon: Icons.gps_fixed_rounded,
+                      accentColor: const Color(0xFF059669),
+                    ),
+                  ),
+                  SizedBox(
+                    width: w,
+                    child: InfoStatCard(
+                      title: 'Número de Alunos',
+                      value: '$totalStudents',
+                      subtitle: 'Estudantes vinculados à turma',
+                      icon: Icons.groups_rounded,
+                      accentColor: const Color(0xFF2563EB),
+                    ),
+                  ),
+                  SizedBox(
+                    width: w,
+                    child: InfoStatCard(
+                      title: 'Entregas & Atividades',
+                      value: '$totalSubmissions',
+                      subtitle: '$totalExercises atividade(s) publicada(s)',
+                      icon: Icons.assignment_turned_in_rounded,
+                      accentColor: const Color(0xFF7C3AED),
+                    ),
+                  ),
+                  SizedBox(
+                    width: w,
+                    child: InfoStatCard(
+                      title: 'XP Acumulado da Turma',
+                      value: '$totalXp XP',
+                      subtitle: 'Soma de XP das entregas',
+                      icon: Icons.bolt_rounded,
+                      accentColor: const Color(0xFFD97706),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Estudantes da Turma (${students.length})',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
+          if (students.isEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Nenhum estudante matriculado nesta turma ainda.',
+                      ),
+                    ),
+                    FilledButton.icon(
+                      onPressed: () => _addStudentToClass(context, classId),
+                      icon: const Icon(Icons.person_add_alt_1_rounded),
+                      label: const Text('Adicionar primeiro aluno'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...students.map((s) {
+              final enrollmentId = (s['enrollmentId'] as num?)?.toInt();
+              final accuracy =
+                  (s['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0;
+              final subCount = (s['submissionsCount'] as num?)?.toInt() ?? 0;
+              final xp = (s['xpEarned'] as num?)?.toInt() ?? 0;
+              final gender = '${s['gender'] ?? ''}'.toUpperCase();
+              final roleLabel = gender == 'FEMININO' ? 'Aluna' : 'Aluno';
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    child: Text(_initial(s['name'])),
+                  ),
+                  title: Text(
+                    '${s['name'] ?? roleLabel}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    '${s['email'] ?? ''} • $roleLabel • Status: ${s['status'] ?? 'ACTIVE'}\n'
+                    'Entregas: $subCount • Média de acertos: ${accuracy.toStringAsFixed(1)}% • $xp XP',
+                  ),
+                  isThreeLine: true,
+                  trailing: enrollmentId == null
+                      ? null
+                      : PopupMenuButton<String>(
+                          onSelected: (action) => _updateEnrollmentStatus(
+                            enrollmentId,
+                            action,
+                            classId,
+                          ),
                           itemBuilder: (_) => const [
                             PopupMenuItem(
                               value: 'approve',
@@ -2846,77 +3264,134 @@ class TeacherClassManagementView extends StatelessWidget {
                             ),
                           ],
                         ),
-                      );
-                    }).toList(),
-                  ),
+                ),
+              );
+            }),
+          const SizedBox(height: 24),
+          Text(
+            'Atividades da Turma (${exercises.length})',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Fechar'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      if (context.mounted) showLearningError(context, e);
-    }
+          const SizedBox(height: 10),
+          if (exercises.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Text('Nenhuma atividade publicada para esta turma.'),
+              ),
+            )
+          else
+            ...exercises.map((ex) {
+              final avgExAcc =
+                  (ex['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0;
+              final subCount = (ex['submissionsCount'] as num?)?.toInt() ?? 0;
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.menu_book_rounded),
+                  ),
+                  title: Text(
+                    '${ex['title'] ?? 'Atividade'}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    '${ex['languageName'] ?? ''} • ${ex['proficiencyLevel'] ?? ''} • '
+                    '$subCount entrega(s) • Média de acertos: ${avgExAcc.toStringAsFixed(1)}%',
+                  ),
+                ),
+              );
+            }),
+        ],
+      ],
+    );
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: responsivePagePadding(context),
-    children: [
-      Row(
-        children: [
-          const Expanded(
-            child: Text(
-              'Gestão de turmas',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+  Widget build(BuildContext context) {
+    if (_selectedClassId != null) {
+      return _buildClassDashboardView(context);
+    }
+
+    return ListView(
+      padding: responsivePagePadding(context),
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Gestão de turmas',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+            ),
+            FilledButton.icon(
+              onPressed: () => _create(context),
+              icon: const Icon(Icons.add),
+              label: const Text('Criar turma'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Clique em qualquer turma abaixo para abrir o dashboard completo com média de acertos, alunos e atividades.',
+          style: TextStyle(
+            fontSize: 13,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (widget.data.teacherAssignments.isEmpty)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Não há turmas atribuídas registradas no banco de dados. Atualize ou crie uma turma para começar.',
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: widget.onRefresh,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Atualizar'),
+                  ),
+                ],
+              ),
             ),
           ),
-          FilledButton.icon(
-            onPressed: () => _create(context),
-            icon: const Icon(Icons.add),
-            label: const Text('Criar turma'),
-          ),
-        ],
-      ),
-      const SizedBox(height: 16),
-      if (data.teacherAssignments.isEmpty)
-        Card(
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Não há turmas atribuídas registradas no banco de dados. Atualize ou crie uma turma para começar.',
-                ),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: onRefresh,
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Atualizar'),
-                ),
-              ],
+        ...widget.data.teacherAssignments.map(
+          (a) => Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: ListTile(
+              onTap: a.schoolClassId == null
+                  ? null
+                  : () => _openClassDashboard(
+                      a.schoolClassId!,
+                      a.schoolClassName,
+                    ),
+              leading: const CircleAvatar(child: Icon(Icons.class_rounded)),
+              title: Text(
+                a.schoolClassName,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(
+                'Desde ${a.startDate} • Toque para abrir o Dashboard da Turma',
+              ),
+              trailing: FilledButton.tonalIcon(
+                onPressed: a.schoolClassId == null
+                    ? null
+                    : () => _openClassDashboard(
+                        a.schoolClassId!,
+                        a.schoolClassName,
+                      ),
+                icon: const Icon(Icons.analytics_outlined, size: 18),
+                label: const Text('Dashboard'),
+              ),
             ),
           ),
         ),
-      ...data.teacherAssignments.map(
-        (a) => Card(
-          child: ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.class_)),
-            title: Text(a.schoolClassName),
-            subtitle: Text('Desde ${a.startDate}'),
-            trailing: IconButton(
-              tooltip: 'Ver estudantes',
-              icon: const Icon(Icons.people),
-              onPressed: () => _showStudents(context, a.schoolClassId),
-            ),
-          ),
-        ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }

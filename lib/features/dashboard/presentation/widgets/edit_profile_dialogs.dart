@@ -281,11 +281,12 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
   }
 
   Future<void> _submit() async {
+    final isGoogleAccount = widget.data.user.googleId.isNotEmpty;
     final currentPass = _currentPasswordController.text;
     final newPass = _newPasswordController.text;
     final confirmPass = _confirmPasswordController.text;
 
-    if (currentPass.isEmpty) {
+    if (!isGoogleAccount && currentPass.isEmpty) {
       setState(() => _errorMessage = 'Informe a senha atual.');
       return;
     }
@@ -332,6 +333,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isGoogleAccount = widget.data.user.googleId.isNotEmpty;
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
@@ -367,7 +369,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
               ),
               const SizedBox(height: 18),
               Text(
-                'Senha Atual',
+                isGoogleAccount ? 'Senha Atual (opcional para conta Google)' : 'Senha Atual',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
@@ -379,7 +381,9 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                 controller: _currentPasswordController,
                 obscureText: true,
                 decoration: InputDecoration(
-                  hintText: 'Digite a senha atual',
+                  hintText: isGoogleAccount
+                      ? 'Deixe em branco se ainda não definiu uma senha'
+                      : 'Digite a senha atual',
                   isDense: true,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),

@@ -10,12 +10,15 @@ class LanguageProgressCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const studentGreen = Color(0xFF58CC02);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
+        side: BorderSide(
+          color: isDark ? const Color(0xFF343B49) : Colors.grey.shade200,
+        ),
       ),
       color: Theme.of(context).colorScheme.surface,
       child: Padding(
@@ -28,7 +31,7 @@ class LanguageProgressCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: studentGreen.withValues(alpha: 0.12),
+                    color: studentGreen.withValues(alpha: isDark ? 0.22 : 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -41,9 +44,10 @@ class LanguageProgressCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     language.languageName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -58,7 +62,9 @@ class LanguageProgressCard extends StatelessWidget {
                       color: studentGreen,
                     ),
                   ),
-                  backgroundColor: studentGreen.withValues(alpha: 0.12),
+                  backgroundColor: studentGreen.withValues(
+                    alpha: isDark ? 0.22 : 0.12,
+                  ),
                   side: BorderSide.none,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
@@ -73,7 +79,10 @@ class LanguageProgressCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Pontuação acumulada',
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark ? Colors.white70 : Colors.grey.shade600,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -93,7 +102,7 @@ class LanguageProgressCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               child: LinearProgressIndicator(
                 value: (language.score % 1000) / 1000.0,
-                backgroundColor: Colors.grey.shade100,
+                backgroundColor: isDark ? Colors.white12 : Colors.grey.shade100,
                 valueColor: const AlwaysStoppedAnimation<Color>(studentGreen),
                 minHeight: 8,
               ),

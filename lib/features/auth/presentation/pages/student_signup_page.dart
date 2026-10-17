@@ -38,6 +38,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
   final _confirmPasswordController = TextEditingController();
   final List<_SelectedLanguageItem> _selectedLanguages = [];
   String? _selectedDropdownLanguage;
+  String _selectedGender = 'MASCULINO';
   bool _obscurePassword = true;
   bool _obscureConfirmation = true;
 
@@ -73,6 +74,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
         name: _nameController.text,
         email: _emailController.text,
         password: _passwordController.text,
+        gender: _selectedGender,
         languages: _selectedLanguages.map((item) => item.toJson()).toList(),
       );
       if (!mounted) return;
@@ -90,23 +92,29 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
     final isEmailLocked =
         widget.initialEmail != null && widget.initialEmail!.trim().isNotEmpty;
 
-    final availableLanguages = _viewModel.availableLanguages
-        .where((lang) => !_selectedLanguages.any((s) => s.languageName == lang))
-        .toList();
-
-    final dropdownValue = availableLanguages.contains(_selectedDropdownLanguage)
-        ? _selectedDropdownLanguage
-        : null;
-
     return AnimatedBuilder(
       animation: _viewModel,
-      builder: (context, _) => AuthPageFrame(
-        title: 'Cadastro de aluno',
-        subtitle: 'Crie seu perfil e escolha os idiomas que quer aprender.',
-        accentColor: const Color(0xFF3579E8),
-        maxWidth: 560,
-        onBack: () => Navigator.of(context).pop(),
-        child: Form(
+      builder: (context, _) {
+        final availableLanguages = _viewModel.availableLanguages
+            .where(
+              (lang) => !_selectedLanguages.any((s) => s.languageName == lang),
+            )
+            .toList();
+
+        final dropdownValue =
+            availableLanguages.contains(_selectedDropdownLanguage)
+            ? _selectedDropdownLanguage
+            : null;
+
+        return AuthPageFrame(
+          title: _selectedGender == 'FEMININO'
+              ? 'Cadastro de aluna'
+              : 'Cadastro de aluno',
+          subtitle: 'Crie seu perfil e escolha os idiomas que quer aprender.',
+          accentColor: const Color(0xFF3579E8),
+          maxWidth: 560,
+          onBack: () => Navigator.of(context).pop(),
+          child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -123,6 +131,29 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                 validator: (value) => (value?.trim().isEmpty ?? true)
                     ? 'Informe seu nome.'
                     : null,
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedGender,
+                decoration: const InputDecoration(
+                  labelText: 'Sexo',
+                  prefixIcon: Icon(Icons.wc_rounded),
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'MASCULINO',
+                    child: Text('Masculino'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'FEMININO',
+                    child: Text('Feminino'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedGender = value);
+                  }
+                },
               ),
               const SizedBox(height: 14),
               TextFormField(
@@ -204,7 +235,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
               ),
               const SizedBox(height: 4),
               const Text(
-                'Escolha os idiomas em que tem proficiência e selecione o seu nível em cada um.',
+                'Escolha os idiomas em que tem proficiência e selecione o seu nível (Básico, Intermediário ou Avançado).',
                 style: TextStyle(color: Color(0xFF73788B), fontSize: 12),
               ),
               const SizedBox(height: 10),
@@ -225,8 +256,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                     )
                     .toList(),
                 onChanged:
-                    _viewModel.isCatalogLoading ||
-                        _viewModel.catalogErrorMessage != null
+                    _viewModel.isCatalogLoading || availableLanguages.isEmpty
                     ? null
                     : (value) {
                         if (value == null) return;
@@ -235,7 +265,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                           _selectedLanguages.add(
                             _SelectedLanguageItem(
                               languageName: value,
-                              level: _viewModel.proficiencyLevels.first,
+                              level: 'Básico',
                             ),
                           );
                           _selectedDropdownLanguage = null;
@@ -323,23 +353,27 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                             ),
                             isDense: true,
                           ),
-                          items: _viewModel.proficiencyLevels
-                              .map(
-                                (lvl) => DropdownMenuItem(
-                                  value: lvl,
-                                  child: Text(lvl),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: _viewModel.proficiencyLevels.isEmpty
-                              ? null
-                              : (newLevel) {
-                                  if (newLevel != null) {
-                                    setState(() {
-                                      item.level = newLevel;
-                                    });
-                                  }
-                                },
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'Básico',
+                              child: Text('Básico'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Intermediário',
+                              child: Text('Intermediário'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Avançado',
+                              child: Text('Avançado'),
+                            ),
+                          ],
+                          onChanged: (newLevel) {
+                            if (newLevel != null) {
+                              setState(() {
+                                item.level = newLevel;
+                              });
+                            }
+                          },
                         ),
                       ],
                     ),
@@ -369,13 +403,18 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                             strokeWidth: 2,
                           ),
                         )
-                      : const Text('Criar perfil de aluno'),
+                      : Text(
+                          _selectedGender == 'FEMININO'
+                              ? 'Criar perfil de aluna'
+                              : 'Criar perfil de aluno',
+                        ),
                 ),
               ),
             ],
           ),
         ),
-      ),
+      );
+      },
     );
   }
 
