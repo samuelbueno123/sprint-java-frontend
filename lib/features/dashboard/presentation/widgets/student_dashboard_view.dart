@@ -496,6 +496,10 @@ class StudentDashboardView extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
+          // Progresso diário calculado pelo backend (XP, meta e sequência)
+          const _StudentProgressSummaryCard(),
+          const SizedBox(height: 20),
+
           // Ações Rápidas do Aluno
           _ProfileCard(
             icon: Icons.bolt_rounded,
@@ -1502,6 +1506,212 @@ class _StudentInstitutionMembersViewState
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Card com o resumo de progresso calculado pelo backend
+/// (`GET /api/exercises/progress/me`): XP total, XP de hoje, meta diária
+/// persistida nas preferências e sequência de dias.
+class _StudentProgressSummaryCard extends StatefulWidget {
+  const _StudentProgressSummaryCard();
+
+  @override
+  State<_StudentProgressSummaryCard> createState() =>
+      _StudentProgressSummaryCardState();
+}
+
+class _StudentProgressSummaryCardState
+    extends State<_StudentProgressSummaryCard> {
+  late Future<Map<String, dynamic>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<Map<String, dynamic>> _load() async {
+    final response = await ApiClient().dio.get<Map<String, dynamic>>(
+      Uri.parse(
+        AppConfig.apiBaseUrl,
+      ).resolve('/api/exercises/progress/me').toString(),
+      queryParameters: {'timezone': _timezoneOffsetId()},
+    );
+    return response.data ?? const {};
+  }
+
+  static String _timezoneOffsetId() {
+    final offset = DateTime.now().timeZoneOffset;
+    final sign = offset.isNegative ? '-' : '+';
+    final abs = offset.abs();
+    final h = abs.inHours.toString().padLeft(2, '0');
+    final m = (abs.inMinutes % 60).toString().padLeft(2, '0');
+    return '$sign$h:$m';
+  }
+
+  void _retry() => setState(() => _future = _load());
+
+  int _int(Map<String, dynamic> data, String key) =>
+      (data[key] as num?)?.toInt() ?? 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return _ProfileCard(
+      icon: Icons.local_fire_department_rounded,
+      title: 'Meu progresso de hoje',
+      children: [
+        FutureBuilder<Map<String, dynamic>>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (snapshot.hasError) {
+              return Row(
+                children: [
+                  Icon(Icons.cloud_off_outlined, color: colors.error),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      parseLearningError(snapshot.error!),
+                      style: TextStyle(color: colors.onSurfaceVariant),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _retry,
+                    child: const Text('Tentar novamente'),
+                  ),
+                ],
+              );
+            }
+            final data = snapshot.data ?? const {};
+            final todayXp = _int(data, 'todayXp');
+            final goalXp = _int(data, 'dailyGoalXp');
+            final goalMinutes = _int(data, 'dailyGoalMinutes');
+            final reached = data['dailyGoalReached'] == true;
+            final progress = goalXp <= 0
+                ? 0.0
+                : (todayXp / goalXp).clamp(0.0, 1.0).toDouble();
+            final criteria = data['calculationCriteria']?.toString();
+
+            Widget metric(String label, String value, IconData icon) =>
+                Container(
+                  constraints: const BoxConstraints(minWidth: 130),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: colors.outlineVariant),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 20, color: colors.primary),
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            value,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              color: colors.onSurface,
+                            ),
+                          ),
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        reached
+                            ? 'Meta diária concluída! 🎉'
+                            : 'Meta diária: $todayXp / $goalXp XP ($goalMinutes min)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: colors.onSurface,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Atualizar progresso',
+                      onPressed: _retry,
+                      icon: const Icon(Icons.refresh_rounded),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 10,
+                    backgroundColor: colors.surfaceContainerHighest,
+                    color: reached ? const Color(0xFF32946B) : null,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    metric(
+                      'XP total',
+                      '${_int(data, 'totalXp')} XP',
+                      Icons.bolt_rounded,
+                    ),
+                    metric(
+                      'Sequência atual',
+                      '${_int(data, 'currentStreakDays')} dia(s)',
+                      Icons.local_fire_department_rounded,
+                    ),
+                    metric(
+                      'Melhor sequência',
+                      '${_int(data, 'bestStreakDays')} dia(s)',
+                      Icons.emoji_events_rounded,
+                    ),
+                    metric(
+                      'Atividades concluídas',
+                      '${_int(data, 'completedExercisesCount')}',
+                      Icons.task_alt_rounded,
+                    ),
+                  ],
+                ),
+                if (criteria != null && criteria.trim().isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    criteria,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 }

@@ -11,6 +11,7 @@ import '../widgets/google_sign_in_button.dart' as google_sign_in_button;
 import '../widgets/registration_choice_dialog.dart';
 import 'registration_choice_page.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
+import '../../../dashboard/presentation/widgets/edit_profile_dialogs.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -180,6 +181,29 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 validator: (value) =>
                     (value?.isEmpty ?? true) ? 'Informe sua senha.' : null,
+              ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => ForgotPasswordDialog.show(
+                    context,
+                    initialEmail: _emailController.text,
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF5869D8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Esqueci minha senha',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                  ),
+                ),
               ),
               if (!AppConfig.hasValidApiBaseUrl) ...[
                 const SizedBox(height: 14),

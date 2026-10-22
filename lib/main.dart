@@ -2,6 +2,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
 
 import 'app.dart';
+import 'core/localization/app_locale_controller.dart';
 import 'core/network/session_store.dart';
 import 'core/theme/app_theme_controller.dart';
 
@@ -15,8 +16,9 @@ Future<void> main() async {
   }
   try {
     await AppThemeController.load();
+    await AppLocaleController.load();
   } catch (_) {
-    // Use the light theme if local preference storage is unavailable.
+    // Use default theme/locale if local preference storage is unavailable.
   }
   runApp(const MyApp());
 }

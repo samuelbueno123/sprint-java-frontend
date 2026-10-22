@@ -15,8 +15,6 @@ class AppConfig {
     'APP_ENV',
     defaultValue: 'development',
   );
-  static String get _apiBaseUrlOverride => _envValue('API_BASE_URL');
-
   static String _envValue(String key) {
     const compileTimeValues = <String, String>{
       'API_BASE_URL': String.fromEnvironment('API_BASE_URL'),
@@ -33,13 +31,31 @@ class AppConfig {
     if (compileTimeValue != null && compileTimeValue.isNotEmpty) {
       return compileTimeValue;
     }
+    if (!dotenv.isInitialized) {
+      return '';
+    }
     return dotenv.env[key]?.trim() ?? '';
   }
 
-  static String get apiBaseUrl {
-    if (_environmentValue != 'development') return '';
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://192.168.15.80:8080';
+  static String get apiBaseUrl => resolveApiBaseUrl();
+
+  static String resolveApiBaseUrl({
+    String? overrideUrl,
+    String? environmentName,
+    bool isWeb = kIsWeb,
+    TargetPlatform? platform,
+  }) {
+    final configured = (overrideUrl ?? _envValue('API_BASE_URL')).trim();
+    if (configured.isNotEmpty) {
+      return configured;
+    }
+    final envName = (environmentName ?? _environmentValue).trim().toLowerCase();
+    if (envName != 'development') {
+      return '';
+    }
+    final targetPlatform = platform ?? defaultTargetPlatform;
+    if (!isWeb && targetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:8080';
     }
     return 'http://localhost:8080';
   }

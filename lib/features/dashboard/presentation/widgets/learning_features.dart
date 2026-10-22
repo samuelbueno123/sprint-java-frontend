@@ -6,6 +6,7 @@ import '../../../../core/network/api_client.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/student_enrollment.dart';
 import '../../domain/entities/student_profile.dart';
+import 'audio_speech_helper.dart';
 import 'info_stat_card.dart';
 import 'responsive_layout.dart';
 import 'teacher_create_exercise_screen.dart';
@@ -271,41 +272,91 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                 '${item['studentName'] ?? 'Estudante'} · ${item['exerciseTitle'] ?? 'Atividade'}',
               ),
               subtitle: Text(
-                '${_submissionClassName(item) ?? 'Turma não identificada'} · ${item['correctCount'] ?? 0}/${item['questionCount'] ?? 0} corretas · ${item['xpEarned'] ?? 0} XP · ${item['reviewedAt'] == null ? 'Aguardando análise' : 'Revisada'}',
+                '${_submissionClassName(item) ?? 'Turma não identificada'} · ${item['correctCount'] ?? 0}/${item['questionCount'] ?? 0} corretas · ${item['xpEarned'] ?? 0} XP · ${_reviewStatusLabel(item)}',
               ),
               children: [
-                for (
-                  var i = 0;
-                  i < ((item['answers'] as List?) ?? []).length;
-                  i++
-                )
-                  ListTile(
-                    dense: true,
-                    title: Text('Resposta ${i + 1}'),
-                    subtitle: Text('${(item['answers'] as List)[i]}'),
-                  ),
+                if (((item['questionFeedback'] as List?) ?? const []).isNotEmpty)
+                  for (final rawQf in (item['questionFeedback'] as List))
+                    Builder(
+                      builder: (context) {
+                        final qf = Map<String, dynamic>.from(rawQf as Map);
+                        final idx = ((qf['questionIndex'] as num?)?.toInt() ?? 0) + 1;
+                        final isCorrect = qf['correct'] == true;
+                        final mode = '${qf['evaluationMode'] ?? 'OBJECTIVE'}';
+                        return ListTile(
+                          dense: true,
+                          leading: Icon(
+                            mode == 'OPEN_ENDED'
+                                ? Icons.subject_rounded
+                                : (isCorrect
+                                      ? Icons.check_circle_outline_rounded
+                                      : Icons.cancel_outlined),
+                            color: mode == 'OPEN_ENDED'
+                                ? const Color(0xFFD97706)
+                                : (isCorrect
+                                      ? const Color(0xFF059669)
+                                      : const Color(0xFFDC2626)),
+                          ),
+                          title: Text(
+                            'Questão $idx (${qf['style'] ?? mode}): ${qf['question'] ?? ''}',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            'Resposta do aluno: ${qf['studentAnswer'] ?? ''}\n'
+                            'Referência/Rubrica: ${qf['expectedAnswer'] ?? ''}\n'
+                            'Avaliação: ${qf['feedback'] ?? ''}',
+                          ),
+                          isThreeLine: true,
+                        );
+                      },
+                    )
+                else
+                  for (
+                    var i = 0;
+                    i < ((item['answers'] as List?) ?? []).length;
+                    i++
+                  )
+                    ListTile(
+                      dense: true,
+                      title: Text('Resposta ${i + 1}'),
+                      subtitle: Text('${(item['answers'] as List)[i]}'),
+                    ),
                 if (item['feedback'] != null)
                   ListTile(
-                    title: const Text('Feedback'),
+                    title: const Text('Feedback do professor'),
                     subtitle: Text('${item['feedback']}'),
                   ),
-                if (item['reviewedAt'] == null)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: FilledButton.icon(
-                        onPressed: () => _feedback(item),
-                        icon: const Icon(Icons.rate_review_outlined),
-                        label: const Text('Enviar feedback'),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: FilledButton.icon(
+                      onPressed: () => _feedback(item),
+                      icon: const Icon(Icons.rate_review_outlined),
+                      label: Text(
+                        item['reviewedAt'] == null
+                            ? 'Revisar e enviar feedback'
+                            : 'Atualizar revisão / nota',
                       ),
                     ),
                   ),
+                ),
               ],
             ),
           ),
       ],
     );
+  }
+
+  String _reviewStatusLabel(Map<String, dynamic> item) {
+    final status = '${item['reviewStatus'] ?? ''}'.toUpperCase();
+    if (status == 'PENDING_REVIEW') {
+      return 'Aguardando revisão manual (questão aberta)';
+    }
+    if (status == 'REVIEWED' || item['reviewedAt'] != null) {
+      return 'Revisada pelo professor';
+    }
+    return 'Corrigida automaticamente';
   }
 
   List<_ReviewClass> get _reviewClasses {
@@ -432,39 +483,85 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
   }
 
   Future<void> _feedback(Map<String, dynamic> submission) async {
-    final controller = TextEditingController();
+    final controller = TextEditingController(
+      text: submission['feedback']?.toString() ?? '',
+    );
+    final questionCount =
+        (submission['questionCount'] as num?)?.toInt() ?? 1;
+    var selectedCorrect =
+        ((submission['correctCount'] as num?)?.toInt() ?? 0).clamp(
+          0,
+          questionCount,
+        );
     try {
       final ok = await showDialog<bool>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: Text(
-            'Feedback para ${submission['studentName'] ?? 'estudante'}',
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            title: Text(
+              'Revisar entrega de ${submission['studentName'] ?? 'estudante'}',
+            ),
+            content: SizedBox(
+              width: responsiveDialogWidth(ctx, maxWidth: 480),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  DropdownButtonFormField<int>(
+                    initialValue: selectedCorrect,
+                    decoration: InputDecoration(
+                      labelText:
+                          'Questões corretas (de $questionCount no total)',
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: List.generate(
+                      questionCount + 1,
+                      (index) => DropdownMenuItem(
+                        value: index,
+                        child: Text(
+                          '$index / $questionCount correta(s)',
+                        ),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setDialogState(() => selectedCorrect = value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Comentário pedagógico para o estudante',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Salvar revisão'),
+              ),
+            ],
           ),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'Comentário para o estudante',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Enviar'),
-            ),
-          ],
         ),
       );
       if (ok == true && controller.text.trim().isNotEmpty) {
         await _dio.patch(
           '/api/exercises/submissions/${submission['id']}/feedback',
-          data: {'feedback': controller.text.trim()},
+          data: {
+            'feedback': controller.text.trim(),
+            'correctCount': selectedCorrect,
+          },
         );
         await _refresh();
       }
@@ -706,14 +803,59 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
           ),
         for (final item in _submissions)
           Card(
-            child: ListTile(
-              leading: const Icon(Icons.history_rounded),
-              title: Text(item.title),
-              subtitle: Text(
-                '${item.language} · ${item.correct}/${item.count} corretas${item.feedback == null ? '' : '\nFeedback: ${item.feedback}'}',
+            margin: const EdgeInsets.only(bottom: 10),
+            child: ExpansionTile(
+              leading: Icon(
+                item.reviewStatus == 'PENDING_REVIEW'
+                    ? Icons.hourglass_top_rounded
+                    : Icons.history_rounded,
+                color: item.reviewStatus == 'PENDING_REVIEW'
+                    ? const Color(0xFFD97706)
+                    : null,
               ),
-              isThreeLine: item.feedback != null,
-              trailing: Text('+${item.xp} XP'),
+              title: Text(
+                item.title,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(
+                '${item.language} · ${item.correct}/${item.count} corretas · ${item.reviewStatusLabel}${item.feedback == null ? '' : '\nFeedback do professor: ${item.feedback}'}',
+              ),
+              trailing: Text(
+                '+${item.xp} XP',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              children: [
+                if (item.questionFeedback.isNotEmpty)
+                  for (final qf in item.questionFeedback)
+                    ListTile(
+                      dense: true,
+                      leading: Icon(
+                        qf['evaluationMode'] == 'OPEN_ENDED'
+                            ? Icons.subject_rounded
+                            : (qf['correct'] == true
+                                  ? Icons.check_circle_outline_rounded
+                                  : Icons.cancel_outlined),
+                        color: qf['evaluationMode'] == 'OPEN_ENDED'
+                            ? const Color(0xFFD97706)
+                            : (qf['correct'] == true
+                                  ? const Color(0xFF059669)
+                                  : const Color(0xFFDC2626)),
+                      ),
+                      title: Text(
+                        'Questão ${((qf['questionIndex'] as num?)?.toInt() ?? 0) + 1}: ${qf['question'] ?? ''}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text(
+                        'Sua resposta: ${qf['studentAnswer'] ?? ''}\n'
+                        '${qf['feedback'] ?? ''}',
+                      ),
+                    )
+                else
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text('Sem detalhes individuais para esta entrega.'),
+                  ),
+              ],
             ),
           ),
       ],
@@ -1202,6 +1344,9 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
   final List<String> _answers = [];
   final List<String?> _selected = [];
   bool _saving = false;
+  bool _listening = false;
+  bool _audioFallbackMode = false;
+  String? _speechStatus;
   int _index = 0;
 
   @override
@@ -1215,20 +1360,78 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
 
   @override
   void dispose() {
+    AudioSpeechHelper.stopSpeaking();
     _text.dispose();
     super.dispose();
+  }
+
+  Future<void> _speakCurrentPrompt({double rate = 1.0}) async {
+    final q = widget.exercise.questions[_index];
+    final targetText = q.spokenReference.isNotEmpty
+        ? q.spokenReference
+        : q.prompt;
+    final ok = await AudioSpeechHelper.speak(
+      targetText,
+      languageName: widget.exercise.language,
+      rate: rate,
+    );
+    if (!ok && mounted) {
+      setState(() {
+        _audioFallbackMode = true;
+        _speechStatus =
+            'Síntese de áudio indisponível neste dispositivo. Modo acessível ativado automaticamente.';
+      });
+    }
+  }
+
+  Future<void> _listenMicrophone() async {
+    if (_listening) return;
+    setState(() {
+      _listening = true;
+      _speechStatus = 'Solicitando acesso ao microfone...';
+    });
+    try {
+      final transcript = await AudioSpeechHelper.recognizeSpeech(
+        languageName: widget.exercise.language,
+        onStatus: (status) {
+          if (mounted) {
+            setState(() => _speechStatus = status);
+          }
+        },
+      );
+      if (!mounted) return;
+      if (transcript != null && transcript.isNotEmpty) {
+        setState(() {
+          _text.text = transcript;
+          final q = widget.exercise.questions[_index];
+          if (q.options.isNotEmpty) {
+            for (final opt in q.options) {
+              if (opt.trim().toLowerCase() == transcript.trim().toLowerCase()) {
+                _selected[_index] = opt;
+                break;
+              }
+            }
+          }
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _listening = false);
+      }
+    }
   }
 
   void _next() {
     final q = widget.exercise.questions[_index];
     final answer = q.options.isEmpty
         ? _text.text.trim()
-        : (_selected[_index] ?? '');
+        : (_selected[_index] ?? _text.text.trim());
     if (answer.isEmpty) return;
     _answers[_index] = answer;
     if (_index < widget.exercise.questions.length - 1) {
       setState(() {
         _index++;
+        _speechStatus = null;
         _text.clear();
       });
     } else {
@@ -1245,18 +1448,152 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
       );
       if (!mounted) return;
       final result = Map<String, dynamic>.from(response.data as Map);
+      final reviewStatus = '${result['reviewStatus'] ?? 'AUTO_GRADED'}';
+      final questionFeedback = (result['questionFeedback'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          icon: const Icon(
-            Icons.emoji_events_rounded,
-            color: Color(0xFFFFC400),
+          icon: Icon(
+            reviewStatus == 'PENDING_REVIEW'
+                ? Icons.fact_check_rounded
+                : Icons.emoji_events_rounded,
+            color: const Color(0xFFFFC400),
             size: 48,
           ),
-          title: const Text('Atividade concluída!'),
-          content: Text(
-            '${result['correctCount']}/${result['questionCount']} respostas corretas · ${result['xpEarned']} XP ganhos',
+          title: Text(
+            reviewStatus == 'PENDING_REVIEW'
+                ? 'Atividade enviada para revisão!'
+                : 'Atividade concluída!',
+          ),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '${result['correctCount']}/${result['questionCount']} respostas corretas · +${result['xpEarned']} XP ganhos',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
+                  if ((result['xpEarned'] as num? ?? 0) == 0) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Nota: Reenvios concedem XP adicional apenas quando você supera sua maior pontuação anterior nesta atividade.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  if (reviewStatus == 'PENDING_REVIEW') ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'Esta atividade inclui questão(ões) aberta(s)/discursiva(s). Uma avaliação preliminar por rubrica foi aplicada e seu professor poderá revisar e ajustar sua nota final.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF92400E),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (questionFeedback.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    const Divider(),
+                    const Text(
+                      'Resumo por questão:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    for (final qf in questionFeedback)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.outlineVariant,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    qf['evaluationMode'] == 'OPEN_ENDED'
+                                        ? Icons.subject_rounded
+                                        : (qf['correct'] == true
+                                              ? Icons.check_circle_rounded
+                                              : Icons.cancel_rounded),
+                                    size: 18,
+                                    color: qf['evaluationMode'] == 'OPEN_ENDED'
+                                        ? const Color(0xFFD97706)
+                                        : (qf['correct'] == true
+                                              ? const Color(0xFF059669)
+                                              : const Color(0xFFDC2626)),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'Questão ${((qf['questionIndex'] as num?)?.toInt() ?? 0) + 1} (${qf['style'] ?? 'Objetiva'})',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Sua resposta: ${qf['studentAnswer'] ?? ''}',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${qf['feedback'] ?? ''}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
           ),
           actions: [
             FilledButton(
@@ -1286,10 +1623,14 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
         onRefresh: widget.onBack,
       );
     final q = widget.exercise.questions[_index];
+    final isAudio = q.isAudioQuestion(widget.exercise.category);
+    final isOpenEnded = q.isOpenEnded;
+    final colors = Theme.of(context).colorScheme;
+
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 760),
-        child: Padding(
+        child: SingleChildScrollView(
           padding: responsivePagePadding(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1309,6 +1650,25 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                       ),
                     ),
                   ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.secondaryContainer,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      q.style,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: colors.onSecondaryContainer,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
                   Text('${_index + 1}/${widget.exercise.questions.length}'),
                 ],
               ),
@@ -1318,22 +1678,163 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                 minHeight: 8,
                 borderRadius: BorderRadius.circular(8),
               ),
-              const SizedBox(height: 32),
-              Text(
-                q.prompt,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
               const SizedBox(height: 24),
-              if (q.options.isEmpty)
-                TextField(
-                  controller: _text,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Sua resposta',
-                    border: OutlineInputBorder(),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      q.prompt,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(
+                    tooltip: 'Ouvir enunciado em ${widget.exercise.language}',
+                    onPressed: () => _speakCurrentPrompt(rate: 1.0),
+                    icon: const Icon(Icons.volume_up_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (isAudio || _audioFallbackMode) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 18),
+                  decoration: BoxDecoration(
+                    color: colors.primaryContainer.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.headphones_rounded, color: colors.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Exercício com Áudio e Pronúncia (${widget.exercise.language})',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: colors.onSurface,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: () => _speakCurrentPrompt(rate: 1.0),
+                            icon: const Icon(Icons.volume_up_rounded, size: 18),
+                            label: const Text('Ouvir frase'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => _speakCurrentPrompt(rate: 0.65),
+                            icon: const Icon(Icons.slow_motion_video_rounded, size: 18),
+                            label: const Text('Ouvir devagar'),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: _listening ? null : _listenMicrophone,
+                            icon: Icon(
+                              _listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                              size: 18,
+                            ),
+                            label: Text(
+                              _listening
+                                  ? 'Ouvindo microfone...'
+                                  : 'Falar / Transcrever',
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_speechStatus != null) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          _speechStatus!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: colors.primary,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () => setState(() {
+                            _audioFallbackMode = !_audioFallbackMode;
+                          }),
+                          icon: Icon(
+                            _audioFallbackMode
+                                ? Icons.hearing_rounded
+                                : Icons.hearing_disabled_rounded,
+                            size: 16,
+                          ),
+                          label: Text(
+                            _audioFallbackMode
+                                ? 'Modo acessível por texto ativo (ocultar transcrição)'
+                                : 'Não posso ouvir ou falar agora (usar alternativa acessível)',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ),
+                      if (_audioFallbackMode && q.spokenReference.isNotEmpty) ...[
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: colors.surface,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            'Transcrição acessível do áudio: "${q.spokenReference}"',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+              if (isOpenEnded)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    'Questão aberta/discursiva: escreva sua resposta com suas próprias palavras. Ela será avaliada por critérios/rubrica e ficará disponível para revisão do professor.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              if (q.options.isEmpty || _audioFallbackMode || isAudio)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: TextField(
+                    controller: _text,
+                    autofocus: q.options.isEmpty,
+                    maxLines: isOpenEnded ? 4 : 2,
+                    minLines: isOpenEnded ? 3 : 1,
+                    decoration: InputDecoration(
+                      labelText: isAudio
+                          ? 'Transcrição da sua fala ou resposta escrita'
+                          : (isOpenEnded
+                                ? 'Sua resposta discursiva'
+                                : 'Sua resposta'),
+                      border: const OutlineInputBorder(),
+                    ),
                   ),
                 ),
               for (final option in q.options)
@@ -1353,7 +1854,7 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                     ),
                   ),
                 ),
-              const Spacer(),
+              const SizedBox(height: 24),
               FilledButton(
                 onPressed: _saving ? null : _next,
                 child: _saving
@@ -1942,15 +2443,52 @@ class _Exercise {
 }
 
 class _ExerciseQuestion {
-  const _ExerciseQuestion(this.prompt, this.options);
+  const _ExerciseQuestion(
+    this.prompt,
+    this.options, {
+    this.style = 'Múltipla escolha',
+    this.answer = '',
+  });
   final String prompt;
   final List<String> options;
+  final String style;
+  final String answer;
+
+  String get spokenReference => answer.trim().isNotEmpty ? answer.trim() : prompt.trim();
+
+  bool get isOpenEnded {
+    final s = style.trim().toLowerCase();
+    return s.contains('discursiva') ||
+        s.contains('aberta') ||
+        s.contains('redação') ||
+        s.contains('livre');
+  }
+
+  bool isAudioQuestion(String exerciseCategory) {
+    final s = style.trim().toLowerCase();
+    final c = exerciseCategory.trim().toLowerCase();
+    final p = prompt.trim().toLowerCase();
+    return s.contains('áudio') ||
+        s.contains('audio') ||
+        s.contains('pronúncia') ||
+        s.contains('pronuncia') ||
+        c.contains('pronúncia') ||
+        c.contains('pronuncia') ||
+        c.contains('áudio') ||
+        c.contains('audio') ||
+        p.contains('ouça') ||
+        p.contains('pronuncie') ||
+        p.contains('repita em voz alta');
+  }
+
   factory _ExerciseQuestion.fromJson(Map<String, dynamic> json) =>
       _ExerciseQuestion(
         json['question'] as String? ?? '',
         (json['options'] as List? ?? [])
             .map((item) => item.toString())
             .toList(),
+        style: json['style'] as String? ?? 'Múltipla escolha',
+        answer: json['answer'] as String? ?? '',
       );
 }
 
@@ -1964,12 +2502,28 @@ class _Submission {
     required this.xp,
     this.feedback,
     this.submittedAt,
+    this.reviewStatus = 'AUTO_GRADED',
+    this.questionFeedback = const [],
   });
   final int exerciseId;
   final String title, language;
   final int correct, count, xp;
   final String? feedback;
   final DateTime? submittedAt;
+  final String reviewStatus;
+  final List<Map<String, dynamic>> questionFeedback;
+
+  String get reviewStatusLabel {
+    final status = reviewStatus.toUpperCase();
+    if (status == 'PENDING_REVIEW') {
+      return 'Aguardando revisão do professor';
+    }
+    if (status == 'REVIEWED') {
+      return 'Revisada pelo professor';
+    }
+    return 'Corrigida automaticamente';
+  }
+
   factory _Submission.fromJson(Map<String, dynamic> json) => _Submission(
     exerciseId: json['exerciseId'] as int,
     title: json['exerciseTitle'] as String? ?? 'Atividade',
@@ -1981,6 +2535,11 @@ class _Submission {
     submittedAt: DateTime.tryParse(
       json['submittedAt']?.toString() ?? '',
     )?.toLocal(),
+    reviewStatus: json['reviewStatus'] as String? ?? 'AUTO_GRADED',
+    questionFeedback: (json['questionFeedback'] as List? ?? const [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList(),
   );
 }
 

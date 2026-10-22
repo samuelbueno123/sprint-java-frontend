@@ -47,6 +47,7 @@ class _TeacherCreateExerciseScreenState
     'Tradução',
     'Correspondência',
     'Verdadeiro ou Falso',
+    'Áudio',
   ];
 
   final _formKey = GlobalKey<FormState>();
@@ -55,11 +56,16 @@ class _TeacherCreateExerciseScreenState
   final _description = TextEditingController();
   final _content = TextEditingController();
   final _mediaUrl = TextEditingController();
+  final _aiInstructions = TextEditingController();
   final List<_ComposerQuestion> _questions = [_ComposerQuestion()];
 
   final Dio _dio = ApiClient().dio;
   bool _contentOnly = false;
   bool _saving = false;
+  bool _generatingAi = false;
+  int _aiQuestionCount = 3;
+  String? _aiStatusMessage;
+  bool _aiStatusIsError = false;
   String _category = _categories.first;
   int? _classId;
   String? _language;
@@ -100,6 +106,7 @@ class _TeacherCreateExerciseScreenState
     _description.dispose();
     _content.dispose();
     _mediaUrl.dispose();
+    _aiInstructions.dispose();
     for (final question in _questions) {
       question.dispose();
     }
@@ -712,32 +719,250 @@ class _TeacherCreateExerciseScreenState
     ),
   );
 
+  String _normalizeGeneratedStyle(String? rawStyle) {
+    final lower = (rawStyle ?? '').trim().toLowerCase();
+    if (lower.contains('verdadeiro') || lower.contains('falso')) {
+      return 'Verdadeiro ou Falso';
+    }
+    if (lower.contains('aberta') || lower.contains('discursiva')) {
+      return 'Discursiva';
+    }
+    if (lower.contains('áudio') || lower.contains('audio')) {
+      return 'Áudio';
+    }
+    if (lower.contains('completar') || lower.contains('lacuna')) {
+      return 'Completar';
+    }
+    if (lower.contains('tradu')) {
+      return 'Tradução';
+    }
+    return 'Múltipla Escolha';
+  }
+
+  Future<void> _generateWithAi() async {
+    final themeText = _theme.text.trim();
+    final instructionsText = _aiInstructions.text.trim();
+    if (themeText.isEmpty && instructionsText.isEmpty) {
+      setState(() {
+        _aiStatusIsError = true;
+        _aiStatusMessage =
+            'Informe o Tema / Subtópico acima ou descreva as instruções para gerar as questões com IA.';
+      });
+      return;
+    }
+
+    setState(() {
+      _generatingAi = true;
+      _aiStatusMessage = null;
+      _aiStatusIsError = false;
+    });
+
+    try {
+      final response = await _dio.post<List<dynamic>>(
+        '/api/exercises/generate-ai',
+        data: {
+          'languageName': _language ?? 'Inglês',
+          'proficiencyLevel': _level ?? 'Fácil',
+          'category': _category,
+          'theme': themeText.isNotEmpty ? themeText : instructionsText,
+          'questionCount': _aiQuestionCount,
+          'questionStyles': _questionStyles,
+          'additionalInstructions': instructionsText,
+        },
+      );
+      final items = (response.data ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .toList();
+      if (items.isEmpty) {
+        setState(() {
+          _aiStatusIsError = true;
+          _aiStatusMessage = 'O provedor de IA não retornou questões válidas.';
+        });
+        return;
+      }
+
+      final generated = <_ComposerQuestion>[];
+      for (final item in items) {
+        final q = _ComposerQuestion();
+        q.style = _normalizeGeneratedStyle(item['style']?.toString());
+        q.prompt.text = (item['question'] ?? '').toString().trim();
+        final rawOpts = (item['options'] as List? ?? const [])
+            .map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+        if (_usesOptions(q.style)) {
+          final effectiveOpts = rawOpts.isNotEmpty
+              ? rawOpts
+              : (q.style == 'Verdadeiro ou Falso'
+                    ? ['Verdadeiro', 'Falso']
+                    : <String>[]);
+          for (
+            var i = 0;
+            i < q.options.length && i < effectiveOpts.length;
+            i++
+          ) {
+            q.options[i].text = effectiveOpts[i];
+          }
+          final correct = (item['correctAnswer'] ?? item['expectedAnswer'])
+              ?.toString()
+              .trim();
+          if (correct != null && effectiveOpts.contains(correct)) {
+            q.correctAnswer = correct;
+          } else if (effectiveOpts.isNotEmpty) {
+            q.correctAnswer = effectiveOpts.first;
+          }
+        } else {
+          q.expectedAnswer.text =
+              (item['expectedAnswer'] ?? item['correctAnswer'] ?? '')
+                  .toString()
+                  .trim();
+        }
+        generated.add(q);
+      }
+
+      for (final old in _questions) {
+        old.dispose();
+      }
+      setState(() {
+        _questions
+          ..clear()
+          ..addAll(generated);
+        _aiStatusIsError = false;
+        _aiStatusMessage =
+            '${generated.length} questões geradas! Revise e edite livremente abaixo antes de publicar.';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _aiStatusIsError = true;
+        _aiStatusMessage = _errorMessage(error);
+      });
+    } finally {
+      if (mounted) setState(() => _generatingAi = false);
+    }
+  }
+
   Widget _aiCard(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return _ComposerCard(
       title: 'Gerar com Inteligência Artificial',
       icon: Icons.auto_awesome_rounded,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: colors.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: colors.outlineVariant),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.info_outline_rounded, color: colors.primary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'A geração automática ainda não está conectada ao backend. Crie e revise as questões manualmente abaixo.',
-                style: TextStyle(color: colors.onSurfaceVariant, height: 1.4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Descreva o foco pedagógico das questões. As sugestões geradas serão preenchidas no editor abaixo para sua revisão antes de publicar.',
+            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 560;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  SizedBox(
+                    width: wide
+                        ? constraints.maxWidth - 190
+                        : constraints.maxWidth,
+                    child: _textField(
+                      controller: _aiInstructions,
+                      label: 'Instruções para a IA (tema, vocabulário, foco)',
+                      hint:
+                          'Ex: Crie situações práticas de restaurante usando Simple Present',
+                    ),
+                  ),
+                  SizedBox(
+                    width: wide ? 178 : constraints.maxWidth,
+                    child: DropdownButtonFormField<int>(
+                      initialValue: _aiQuestionCount,
+                      decoration: const InputDecoration(
+                        labelText: 'Nº de questões',
+                      ),
+                      items: const [2, 3, 4, 5, 6]
+                          .map(
+                            (count) => DropdownMenuItem(
+                              value: count,
+                              child: Text('$count questões'),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) setState(() => _aiQuestionCount = val);
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: _generatingAi ? null : _generateWithAi,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF7651C8),
+                foregroundColor: Colors.white,
+              ),
+              icon: _generatingAi
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.auto_awesome_rounded, size: 18),
+              label: Text(
+                _generatingAi
+                    ? 'Gerando sugestões...'
+                    : 'Gerar questões para revisão',
+              ),
+            ),
+          ),
+          if (_aiStatusMessage != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _aiStatusIsError
+                    ? colors.errorContainer
+                    : colors.secondaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    _aiStatusIsError
+                        ? Icons.info_outline_rounded
+                        : Icons.check_circle_outline_rounded,
+                    color: _aiStatusIsError
+                        ? colors.onErrorContainer
+                        : colors.onSecondaryContainer,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _aiStatusMessage!,
+                      style: TextStyle(
+                        color: _aiStatusIsError
+                            ? colors.onErrorContainer
+                            : colors.onSecondaryContainer,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }

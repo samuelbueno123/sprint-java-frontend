@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/localization/app_locale_controller.dart';
 import 'core/theme/app_theme_controller.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/dashboard/presentation/pages/dashboard_page.dart';
@@ -11,10 +12,13 @@ class App extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ValueListenableBuilder<ThemeMode>(
     valueListenable: AppThemeController.mode,
-    builder: (context, themeMode, _) => MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Duolinfo',
-      themeMode: themeMode,
+    builder: (context, themeMode, _) => ValueListenableBuilder<String>(
+      valueListenable: AppLocaleController.languageCode,
+      builder: (context, langCode, _) => MaterialApp(
+        key: ValueKey<String>('app_locale_$langCode'),
+        debugShowCheckedModeBanner: false,
+        title: 'Duolinfo',
+        themeMode: themeMode,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF3579E8)),
         useMaterial3: true,
@@ -92,7 +96,8 @@ class App extends StatelessWidget {
           ),
         ),
       ),
-      home: SessionStore.hasSession ? const DashboardPage() : const LoginPage(),
+        home: SessionStore.hasSession ? const DashboardPage() : const LoginPage(),
+      ),
     ),
   );
 }

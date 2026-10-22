@@ -164,6 +164,132 @@ class DashboardRemoteDataSource {
     }
   }
 
+  Future<Map<String, dynamic>> requestPasswordReset(String email) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      Uri.parse(AppConfig.apiBaseUrl)
+          .resolve('/api/auth/forgot-password')
+          .toString(),
+      data: {'email': email.trim().toLowerCase()},
+    );
+    return response.data ?? const {};
+  }
+
+  Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String token,
+    required String newPassword,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      Uri.parse(AppConfig.apiBaseUrl)
+          .resolve('/api/auth/reset-password')
+          .toString(),
+      data: {
+        'email': email.trim().toLowerCase(),
+        'token': token.trim(),
+        'newPassword': newPassword,
+      },
+    );
+    return response.data ?? const {};
+  }
+
+  Future<Map<String, dynamic>> getMyPreferences() async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      Uri.parse(AppConfig.apiBaseUrl)
+          .resolve('/api/auth/me/preferences')
+          .toString(),
+    );
+    return response.data ?? const {};
+  }
+
+  Future<Map<String, dynamic>> updateMyPreferences({
+    String? uiLanguage,
+    String? themeMode,
+    int? dailyGoalMinutes,
+    bool? notifDailyReminders,
+    bool? notifAchievements,
+    bool? notifRanking,
+    bool? notifClassUpdates,
+  }) async {
+    final Map<String, dynamic> body = {};
+    if (uiLanguage != null) body['uiLanguage'] = uiLanguage;
+    if (themeMode != null) body['themeMode'] = themeMode;
+    if (dailyGoalMinutes != null) body['dailyGoalMinutes'] = dailyGoalMinutes;
+    if (notifDailyReminders != null) {
+      body['notifDailyReminders'] = notifDailyReminders;
+    }
+    if (notifAchievements != null) {
+      body['notifAchievements'] = notifAchievements;
+    }
+    if (notifRanking != null) body['notifRanking'] = notifRanking;
+    if (notifClassUpdates != null) {
+      body['notifClassUpdates'] = notifClassUpdates;
+    }
+
+    final response = await _dio.put<Map<String, dynamic>>(
+      Uri.parse(AppConfig.apiBaseUrl)
+          .resolve('/api/auth/me/preferences')
+          .toString(),
+      data: body,
+    );
+    return response.data ?? const {};
+  }
+
+  Future<void> deleteMyAccount({
+    String? currentPassword,
+    String? confirmationText,
+  }) async {
+    await _dio.delete<void>(
+      AppConfig.authenticatedUserEndpoint.toString(),
+      data: {
+        if (currentPassword != null && currentPassword.isNotEmpty)
+          'currentPassword': currentPassword,
+        if (confirmationText != null && confirmationText.isNotEmpty)
+          'confirmationText': confirmationText,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> getMyProgressSummary({String? timezone}) async {
+    final baseUri = Uri.parse(AppConfig.apiBaseUrl)
+        .resolve('/api/exercises/progress/me');
+    final uri = (timezone != null && timezone.trim().isNotEmpty)
+        ? baseUri.replace(queryParameters: {'timezone': timezone.trim()})
+        : baseUri;
+    final response = await _dio.get<Map<String, dynamic>>(uri.toString());
+    return response.data ?? const {};
+  }
+
+  Future<List<Map<String, dynamic>>> generateExerciseQuestionsWithAi({
+    required String languageName,
+    required String proficiencyLevel,
+    required String category,
+    required String theme,
+    int questionCount = 3,
+    List<String>? questionStyles,
+    String? additionalInstructions,
+  }) async {
+    final response = await _dio.post<List<dynamic>>(
+      Uri.parse(AppConfig.apiBaseUrl)
+          .resolve('/api/exercises/generate-ai')
+          .toString(),
+      data: {
+        'languageName': languageName,
+        'proficiencyLevel': proficiencyLevel,
+        'category': category,
+        'theme': theme,
+        'questionCount': questionCount,
+        if (questionStyles != null && questionStyles.isNotEmpty)
+          'questionStyles': questionStyles,
+        if (additionalInstructions != null &&
+            additionalInstructions.trim().isNotEmpty)
+          'additionalInstructions': additionalInstructions.trim(),
+      },
+    );
+    return (response.data ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+  }
+
   Future<void> logout() async {
     await _dio.post<Map<String, dynamic>>(AppConfig.logoutEndpoint.toString());
   }

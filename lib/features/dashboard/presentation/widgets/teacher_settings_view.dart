@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/localization/app_locale_controller.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/theme/app_theme_controller.dart';
+import '../../data/datasources/dashboard_remote_datasource.dart';
 import '../../domain/entities/dashboard_data.dart';
 import 'app_user_avatar.dart';
 import 'edit_profile_dialogs.dart';
@@ -31,7 +35,76 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
   bool _notifDaily = true;
 
   // Preferences
-  String _language = 'pt';
+  String _language = AppLocaleController.languageCode.value;
+  String? _channelNotice;
+  bool _savingPrefs = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final ds = DashboardRemoteDataSource(ApiClient().dio);
+      final prefs = await ds.getMyPreferences();
+      if (!mounted || prefs.isEmpty) return;
+      final lang = AppLocaleController.normalizeCode(
+        prefs['uiLanguage']?.toString(),
+      );
+      final themeStr = prefs['themeMode']?.toString().toLowerCase();
+      if (themeStr == 'dark' || themeStr == 'light') {
+        await AppThemeController.setMode(
+          themeStr == 'dark' ? ThemeMode.dark : ThemeMode.light,
+        );
+      }
+      await AppLocaleController.setLanguageCode(lang);
+      if (!mounted) return;
+      setState(() {
+        _language = lang;
+        _notifAssignments = prefs['notifClassUpdates'] != false;
+        _notifStudents = prefs['notifAchievements'] != false;
+        _notifDaily = prefs['notifDailyReminders'] != false;
+        _channelNotice = prefs['notificationChannelNotice']?.toString();
+      });
+    } catch (_) {
+      // Keep current local state if offline.
+    }
+  }
+
+  Future<void> _savePreferences({
+    String? uiLanguage,
+    bool? notifDailyReminders,
+    bool? notifAchievements,
+    bool? notifClassUpdates,
+  }) async {
+    setState(() => _savingPrefs = true);
+    try {
+      final ds = DashboardRemoteDataSource(ApiClient().dio);
+      final updated = await ds.updateMyPreferences(
+        uiLanguage: uiLanguage,
+        notifDailyReminders: notifDailyReminders,
+        notifAchievements: notifAchievements,
+        notifClassUpdates: notifClassUpdates,
+      );
+      if (mounted && updated['notificationChannelNotice'] != null) {
+        setState(() {
+          _channelNotice = updated['notificationChannelNotice']?.toString();
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Não foi possível salvar a preferência no servidor.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingPrefs = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,14 +158,24 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                         ),
                       ),
                       icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                      label: Text('Voltar ao Perfil'),
+                      label: Text(
+                        AppLocaleController.tr(
+                          pt: 'Voltar ao Perfil',
+                          en: 'Back to Profile',
+                          es: 'Volver al Perfil',
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 16),
                     SizedBox(
                       width: isCompactLayout(context) ? 220 : 300,
                       child: Text(
-                        'Configurações Docentes',
-                        style: TextStyle(
+                        AppLocaleController.tr(
+                          pt: 'Configurações Docentes',
+                          en: 'Teacher Settings',
+                          es: 'Configuración Docente',
+                        ),
+                        style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -100,6 +183,14 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (_savingPrefs)
+                      const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -405,7 +496,11 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Idioma da Interface',
+                        AppLocaleController.tr(
+                          pt: 'Idioma da Interface',
+                          en: 'Interface Language',
+                          es: 'Idioma de la Interfaz',
+                        ),
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
@@ -414,7 +509,8 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                       ),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        value: _language,
+                        key: ValueKey<String>('teacher_lang_$_language'),
+                        initialValue: _language,
                         decoration: _inputDecoration('Idioma'),
                         items: const [
                           DropdownMenuItem(
@@ -424,8 +520,12 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                           DropdownMenuItem(value: 'en', child: Text('English')),
                           DropdownMenuItem(value: 'es', child: Text('Español')),
                         ],
-                        onChanged: (val) {
-                          if (val != null) setState(() => _language = val);
+                        onChanged: (val) async {
+                          if (val != null) {
+                            setState(() => _language = val);
+                            await AppLocaleController.setLanguageCode(val);
+                            await _savePreferences(uiLanguage: val);
+                          }
                         },
                       ),
                       const SizedBox(height: 16),
@@ -453,15 +553,19 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                     children: [
                       Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.notifications_none_rounded,
                             color: purpleColor,
                             size: 22,
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Text(
-                            'Notificações por Email',
-                            style: TextStyle(
+                            AppLocaleController.tr(
+                              pt: 'Notificações por Email',
+                              en: 'Email Notifications',
+                              es: 'Notificaciones por Correo',
+                            ),
+                            style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                               color: purpleColor,
@@ -469,11 +573,31 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                           ),
                         ],
                       ),
+                      if (_channelNotice != null &&
+                          _channelNotice!.trim().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: purpleColor.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            _channelNotice!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       SwitchListTile(
                         value: _notifAssignments,
-                        activeColor: purpleColor,
-                        title: Text(
+                        activeThumbColor: purpleColor,
+                        title: const Text(
                           'Atribuições de Turmas',
                           style: TextStyle(fontSize: 14),
                         ),
@@ -483,14 +607,16 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
-                        onChanged: (val) =>
-                            setState(() => _notifAssignments = val),
+                        onChanged: (val) {
+                          setState(() => _notifAssignments = val);
+                          _savePreferences(notifClassUpdates: val);
+                        },
                         contentPadding: EdgeInsets.zero,
                       ),
                       SwitchListTile(
                         value: _notifStudents,
-                        activeColor: purpleColor,
-                        title: Text(
+                        activeThumbColor: purpleColor,
+                        title: const Text(
                           'Atividades dos Alunos',
                           style: TextStyle(fontSize: 14),
                         ),
@@ -500,14 +626,16 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
-                        onChanged: (val) =>
-                            setState(() => _notifStudents = val),
+                        onChanged: (val) {
+                          setState(() => _notifStudents = val);
+                          _savePreferences(notifAchievements: val);
+                        },
                         contentPadding: EdgeInsets.zero,
                       ),
                       SwitchListTile(
                         value: _notifDaily,
-                        activeColor: purpleColor,
-                        title: Text(
+                        activeThumbColor: purpleColor,
+                        title: const Text(
                           'Lembretes do Sistema',
                           style: TextStyle(fontSize: 14),
                         ),
@@ -517,7 +645,10 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
-                        onChanged: (val) => setState(() => _notifDaily = val),
+                        onChanged: (val) {
+                          setState(() => _notifDaily = val);
+                          _savePreferences(notifDailyReminders: val);
+                        },
                         contentPadding: EdgeInsets.zero,
                       ),
                     ],
@@ -526,22 +657,52 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
               ),
               const SizedBox(height: 24),
 
-              // Encerramento de sessão
-              Center(
-                child: TextButton.icon(
-                  onPressed: widget.onLogout,
-                  icon: const Icon(
-                    Icons.logout_rounded,
-                    color: Colors.redAccent,
-                  ),
-                  label: Text(
-                    'Sair da Conta',
-                    style: TextStyle(
+              // Encerramento de sessão e exclusão de conta
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 16,
+                runSpacing: 10,
+                children: [
+                  TextButton.icon(
+                    onPressed: widget.onLogout,
+                    icon: const Icon(
+                      Icons.logout_rounded,
                       color: Colors.redAccent,
-                      fontWeight: FontWeight.bold,
+                    ),
+                    label: Text(
+                      AppLocaleController.tr(
+                        pt: 'Sair da Conta',
+                        en: 'Sign Out',
+                        es: 'Cerrar Sesión',
+                      ),
+                      style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
+                  if (widget.data.user.email.toLowerCase() !=
+                      'admin@duolingo.com')
+                    OutlinedButton.icon(
+                      onPressed: () => DeleteAccountDialog.show(
+                        context,
+                        data: widget.data,
+                        onAccountDeleted: widget.onLogout,
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFB42318),
+                        side: const BorderSide(color: Color(0xFFF3C6C2)),
+                      ),
+                      icon: const Icon(Icons.delete_forever_rounded, size: 18),
+                      label: Text(
+                        AppLocaleController.tr(
+                          pt: 'Excluir Minha Conta',
+                          en: 'Delete My Account',
+                          es: 'Eliminar Mi Cuenta',
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ],
           ),

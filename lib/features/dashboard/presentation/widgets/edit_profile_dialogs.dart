@@ -731,3 +731,588 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
     );
   }
 }
+
+/// Modal dialog for "Esqueci minha senha" (Request code + Reset password).
+class ForgotPasswordDialog extends StatefulWidget {
+  const ForgotPasswordDialog({super.key, this.initialEmail = ''});
+
+  final String initialEmail;
+
+  static Future<void> show(BuildContext context, {String initialEmail = ''}) {
+    return showDialog<void>(
+      context: context,
+      builder: (_) => ForgotPasswordDialog(initialEmail: initialEmail),
+    );
+  }
+
+  @override
+  State<ForgotPasswordDialog> createState() => _ForgotPasswordDialogState();
+}
+
+class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
+  late final TextEditingController _emailController;
+  final _tokenController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  bool _codeSent = false;
+  bool _isLoading = false;
+  String? _errorMessage;
+  String? _infoMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController(text: widget.initialEmail.trim());
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _tokenController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _requestCode() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _errorMessage = 'Informe um endereço de e-mail válido.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _infoMessage = null;
+    });
+
+    try {
+      final ds = DashboardRemoteDataSource(ApiClient().dio);
+      final response = await ds.requestPasswordReset(email);
+      final msg = response['message']?.toString() ??
+          'Se o e-mail estiver cadastrado, um código temporário foi gerado.';
+      final mailConfigured = response['mailConfigured'] == true;
+      final extraNote = mailConfigured
+          ? ''
+          : ' (Em ambiente local sem SMTP configurado, consulte o log do servidor backend para obter o código de 6 dígitos).';
+      if (mounted) {
+        setState(() {
+          _codeSent = true;
+          _infoMessage = '$msg$extraNote';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = _parseErrorMsg(
+            e,
+            'Não foi possível solicitar a recuperação de senha.',
+          );
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _submitReset() async {
+    final email = _emailController.text.trim();
+    final token = _tokenController.text.trim();
+    final newPassword = _newPasswordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _errorMessage = 'Informe um e-mail válido.');
+      return;
+    }
+    if (token.isEmpty) {
+      setState(() => _errorMessage = 'Informe o código de recuperação.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setState(
+        () => _errorMessage = 'A nova senha deve ter pelo menos 6 caracteres.',
+      );
+      return;
+    }
+    if (newPassword != confirmPassword) {
+      setState(() => _errorMessage = 'A confirmação de senha não confere.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final ds = DashboardRemoteDataSource(ApiClient().dio);
+      final result = await ds.resetPassword(
+        email: email,
+        token: token,
+        newPassword: newPassword,
+      );
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result['message']?.toString() ??
+                  'Senha redefinida com sucesso! Faça login com sua nova senha.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = _parseErrorMsg(
+            e,
+            'Código inválido, expirado ou erro ao redefinir a senha.',
+          );
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.lock_reset_rounded,
+                        color: Color(0xFF5869D8),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Recuperar Senha',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _codeSent
+                    ? 'Digite o código de 6 dígitos enviado para o seu e-mail e escolha sua nova senha.'
+                    : 'Informe o e-mail da sua conta para receber um código temporário de redefinição de senha (válido por 15 minutos).',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'E-mail da conta',
+                  hintText: 'seu@email.com',
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.mail_outline_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              if (_codeSent) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _tokenController,
+                  decoration: InputDecoration(
+                    labelText: 'Código de recuperação (6 dígitos)',
+                    hintText: 'Ex: 123456',
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.pin_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _newPasswordController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Nova senha (mín. 6 caracteres)',
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _confirmPasswordController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Confirmar nova senha',
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ],
+              if (_infoMessage != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF2FF),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFB9D3FF)),
+                  ),
+                  child: Text(
+                    _infoMessage!,
+                    style: const TextStyle(
+                      color: Color(0xFF1E52A8),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF0EF),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFF3C6C2)),
+                  ),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(
+                      color: Color(0xFFB42318),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  TextButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () => setState(() {
+                            _codeSent = !_codeSent;
+                            _errorMessage = null;
+                          }),
+                    child: Text(
+                      _codeSent
+                          ? 'Solicitar novo código'
+                          : 'Já tenho um código',
+                    ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextButton(
+                        onPressed: _isLoading
+                            ? null
+                            : () => Navigator.of(context).pop(),
+                        child: const Text('Cancelar'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: _isLoading
+                            ? null
+                            : (_codeSent ? _submitReset : _requestCode),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF5869D8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                _codeSent
+                                    ? 'Redefinir Senha'
+                                    : 'Enviar Código',
+                              ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Modal dialog for confirming permanent account deletion (`DELETE /api/auth/me`).
+class DeleteAccountDialog extends StatefulWidget {
+  const DeleteAccountDialog({
+    super.key,
+    required this.data,
+    required this.onAccountDeleted,
+  });
+
+  final DashboardData data;
+  final VoidCallback onAccountDeleted;
+
+  static Future<void> show(
+    BuildContext context, {
+    required DashboardData data,
+    required VoidCallback onAccountDeleted,
+  }) {
+    return showDialog<void>(
+      context: context,
+      builder: (_) => DeleteAccountDialog(
+        data: data,
+        onAccountDeleted: onAccountDeleted,
+      ),
+    );
+  }
+
+  @override
+  State<DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
+  final _passwordController = TextEditingController();
+  final _confirmationController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    _confirmationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitDelete() async {
+    final password = _passwordController.text;
+    final confirmation = _confirmationController.text.trim();
+    final isGoogle = widget.data.user.googleId.isNotEmpty;
+
+    if (!isGoogle && password.isEmpty) {
+      setState(
+        () => _errorMessage =
+            'Informe sua senha atual para confirmar a exclusão permanente.',
+      );
+      return;
+    }
+    if (isGoogle && password.isEmpty && confirmation.isEmpty) {
+      setState(
+        () => _errorMessage =
+            'Informe sua senha atual ou digite EXCLUIR para confirmar.',
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final ds = DashboardRemoteDataSource(ApiClient().dio);
+      await ds.deleteMyAccount(
+        currentPassword: password.isNotEmpty ? password : null,
+        confirmationText: confirmation.isNotEmpty ? confirmation : 'EXCLUIR',
+      );
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sua conta foi excluída permanentemente.'),
+          ),
+        );
+        widget.onAccountDeleted();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = _parseErrorMsg(
+            e,
+            'Não foi possível excluir a conta. Verifique sua senha ou confirmação.',
+          );
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isGoogle = widget.data.user.googleId.isNotEmpty;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Color(0xFFB42318),
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Excluir Minha Conta',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFB42318),
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Atenção: Esta ação é permanente e removerá seu perfil, matrículas, entregas de exercícios e histórico de conquistas.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: isGoogle
+                      ? 'Senha atual (se tiver senha cadastrada)'
+                      : 'Sua senha atual',
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              if (isGoogle) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _confirmationController,
+                  decoration: InputDecoration(
+                    labelText: 'Ou digite EXCLUIR para confirmar',
+                    hintText: 'EXCLUIR',
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.check_circle_outline_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ],
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF0EF),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFF3C6C2)),
+                  ),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(
+                      color: Color(0xFFB42318),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    child: const Text('Cancelar'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: _isLoading ? null : _submitDelete,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFB42318),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: _isLoading
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.delete_forever_rounded, size: 18),
+                    label: const Text('Excluir Permanentemente'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
