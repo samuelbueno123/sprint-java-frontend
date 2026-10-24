@@ -274,6 +274,7 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
             labelText: 'Senha',
             prefixIcon: const Icon(Icons.lock_outline_rounded),
             suffixIcon: IconButton(
+              tooltip: _obscurePassword ? 'Mostrar senha' : 'Ocultar senha',
               onPressed: () =>
                   setState(() => _obscurePassword = !_obscurePassword),
               icon: Icon(
@@ -296,6 +297,7 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
             labelText: 'Confirmar senha',
             prefixIcon: const Icon(Icons.lock_reset_rounded),
             suffixIcon: IconButton(
+              tooltip: _obscureConfirmation ? 'Mostrar senha' : 'Ocultar senha',
               onPressed: () =>
                   setState(() => _obscureConfirmation = !_obscureConfirmation),
               icon: Icon(
@@ -548,6 +550,7 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
                   ),
                 ),
                 trailing: IconButton(
+                  tooltip: 'Remover documento',
                   icon: const Icon(
                     Icons.close_rounded,
                     size: 18,
@@ -885,6 +888,7 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
                     if (widget.selectedInstitution != null ||
                         controller.text.isNotEmpty)
                       IconButton(
+                        tooltip: 'Limpar pesquisa',
                         icon: const Icon(Icons.clear_rounded, size: 18),
                         onPressed: () {
                           controller.clear();
