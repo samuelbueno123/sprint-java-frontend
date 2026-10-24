@@ -187,6 +187,9 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                   labelText: 'Senha',
                   prefixIcon: const Icon(Icons.lock_outline_rounded),
                   suffixIcon: IconButton(
+                    tooltip: _obscurePassword
+                        ? 'Mostrar senha'
+                        : 'Ocultar senha',
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
                     icon: Icon(
@@ -210,6 +213,9 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                   labelText: 'Confirmar senha',
                   prefixIcon: const Icon(Icons.lock_reset_rounded),
                   suffixIcon: IconButton(
+                    tooltip: _obscureConfirmation
+                        ? 'Mostrar senha'
+                        : 'Ocultar senha',
                     onPressed: () => setState(
                       () => _obscureConfirmation = !_obscureConfirmation,
                     ),
@@ -329,6 +335,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                               ],
                             ),
                             IconButton(
+                              tooltip: 'Remover idioma',
                               icon: const Icon(
                                 Icons.close_rounded,
                                 size: 18,
