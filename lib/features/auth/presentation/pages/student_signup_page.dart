@@ -123,6 +123,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                 controller: _nameController,
                 textCapitalization: TextCapitalization.words,
                 textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.name],
                 decoration: const InputDecoration(
                   labelText: 'Nome completo',
                   hintText: 'Ex.: João Silva',
@@ -161,6 +162,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                 readOnly: isEmailLocked,
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.email],
                 decoration: InputDecoration(
                   labelText: 'Email',
                   hintText: 'aluno@exemplo.com',
@@ -183,6 +185,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                 controller: _passwordController,
                 obscureText: _obscurePassword,
                 textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.newPassword],
                 decoration: InputDecoration(
                   labelText: 'Senha',
                   prefixIcon: const Icon(Icons.lock_outline_rounded),
