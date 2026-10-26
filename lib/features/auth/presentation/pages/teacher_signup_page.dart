@@ -220,6 +220,7 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
           controller: _nameController,
           textCapitalization: TextCapitalization.words,
           textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.name],
           decoration: const InputDecoration(
             labelText: 'Nome completo',
             prefixIcon: Icon(Icons.person_outline_rounded),
@@ -250,6 +251,7 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
           readOnly: isEmailLocked,
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.email],
           decoration: InputDecoration(
             labelText: 'Email institucional',
             hintText: 'professor@instituicao.edu',
@@ -270,6 +272,7 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
           controller: _passwordController,
           obscureText: _obscurePassword,
           textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.newPassword],
           decoration: InputDecoration(
             labelText: 'Senha',
             prefixIcon: const Icon(Icons.lock_outline_rounded),
