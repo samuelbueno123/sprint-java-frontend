@@ -363,6 +363,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                     ],
                   ),
                   IconButton(
+                    tooltip: 'Fechar',
                     icon: const Icon(Icons.close_rounded, color: Colors.grey),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -630,6 +631,7 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
                     ],
                   ),
                   IconButton(
+                    tooltip: 'Fechar',
                     icon: const Icon(Icons.close_rounded, color: Colors.grey),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -913,6 +915,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                     ],
                   ),
                   IconButton(
+                    tooltip: 'Fechar',
                     icon: const Icon(Icons.close_rounded, color: Colors.grey),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -1216,6 +1219,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
                     ],
                   ),
                   IconButton(
+                    tooltip: 'Fechar',
                     icon: const Icon(Icons.close_rounded, color: Colors.grey),
                     onPressed: () => Navigator.of(context).pop(),
                   ),

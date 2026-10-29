@@ -294,13 +294,13 @@ class StudentDashboardView extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     IconButton(
+                      tooltip: 'Configurações',
                       onPressed: () => onSectionSelected?.call('settings'),
                       icon: const Icon(
                         Icons.settings_rounded,
                         color: Colors.white,
                       ),
-                      tooltip: 'Configurações',
-                    ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -1278,6 +1278,7 @@ class _StudentInstitutionMembersViewState
               prefixIcon: const Icon(Icons.search_rounded),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
+                      tooltip: 'Limpar busca',
                       icon: const Icon(Icons.clear_rounded),
                       onPressed: () {
                         _searchController.clear();

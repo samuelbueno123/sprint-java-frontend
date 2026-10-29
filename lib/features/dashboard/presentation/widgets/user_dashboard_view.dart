@@ -245,13 +245,13 @@ class UserDashboardView extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         IconButton(
+                          tooltip: 'Configurações',
                           onPressed: () => onSectionSelected?.call('settings'),
                           icon: const Icon(
                             Icons.settings_rounded,
                             color: Colors.white,
                           ),
-                          tooltip: 'Configurações',
-                        ),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 16),

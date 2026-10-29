@@ -1662,6 +1662,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     prefixIcon: const Icon(Icons.search_rounded),
                     suffixIcon: _tableSearchController.text.isNotEmpty
                         ? IconButton(
+                            tooltip: 'Limpar busca',
                             icon: const Icon(Icons.clear_rounded),
                             onPressed: () {
                               _tableSearchController.clear();
@@ -1903,34 +1904,34 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         IconButton(
+                                          tooltip: 'Editar linha',
                                           icon: const Icon(
                                             Icons.edit_rounded,
                                             size: 18,
                                             color: Color(0xFF2563EB),
                                           ),
-                                          tooltip: 'Editar linha',
                                           onPressed: tableData.readOnly
                                               ? null
                                               : () => _showRowEditorDialog(
                                                   context,
                                                   tableData: tableData,
                                                   existingRow: row,
-                                                ),
+                                          ),
                                         ),
                                         IconButton(
+                                          tooltip: 'Excluir linha',
                                           icon: const Icon(
                                             Icons.delete_outline_rounded,
                                             size: 18,
                                             color: Color(0xFFB42318),
                                           ),
-                                          tooltip: 'Excluir linha',
                                           onPressed: tableData.readOnly
                                               ? null
                                               : () => _confirmDeleteRow(
                                                   context,
                                                   tableData: tableData,
                                                   row: row,
-                                                ),
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -2552,6 +2553,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     prefixIcon: const Icon(Icons.search_rounded),
                     suffixIcon: _userSearchController.text.isNotEmpty
                         ? IconButton(
+                            tooltip: 'Limpar busca',
                             icon: const Icon(Icons.clear_rounded),
                             onPressed: () {
                               _userSearchController.clear();
@@ -4620,6 +4622,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     suffixIcon:
                         _studentAchievementSearchController.text.isNotEmpty
                         ? IconButton(
+                            tooltip: 'Limpar busca',
                             onPressed: () {
                               _studentAchievementSearchController.clear();
                               _loadStudentAchievements(search: '');

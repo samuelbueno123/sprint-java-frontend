@@ -61,6 +61,7 @@ class RegistrationChoiceDialog extends StatelessWidget {
                     ),
                   ),
                   IconButton(
+                    tooltip: 'Fechar',
                     icon: const Icon(Icons.close_rounded, color: Colors.grey),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
