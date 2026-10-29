@@ -138,6 +138,7 @@ class _EditProfileDetailsDialogState extends State<EditProfileDetailsDialog> {
                     ],
                   ),
                   IconButton(
+                    tooltip: 'Fechar',
                     icon: const Icon(Icons.close_rounded, color: Colors.grey),
                     onPressed: () => Navigator.of(context).pop(),
                   ),

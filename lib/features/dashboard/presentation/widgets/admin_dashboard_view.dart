@@ -688,6 +688,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       prefixIcon: const Icon(Icons.search_rounded),
                       suffixIcon: _notificationSearchController.text.isNotEmpty
                           ? IconButton(
+                              tooltip: 'Limpar busca',
                               onPressed: () {
                                 _notificationSearchController.clear();
                                 setState(() => _notificationPage = 0);
