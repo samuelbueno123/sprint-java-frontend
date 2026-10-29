@@ -1638,6 +1638,7 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
               Row(
                 children: [
                   IconButton(
+                    tooltip: 'Voltar',
                     onPressed: widget.onBack,
                     icon: const Icon(Icons.arrow_back),
                   ),
