@@ -156,6 +156,7 @@ class _EditProfileDetailsDialogState extends State<EditProfileDetailsDialog> {
               const SizedBox(height: 6),
               TextField(
                 controller: _nameController,
+                autofillHints: const [AutofillHints.name],
                 decoration: InputDecoration(
                   hintText: 'Digite seu nome',
                   isDense: true,
@@ -176,6 +177,7 @@ class _EditProfileDetailsDialogState extends State<EditProfileDetailsDialog> {
               const SizedBox(height: 6),
               TextField(
                 controller: _emailController,
+                autofillHints: const [AutofillHints.email],
                 readOnly: isGoogleAccount,
                 decoration: InputDecoration(
                   hintText: 'Digite seu email',
@@ -381,6 +383,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
               const SizedBox(height: 6),
               TextField(
                 controller: _currentPasswordController,
+                autofillHints: const [AutofillHints.password],
                 obscureText: true,
                 decoration: InputDecoration(
                   hintText: isGoogleAccount
@@ -404,6 +407,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
               const SizedBox(height: 6),
               TextField(
                 controller: _newPasswordController,
+                autofillHints: const [AutofillHints.newPassword],
                 obscureText: true,
                 decoration: InputDecoration(
                   hintText: 'Digite a nova senha (mín. 6 caracteres)',
@@ -425,6 +429,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
               const SizedBox(height: 6),
               TextField(
                 controller: _confirmPasswordController,
+                autofillHints: const [AutofillHints.newPassword],
                 obscureText: true,
                 decoration: InputDecoration(
                   hintText: 'Confirme a nova senha',
@@ -934,6 +939,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
               const SizedBox(height: 16),
               TextField(
                 controller: _emailController,
+                autofillHints: const [AutofillHints.email],
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   labelText: 'E-mail da conta',
@@ -962,6 +968,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _newPasswordController,
+                  autofillHints: const [AutofillHints.newPassword],
                   obscureText: true,
                   decoration: InputDecoration(
                     labelText: 'Nova senha (mín. 6 caracteres)',
@@ -975,6 +982,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _confirmPasswordController,
+                  autofillHints: const [AutofillHints.newPassword],
                   obscureText: true,
                   decoration: InputDecoration(
                     labelText: 'Confirmar nova senha',
@@ -1236,6 +1244,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
               const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
+                autofillHints: const [AutofillHints.password],
                 obscureText: true,
                 decoration: InputDecoration(
                   labelText: isGoogle
