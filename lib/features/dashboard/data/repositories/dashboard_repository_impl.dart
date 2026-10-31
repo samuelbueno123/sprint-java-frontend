@@ -30,11 +30,18 @@ class DashboardRepositoryImpl implements DashboardRepository {
       if (studentProfile?.id != null) {
         try {
           studentEnrollments =
-              (await _remoteDataSource.getActiveStudentEnrollments(
+              (await _remoteDataSource.getAllStudentEnrollments(
                 studentProfile!.id!,
               )).map((enrollment) => enrollment.toEntity()).toList();
         } catch (_) {
-          // The student's core profile remains available if enrollment data fails.
+          try {
+            studentEnrollments =
+                (await _remoteDataSource.getActiveStudentEnrollments(
+                  studentProfile!.id!,
+                )).map((enrollment) => enrollment.toEntity()).toList();
+          } catch (_) {
+            // The student's core profile remains available if enrollment data fails.
+          }
         }
       }
     }

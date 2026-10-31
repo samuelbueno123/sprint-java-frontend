@@ -46,7 +46,6 @@ class TeacherDashboardView extends StatelessWidget {
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isFemale = data.isFemale;
 
     if (activeSection == 'languages') {
       return _page(
@@ -1090,41 +1089,6 @@ class _ProfileCard extends StatelessWidget {
           child,
         ],
       ),
-    ),
-  );
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 7),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 94,
-          child: Text(
-            label,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value.isEmpty ? 'Não informado' : value,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
     ),
   );
 }

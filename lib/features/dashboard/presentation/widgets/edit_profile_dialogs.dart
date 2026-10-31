@@ -51,6 +51,7 @@ class EditProfileDetailsDialog extends StatefulWidget {
 class _EditProfileDetailsDialogState extends State<EditProfileDetailsDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _emailController;
+  late String _gender;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -59,6 +60,7 @@ class _EditProfileDetailsDialogState extends State<EditProfileDetailsDialog> {
     super.initState();
     _nameController = TextEditingController(text: widget.data.user.name);
     _emailController = TextEditingController(text: widget.data.user.email);
+    _gender = widget.data.isFemale ? 'FEMININO' : 'MASCULINO';
   }
 
   @override
@@ -89,6 +91,7 @@ class _EditProfileDetailsDialogState extends State<EditProfileDetailsDialog> {
         userId: widget.data.user.id,
         name: name,
         email: isGoogle ? null : email,
+        gender: _gender,
       );
       widget.onSaved();
       if (mounted) {
@@ -193,6 +196,39 @@ class _EditProfileDetailsDialogState extends State<EditProfileDetailsDialog> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Gênero / Forma de Tratamento',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                initialValue: _gender,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'MASCULINO',
+                    child: Text('Masculino (Aluno / Professor)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'FEMININO',
+                    child: Text('Feminino (Aluna / Professora)'),
+                  ),
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _gender = val);
+                },
               ),
               if (_errorMessage != null) ...[
                 const SizedBox(height: 14),

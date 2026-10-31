@@ -5,9 +5,9 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme_controller.dart';
 import '../../data/datasources/dashboard_remote_datasource.dart';
 import '../../domain/entities/dashboard_data.dart';
+import 'app_theme_selector.dart';
 import 'app_user_avatar.dart';
 import 'edit_profile_dialogs.dart';
-import 'app_theme_selector.dart';
 import 'responsive_layout.dart';
 
 class TeacherSettingsView extends StatefulWidget {
@@ -36,6 +36,7 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
 
   // Preferences
   String _language = AppLocaleController.languageCode.value;
+  bool _externalEmailConfigured = false;
   String? _channelNotice;
   bool _savingPrefs = false;
 
@@ -53,6 +54,7 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
       final lang = AppLocaleController.normalizeCode(
         prefs['uiLanguage']?.toString(),
       );
+      final externalEmail = prefs['externalEmailConfigured'] == true;
       final themeStr = prefs['themeMode']?.toString().toLowerCase();
       if (themeStr == 'dark' || themeStr == 'light') {
         await AppThemeController.setMode(
@@ -63,6 +65,7 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
       if (!mounted) return;
       setState(() {
         _language = lang;
+        _externalEmailConfigured = externalEmail;
         _notifAssignments = prefs['notifClassUpdates'] != false;
         _notifStudents = prefs['notifAchievements'] != false;
         _notifDaily = prefs['notifDailyReminders'] != false;
@@ -88,11 +91,18 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
         notifAchievements: notifAchievements,
         notifClassUpdates: notifClassUpdates,
       );
-      if (mounted && updated['notificationChannelNotice'] != null) {
+      if (mounted) {
         setState(() {
-          _channelNotice = updated['notificationChannelNotice']?.toString();
+          if (updated['externalEmailConfigured'] != null) {
+            _externalEmailConfigured =
+                updated['externalEmailConfigured'] == true;
+          }
+          if (updated['notificationChannelNotice'] != null) {
+            _channelNotice = updated['notificationChannelNotice']?.toString();
+          }
         });
       }
+      widget.onRefresh?.call();
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -106,22 +116,47 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
     }
   }
 
+  InputDecoration _inputDecoration(BuildContext context, String label) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(
+        color: isDark ? Colors.white70 : Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     const purpleColor = Color(0xFF7651C8);
     final isGoogleAccount = widget.data.user.googleId.isNotEmpty;
+    final roleWord = widget.data.isFemale ? 'Professora' : 'Professor';
+    final institutionName = widget.data.teacherProfile?.institution;
+    final taughtLanguages = widget.data.teacherProfile?.taughtLanguages ?? const [];
+
+    final cardBg = isDark
+        ? const Color(0xFF1E293B)
+        : Theme.of(context).cardTheme.color ?? Colors.white;
+    final cardBorder = isDark
+        ? const Color(0xFF334155)
+        : Theme.of(context).colorScheme.outlineVariant;
+    final primaryTextColor = isDark ? Colors.white : Theme.of(context).colorScheme.onSurface;
+    final secondaryTextColor = isDark ? const Color(0xFFCBD5E1) : Theme.of(context).colorScheme.onSurfaceVariant;
 
     return SingleChildScrollView(
       padding: responsivePagePadding(context),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
+          constraints: const BoxConstraints(maxWidth: 860),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Banner de Cabeçalho Elegante (Roxo)
+              // Floating Header Banner
               Container(
-                padding: const EdgeInsets.all(22),
+                padding: responsiveBannerPadding(context),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF7651C8), Color(0xFF4C2A9B)],
@@ -137,10 +172,7 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                     ),
                   ],
                 ),
-                child: Wrap(
-                  spacing: 16,
-                  runSpacing: 12,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+                child: Row(
                   children: [
                     OutlinedButton.icon(
                       onPressed: widget.onBackToProfile,
@@ -160,35 +192,71 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                       icon: const Icon(Icons.arrow_back_rounded, size: 18),
                       label: Text(
                         AppLocaleController.tr(
-                          pt: 'Voltar ao Perfil',
-                          en: 'Back to Profile',
-                          es: 'Volver al Perfil',
+                          pt: 'Voltar',
+                          en: 'Back',
+                          es: 'Volver',
                         ),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    SizedBox(
-                      width: isCompactLayout(context) ? 220 : 300,
-                      child: Text(
-                        AppLocaleController.tr(
-                          pt: 'Configurações Docentes',
-                          en: 'Teacher Settings',
-                          es: 'Configuración Docente',
-                        ),
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            AppLocaleController.tr(
+                              pt: 'Configurações de $roleWord',
+                              en: 'Teacher Settings',
+                              es: 'Configuración Docente',
+                            ),
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Gerencie seu perfil docente, idioma, tema e alertas.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withValues(alpha: 0.88),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
                     ),
                     if (_savingPrefs)
                       const SizedBox.square(
-                        dimension: 18,
+                        dimension: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           color: Colors.white,
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check_rounded, size: 14, color: Colors.white),
+                            SizedBox(width: 4),
+                            Text(
+                              'Salvo',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                   ],
@@ -199,12 +267,10 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
               // Card 1: Perfil do Professor
               Card(
                 elevation: 0,
-                color: Theme.of(context).colorScheme.surface,
+                color: cardBg,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: cardBorder),
                 ),
                 child: Padding(
                   padding: responsiveCardPadding(context),
@@ -213,15 +279,15 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                     children: [
                       Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.co_present_rounded,
                             color: purpleColor,
                             size: 22,
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Text(
-                            'Perfil do Professor',
-                            style: TextStyle(
+                            'Perfil de $roleWord',
+                            style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                               color: purpleColor,
@@ -249,39 +315,63 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 17,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
+                                    color: primaryTextColor,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   widget.data.user.email,
                                   style: TextStyle(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
+                                    color: secondaryTextColor,
                                     fontSize: 13,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF0EAFE),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    'Professor Credenciado',
-                                    style: TextStyle(
-                                      color: purpleColor,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? purpleColor.withValues(alpha: 0.22)
+                                            : const Color(0xFFF0EAFE),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        '$roleWord Credenciado(a)',
+                                        style: TextStyle(
+                                          color: isDark ? Colors.white : purpleColor,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? const Color(0xFF334155)
+                                            : const Color(0xFFF1F5F9),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        widget.data.isFemale ? 'Tratamento: Feminino' : 'Tratamento: Masculino',
+                                        style: TextStyle(
+                                          color: secondaryTextColor,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -306,11 +396,11 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                             vertical: 12,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                         icon: const Icon(Icons.camera_alt_rounded, size: 18),
-                        label: Text('Alterar Foto de Perfil'),
+                        label: const Text('Alterar Foto de Perfil'),
                       ),
                     ],
                   ),
@@ -318,22 +408,20 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
               ),
               const SizedBox(height: 16),
 
-              // Card 2: Informações Pessoais
+              // Card 2: Informações Pessoais & Instituição
               Card(
                 elevation: 0,
-                color: Theme.of(context).colorScheme.surface,
+                color: cardBg,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: cardBorder),
                 ),
                 child: Padding(
                   padding: responsiveCardPadding(context),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      const Row(
                         children: [
                           Icon(
                             Icons.badge_outlined,
@@ -342,7 +430,7 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                           ),
                           SizedBox(width: 8),
                           Text(
-                            'Informações Pessoais',
+                            'Informações Docentes',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
@@ -356,14 +444,41 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                         label: 'Nome completo',
                         value: widget.data.user.name,
                         icon: Icons.person_outline_rounded,
+                        isDark: isDark,
                       ),
-                      const Divider(height: 16, color: Color(0xFFF0F2F6)),
+                      Divider(height: 16, color: cardBorder),
                       _DetailRow(
                         label: 'E-mail',
                         value: widget.data.user.email,
                         icon: Icons.email_outlined,
                         badge: isGoogleAccount ? 'Somente Leitura' : null,
+                        isDark: isDark,
                       ),
+                      Divider(height: 16, color: cardBorder),
+                      _DetailRow(
+                        label: 'Gênero / Tratamento',
+                        value: widget.data.isFemale ? 'Feminino (Professora)' : 'Masculino (Professor)',
+                        icon: Icons.person_search_rounded,
+                        isDark: isDark,
+                      ),
+                      if (institutionName != null && institutionName.isNotEmpty) ...[
+                        Divider(height: 16, color: cardBorder),
+                        _DetailRow(
+                          label: 'Instituição',
+                          value: institutionName,
+                          icon: Icons.account_balance_rounded,
+                          isDark: isDark,
+                        ),
+                      ],
+                      if (taughtLanguages.isNotEmpty) ...[
+                        Divider(height: 16, color: cardBorder),
+                        _DetailRow(
+                          label: 'Idiomas lecionados',
+                          value: taughtLanguages.join(', '),
+                          icon: Icons.translate_rounded,
+                          isDark: isDark,
+                        ),
+                      ],
                       const SizedBox(height: 18),
                       OutlinedButton.icon(
                         onPressed: () => EditProfileDetailsDialog.show(
@@ -382,11 +497,11 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                             vertical: 12,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                         icon: const Icon(Icons.edit_note_rounded, size: 20),
-                        label: Text('Editar Nome e E-mail'),
+                        label: const Text('Editar Nome, E-mail e Gênero'),
                       ),
                     ],
                   ),
@@ -397,19 +512,17 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
               // Card 3: Segurança e Senha
               Card(
                 elevation: 0,
-                color: Theme.of(context).colorScheme.surface,
+                color: cardBg,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: cardBorder),
                 ),
                 child: Padding(
                   padding: responsiveCardPadding(context),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      const Row(
                         children: [
                           Icon(
                             Icons.security_rounded,
@@ -429,31 +542,52 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'Altere sua senha de acesso a qualquer momento.',
+                        isGoogleAccount
+                            ? 'Sua conta docente está vinculada ao Google Identity.'
+                            : 'Altere sua senha de acesso a qualquer momento.',
                         style: TextStyle(
                           fontSize: 13,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: secondaryTextColor,
                         ),
                       ),
                       const SizedBox(height: 16),
-                      OutlinedButton.icon(
-                        onPressed: () => ChangePasswordDialog.show(
-                          context,
-                          data: widget.data,
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: purpleColor,
-                          side: const BorderSide(color: purpleColor),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 10,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () => ChangePasswordDialog.show(
+                              context,
+                              data: widget.data,
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: purpleColor,
+                              side: const BorderSide(color: purpleColor),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: const Icon(Icons.lock_reset_rounded, size: 20),
+                            label: Text(
+                              isGoogleAccount
+                                  ? 'Definir Senha Alternativa'
+                                  : 'Alterar Senha de Acesso',
+                            ),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        icon: const Icon(Icons.lock_reset_rounded, size: 20),
-                        label: Text('Alterar Senha de Acesso'),
+                          if (!isGoogleAccount)
+                            TextButton.icon(
+                              onPressed: () => ForgotPasswordDialog.show(
+                                context,
+                                initialEmail: widget.data.user.email,
+                              ),
+                              icon: const Icon(Icons.vpn_key_outlined, size: 18),
+                              label: const Text('Recuperar ou Redefinir Senha'),
+                            ),
+                        ],
                       ),
                     ],
                   ),
@@ -461,31 +595,25 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
               ),
               const SizedBox(height: 16),
 
-              // Card 4: Preferências do Professor
+              // Card 4: Preferências de Interface
               Card(
                 elevation: 0,
-                color: Theme.of(context).colorScheme.surface,
+                color: cardBg,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: cardBorder),
                 ),
                 child: Padding(
                   padding: responsiveCardPadding(context),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      const Row(
                         children: [
-                          Icon(
-                            Icons.tune_rounded,
-                            color: purpleColor,
-                            size: 22,
-                          ),
+                          Icon(Icons.palette_outlined, color: purpleColor, size: 22),
                           SizedBox(width: 8),
                           Text(
-                            'Preferências do Professor',
+                            'Preferências da Interface',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
@@ -504,14 +632,15 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
-                          color: Theme.of(context).colorScheme.onSurface,
+                          color: primaryTextColor,
                         ),
                       ),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        key: ValueKey<String>('teacher_lang_$_language'),
+                        key: ValueKey<String>('lang_$_language'),
                         initialValue: _language,
-                        decoration: _inputDecoration('Idioma'),
+                        isExpanded: true,
+                        decoration: _inputDecoration(context, 'Idioma'),
                         items: const [
                           DropdownMenuItem(
                             value: 'pt',
@@ -536,36 +665,30 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
               ),
               const SizedBox(height: 16),
 
-              // Card 5: Notificações
+              // Card 5: Notificações & Conectividade Docente
               Card(
                 elevation: 0,
-                color: Theme.of(context).colorScheme.surface,
+                color: cardBg,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: cardBorder),
                 ),
                 child: Padding(
                   padding: responsiveCardPadding(context),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      const Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.notifications_none_rounded,
                             color: purpleColor,
                             size: 22,
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Text(
-                            AppLocaleController.tr(
-                              pt: 'Notificações por Email',
-                              en: 'Email Notifications',
-                              es: 'Notificaciones por Correo',
-                            ),
-                            style: const TextStyle(
+                            'Notificações & Alertas Docentes',
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                               color: purpleColor,
@@ -573,39 +696,86 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                           ),
                         ],
                       ),
-                      if (_channelNotice != null &&
-                          _channelNotice!.trim().isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: purpleColor.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            _channelNotice!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _externalEmailConfigured
+                              ? (isDark
+                                  ? const Color(0xFF065F46).withValues(alpha: 0.3)
+                                  : const Color(0xFFECFDF5))
+                              : (isDark
+                                  ? const Color(0xFF78350F).withValues(alpha: 0.3)
+                                  : const Color(0xFFFFFBEB)),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _externalEmailConfigured
+                                ? (isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0))
+                                : (isDark ? const Color(0xFFD97706) : const Color(0xFFFDE68A)),
                           ),
                         ),
-                      ],
-                      const SizedBox(height: 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _externalEmailConfigured
+                                  ? Icons.mark_email_read_rounded
+                                  : Icons.info_outline_rounded,
+                              size: 20,
+                              color: _externalEmailConfigured
+                                  ? const Color(0xFF059669)
+                                  : const Color(0xFFD97706),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _externalEmailConfigured
+                                        ? 'Serviço de e-mail externo ativo'
+                                        : 'Notificações salvas na plataforma',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: isDark
+                                          ? Colors.white
+                                          : (_externalEmailConfigured
+                                              ? const Color(0xFF065F46)
+                                              : const Color(0xFF92400E)),
+                                    ),
+                                  ),
+                                  if (_channelNotice != null &&
+                                      _channelNotice!.trim().isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _channelNotice!,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
                       SwitchListTile(
                         value: _notifAssignments,
                         activeThumbColor: purpleColor,
-                        title: const Text(
-                          'Atribuições de Turmas',
-                          style: TextStyle(fontSize: 14),
+                        title: Text(
+                          'Novas Entregas de Alunos',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: primaryTextColor,
+                          ),
                         ),
                         subtitle: Text(
-                          'Receba avisos sobre mudanças nas turmas atribuídas.',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                          'Receba alertas quando os estudantes enviarem respostas das tarefas.',
+                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
                         ),
                         onChanged: (val) {
                           setState(() => _notifAssignments = val);
@@ -613,18 +783,21 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                         },
                         contentPadding: EdgeInsets.zero,
                       ),
+                      Divider(height: 8, color: cardBorder),
                       SwitchListTile(
                         value: _notifStudents,
                         activeThumbColor: purpleColor,
-                        title: const Text(
-                          'Atividades dos Alunos',
-                          style: TextStyle(fontSize: 14),
+                        title: Text(
+                          'Conquistas e Marcos das Turmas',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: primaryTextColor,
+                          ),
                         ),
                         subtitle: Text(
-                          'Acompanhe entregas e atividades dos seus estudantes.',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                          'Notificações sobre o progresso e conquistas dos estudantes.',
+                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
                         ),
                         onChanged: (val) {
                           setState(() => _notifStudents = val);
@@ -632,18 +805,21 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                         },
                         contentPadding: EdgeInsets.zero,
                       ),
+                      Divider(height: 8, color: cardBorder),
                       SwitchListTile(
                         value: _notifDaily,
                         activeThumbColor: purpleColor,
-                        title: const Text(
-                          'Lembretes do Sistema',
-                          style: TextStyle(fontSize: 14),
+                        title: Text(
+                          'Lembretes Diários do Sistema',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: primaryTextColor,
+                          ),
                         ),
                         subtitle: Text(
-                          'Receba avisos importantes sobre sua conta e a plataforma.',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                          'Resumo diário de atividades pendentes de correção.',
+                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
                         ),
                         onChanged: (val) {
                           setState(() => _notifDaily = val);
@@ -657,72 +833,65 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
               ),
               const SizedBox(height: 24),
 
-              // Encerramento de sessão e exclusão de conta
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 16,
-                runSpacing: 10,
-                children: [
-                  TextButton.icon(
-                    onPressed: widget.onLogout,
-                    icon: const Icon(
-                      Icons.logout_rounded,
-                      color: Colors.redAccent,
-                    ),
-                    label: Text(
-                      AppLocaleController.tr(
-                        pt: 'Sair da Conta',
-                        en: 'Sign Out',
-                        es: 'Cerrar Sesión',
-                      ),
-                      style: const TextStyle(
-                        color: Colors.redAccent,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  if (widget.data.user.email.toLowerCase() !=
-                      'admin@duolingo.com')
-                    OutlinedButton.icon(
-                      onPressed: () => DeleteAccountDialog.show(
-                        context,
-                        data: widget.data,
-                        onAccountDeleted: widget.onLogout,
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFB42318),
-                        side: const BorderSide(color: Color(0xFFF3C6C2)),
-                      ),
-                      icon: const Icon(Icons.delete_forever_rounded, size: 18),
-                      label: Text(
-                        AppLocaleController.tr(
-                          pt: 'Excluir Minha Conta',
-                          en: 'Delete My Account',
-                          es: 'Eliminar Mi Cuenta',
+              // Ações da Conta: Logout e Exclusão
+              Card(
+                elevation: 0,
+                color: cardBg,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: cardBorder),
+                ),
+                child: Padding(
+                  padding: responsiveCardPadding(context),
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 16,
+                    runSpacing: 12,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: widget.onLogout,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.redAccent,
+                          side: const BorderSide(color: Colors.redAccent),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        icon: const Icon(Icons.logout_rounded, size: 18),
+                        label: Text(
+                          AppLocaleController.tr(
+                            pt: 'Sair da Conta',
+                            en: 'Sign Out',
+                            es: 'Cerrar Sesión',
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                      TextButton.icon(
+                        onPressed: () => DeleteAccountDialog.show(
+                          context,
+                          data: widget.data,
+                          onAccountDeleted: widget.onLogout,
+                        ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: isDark ? const Color(0xFFFCA5A5) : Colors.red.shade700,
+                        ),
+                        icon: const Icon(Icons.delete_forever_rounded, size: 18),
+                        label: Text(
+                          AppLocaleController.tr(
+                            pt: 'Excluir Conta Permanentemente',
+                            en: 'Delete Account Permanently',
+                            es: 'Eliminar Cuenta Permanentemente',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+              const SizedBox(height: 32),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  InputDecoration _inputDecoration(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFE5E8EF)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFE5E8EF)),
       ),
     );
   }
@@ -734,12 +903,14 @@ class _DetailRow extends StatelessWidget {
     required this.value,
     required this.icon,
     this.badge,
+    required this.isDark,
   });
 
   final String label;
   final String value;
   final IconData icon;
   final String? badge;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -749,11 +920,11 @@ class _DetailRow extends StatelessWidget {
         Icon(icon, size: 18, color: const Color(0xFF7651C8)),
         const SizedBox(width: 12),
         SizedBox(
-          width: 110,
+          width: 130,
           child: Text(
             label,
             style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              color: isDark ? const Color(0xFF94A3B8) : Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 13,
             ),
           ),
@@ -762,7 +933,7 @@ class _DetailRow extends StatelessWidget {
           child: Text(
             value.isEmpty ? 'Não informado' : value,
             style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
+              color: isDark ? Colors.white : Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w600,
               fontSize: 14,
             ),
@@ -772,14 +943,14 @@ class _DetailRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0F2F6),
+              color: isDark ? const Color(0xFF334155) : const Color(0xFFF0F2F6),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               badge!,
               style: TextStyle(
                 fontSize: 11,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: isDark ? Colors.white70 : Theme.of(context).colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),

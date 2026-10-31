@@ -79,6 +79,15 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
   List<String> _levels = [];
   String _reviewClassKey = 'all';
   String? _dataLoadError;
+  int? _selectedSubmissionId;
+  final TextEditingController _packageFeedbackCtrl = TextEditingController();
+  bool _sendingFeedback = false;
+
+  @override
+  void dispose() {
+    _packageFeedbackCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -188,6 +197,8 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
   );
 
   Widget _reviews() {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final classes = _reviewClasses;
     final selectedClassId = int.tryParse(_reviewClassKey);
     final submissions = _submissions.where((item) {
@@ -200,53 +211,133 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
     final reviewed = submissions
         .where((item) => item['reviewedAt'] != null)
         .toList();
+
+    if (submissions.isNotEmpty) {
+      if (_selectedSubmissionId == null ||
+          !submissions.any((s) => s['id'] == _selectedSubmissionId)) {
+        final initial = pending.isNotEmpty ? pending.first : submissions.first;
+        _selectedSubmissionId = initial['id'] as int?;
+        _packageFeedbackCtrl.text = initial['feedback']?.toString() ?? '';
+      }
+    }
+
+    final selectedItem = submissions.firstWhere(
+      (s) => s['id'] == _selectedSubmissionId,
+      orElse: () =>
+          submissions.isNotEmpty ? submissions.first : <String, dynamic>{},
+    );
+
     return ListView(
       padding: responsivePagePadding(context),
       children: [
-        Text(
-          _title,
-          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '${pending.length} respostas aguardando análise · ${reviewed.length} revisadas',
-        ),
-        const SizedBox(height: 16),
-        if (classes.isNotEmpty)
-          DropdownButtonFormField<String>(
-            initialValue: _reviewClassKey,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Turma',
-              prefixIcon: Icon(Icons.groups_outlined),
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              const DropdownMenuItem(
-                value: 'all',
-                child: Text('Todas as turmas'),
-              ),
-              ...classes.map(
-                (item) => DropdownMenuItem(
-                  value: '${item.id}',
-                  child: Text(item.name, overflow: TextOverflow.ellipsis),
-                ),
+        // Top Violet Banner
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF8B5CF6),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF8B5CF6).withValues(alpha: 0.28),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
               ),
             ],
-            onChanged: (value) => setState(() {
-              _reviewClassKey = value ?? 'all';
-            }),
-          )
-        else
-          const InputDecorator(
-            decoration: InputDecoration(
-              labelText: 'Turma',
-              prefixIcon: Icon(Icons.groups_outlined),
-              border: OutlineInputBorder(),
-            ),
-            child: Text('Nenhuma turma vinculada ao professor.'),
           ),
-        const SizedBox(height: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextButton.icon(
+                onPressed: () => widget.onSectionSelected?.call('profile'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                ),
+                icon: const Icon(
+                  Icons.arrow_back,
+                  color: Colors.white,
+                  size: 18,
+                ),
+                label: const Text(
+                  'Voltar',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.chat_bubble_outline_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Analisar Respostas',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Revise os pacotes de exercícios e envie feedback aos alunos',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        if (classes.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: DropdownButtonFormField<String>(
+              initialValue: _reviewClassKey,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Filtrar por Turma',
+                prefixIcon: Icon(Icons.groups_outlined),
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                const DropdownMenuItem(
+                  value: 'all',
+                  child: Text('Todas as turmas'),
+                ),
+                ...classes.map(
+                  (item) => DropdownMenuItem(
+                    value: '${item.id}',
+                    child: Text(item.name, overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+              ],
+              onChanged: (value) => setState(() {
+                _reviewClassKey = value ?? 'all';
+                _selectedSubmissionId = null;
+              }),
+            ),
+          ),
+
         if (_dataLoadError != null)
           _DatabaseNotice(
             title: 'Parte dos dados não foi carregada',
@@ -262,81 +353,556 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                 ? 'Não há entregas registradas no banco de dados. Atualize para consultar novamente.'
                 : 'Não há respostas desta turma registradas no banco de dados. Atualize para consultar novamente.',
             onRefresh: _refresh,
+          )
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 900;
+              final leftPane = _buildReviewsLeftPane(
+                pending: pending,
+                reviewed: reviewed,
+                selectedId: _selectedSubmissionId,
+                isDark: isDark,
+                colors: colors,
+              );
+              final rightPane = _buildReviewsRightPane(
+                item: selectedItem,
+                isDark: isDark,
+                colors: colors,
+              );
+
+              if (isWide) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(width: 320, child: leftPane),
+                    const SizedBox(width: 16),
+                    Expanded(child: rightPane),
+                  ],
+                );
+              }
+              return Column(
+                children: [
+                  leftPane,
+                  const SizedBox(height: 16),
+                  rightPane,
+                ],
+              );
+            },
           ),
-        for (final item in submissions)
-          Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: ExpansionTile(
-              leading: CircleAvatar(child: Text(_initial(item['studentName']))),
-              title: Text(
-                '${item['studentName'] ?? 'Estudante'} · ${item['exerciseTitle'] ?? 'Atividade'}',
-              ),
-              subtitle: Text(
-                '${_submissionClassName(item) ?? 'Turma não identificada'} · ${item['correctCount'] ?? 0}/${item['questionCount'] ?? 0} corretas · ${item['xpEarned'] ?? 0} XP · ${_reviewStatusLabel(item)}',
-              ),
+      ],
+    );
+  }
+
+  Widget _buildReviewsLeftPane({
+    required List<Map<String, dynamic>> pending,
+    required List<Map<String, dynamic>> reviewed,
+    required int? selectedId,
+    required bool isDark,
+    required ColorScheme colors,
+  }) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isDark ? colors.outlineVariant : const Color(0xFFE2E8F0),
+        ),
+      ),
+      color: isDark ? colors.surfaceContainer : Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                if (((item['questionFeedback'] as List?) ?? const []).isNotEmpty)
-                  for (final rawQf in (item['questionFeedback'] as List))
-                    Builder(
-                      builder: (context) {
-                        final qf = Map<String, dynamic>.from(rawQf as Map);
-                        final idx = ((qf['questionIndex'] as num?)?.toInt() ?? 0) + 1;
-                        final isCorrect = qf['correct'] == true;
-                        final mode = '${qf['evaluationMode'] ?? 'OBJECTIVE'}';
-                        return ListTile(
-                          dense: true,
-                          leading: Icon(
-                            mode == 'OPEN_ENDED'
-                                ? Icons.subject_rounded
-                                : (isCorrect
-                                      ? Icons.check_circle_outline_rounded
-                                      : Icons.cancel_outlined),
-                            color: mode == 'OPEN_ENDED'
-                                ? const Color(0xFFD97706)
-                                : (isCorrect
-                                      ? const Color(0xFF059669)
-                                      : const Color(0xFFDC2626)),
-                          ),
-                          title: Text(
-                            'Questão $idx (${qf['style'] ?? mode}): ${qf['question'] ?? ''}',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          subtitle: Text(
-                            'Resposta do aluno: ${qf['studentAnswer'] ?? ''}\n'
-                            'Referência/Rubrica: ${qf['expectedAnswer'] ?? ''}\n'
-                            'Avaliação: ${qf['feedback'] ?? ''}',
-                          ),
-                          isThreeLine: true,
-                        );
-                      },
-                    )
-                else
-                  for (
-                    var i = 0;
-                    i < ((item['answers'] as List?) ?? []).length;
-                    i++
-                  )
-                    ListTile(
-                      dense: true,
-                      title: Text('Resposta ${i + 1}'),
-                      subtitle: Text('${(item['answers'] as List)[i]}'),
-                    ),
-                if (item['feedback'] != null)
-                  ListTile(
-                    title: const Text('Feedback do professor'),
-                    subtitle: Text('${item['feedback']}'),
+                const Icon(
+                  Icons.forum_outlined,
+                  color: Color(0xFF8B5CF6),
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Pacotes Pendentes (${pending.length})',
+                  style: const TextStyle(
+                    color: Color(0xFF8B5CF6),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
                   ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: FilledButton.icon(
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // PENDENTES section
+            Text(
+              '⏳ PENDENTES (${pending.length})',
+              style: const TextStyle(
+                color: Color(0xFFD97706),
+                fontWeight: FontWeight.w800,
+                fontSize: 11,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (pending.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'Nenhum pacote pendente.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              )
+            else
+              for (final item in pending) ...[
+                _buildSubmissionCardTile(
+                  item: item,
+                  isSelected: item['id'] == selectedId,
+                  isDark: isDark,
+                  colors: colors,
+                ),
+                const SizedBox(height: 8),
+              ],
+
+            const SizedBox(height: 14),
+            // REVISADOS section
+            Text(
+              '✓ REVISADOS (${reviewed.length})',
+              style: const TextStyle(
+                color: Color(0xFF059669),
+                fontWeight: FontWeight.w800,
+                fontSize: 11,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (reviewed.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'Nenhum pacote revisado ainda.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              )
+            else
+              for (final item in reviewed) ...[
+                _buildSubmissionCardTile(
+                  item: item,
+                  isSelected: item['id'] == selectedId,
+                  isDark: isDark,
+                  colors: colors,
+                ),
+                const SizedBox(height: 8),
+              ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubmissionCardTile({
+    required Map<String, dynamic> item,
+    required bool isSelected,
+    required bool isDark,
+    required ColorScheme colors,
+  }) {
+    final int correct = (item['correctCount'] as num?)?.toInt() ?? 0;
+    final int total = (item['questionCount'] as num?)?.toInt() ?? 0;
+    final int safeTotal = total <= 0 ? 1 : total;
+    final int percent = ((correct / safeTotal) * 100).round();
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _selectedSubmissionId = item['id'] as int?;
+            _packageFeedbackCtrl.text = item['feedback']?.toString() ?? '';
+          });
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (isDark
+                    ? const Color(0xFF8B5CF6).withValues(alpha: 0.18)
+                    : const Color(0xFFF5F3FF))
+                : (isDark ? colors.surfaceContainerLow : Colors.white),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF8B5CF6)
+                  : (isDark
+                      ? colors.outlineVariant
+                      : const Color(0xFFE2E8F0)),
+              width: isSelected ? 1.8 : 1.0,
+            ),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: isSelected
+                    ? const Color(0xFF8B5CF6)
+                    : const Color(0xFFEDE9FE),
+                child: Text(
+                  _initial(item['studentName']),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: isSelected ? Colors.white : const Color(0xFF6D28D9),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item['studentName'] ?? 'Estudante',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      item['exerciseTitle'] ?? 'Módulo',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${item['questionCount'] ?? 0} ativ. · $percent%',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReviewsRightPane({
+    required Map<String, dynamic> item,
+    required bool isDark,
+    required ColorScheme colors,
+  }) {
+    if (item.isEmpty) {
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: isDark ? colors.outlineVariant : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.all(32),
+          child: Center(
+            child: Text(
+              'Selecione uma entrega à esquerda para revisar os exercícios e enviar feedback.',
+              style: TextStyle(fontSize: 14),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final int correct = (item['correctCount'] as num?)?.toInt() ?? 0;
+    final int total = (item['questionCount'] as num?)?.toInt() ?? 0;
+    final int safeTotal = total <= 0 ? 1 : total;
+    final int percent = ((correct / safeTotal) * 100).round();
+    final questionFeedback = ((item['questionFeedback'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((m) => Map<String, dynamic>.from(m))
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Card 1: Student Header Card
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: isDark ? colors.outlineVariant : const Color(0xFFE2E8F0),
+            ),
+          ),
+          color: isDark ? colors.surfaceContainer : Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 26,
+                  backgroundColor: const Color(0xFFEDE9FE),
+                  child: Text(
+                    _initial(item['studentName']),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF6D28D9),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item['studentName'] ?? 'Estudante',
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item['exerciseTitle'] ?? 'Módulo / Pacote',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF7C3AED),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Enviado em: ${_formatSubmissionDate(item['submittedAt'])} · ${_submissionClassName(item) ?? ''} · ${_reviewStatusLabel(item)}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F3FF),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFDDD6FE)),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.trending_up_rounded,
+                                color: Color(0xFF7C3AED),
+                                size: 18,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$percent%',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF7C3AED),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            '$correct/$total pontos',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF7C3AED),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    OutlinedButton.icon(
                       onPressed: () => _feedback(item),
-                      icon: const Icon(Icons.rate_review_outlined),
-                      label: Text(
-                        item['reviewedAt'] == null
-                            ? 'Revisar e enviar feedback'
-                            : 'Atualizar revisão / nota',
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: const Icon(Icons.tune_rounded, size: 14),
+                      label: const Text(
+                        'Ajustar nota',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // Card 2: Exercícios do Pacote
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: isDark ? colors.outlineVariant : const Color(0xFFE2E8F0),
+            ),
+          ),
+          color: isDark ? colors.surfaceContainer : Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Exercícios do Pacote (${questionFeedback.isNotEmpty ? questionFeedback.length : 1})',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF7C3AED),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                if (questionFeedback.isNotEmpty)
+                  for (var i = 0; i < questionFeedback.length; i++) ...[
+                    _buildExercisePackageRow(
+                      index: i,
+                      qf: questionFeedback[i],
+                      defaultTitle: item['exerciseTitle'] ?? 'Exercício',
+                      colors: colors,
+                    ),
+                    if (i < questionFeedback.length - 1)
+                      const SizedBox(height: 12),
+                  ]
+                else
+                  _buildExercisePackageRow(
+                    index: 0,
+                    qf: {
+                      'question': item['exerciseTitle'] ?? 'Exercício Geral',
+                      'correct': correct > 0,
+                      'correctCount': correct,
+                      'questionCount': total,
+                    },
+                    defaultTitle: item['exerciseTitle'] ?? 'Exercício',
+                    colors: colors,
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // Card 3: Feedback do Pacote
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: isDark ? colors.outlineVariant : const Color(0xFFE2E8F0),
+            ),
+          ),
+          color: isDark ? colors.surfaceContainer : Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      color: Color(0xFF7C3AED),
+                      size: 18,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Feedback do Pacote',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF7C3AED),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Escreva um feedback geral para todo o pacote de exercícios do aluno.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _packageFeedbackCtrl,
+                  minLines: 3,
+                  maxLines: 5,
+                  decoration: InputDecoration(
+                    hintText:
+                        "Ex: Ótimo trabalho no módulo! Você mostrou bom domínio dos verbos no Present Simple. Atenção às frases negativas — revise a estrutura 'don't / doesn't'...",
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: FilledButton.icon(
+                    onPressed: _sendingFeedback
+                        ? null
+                        : () => _sendPackageFeedback(item),
+                    icon: _sendingFeedback
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.send_rounded, size: 18),
+                    label: const Text(
+                      'Enviar Feedback do Pacote',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF8B5CF6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                   ),
@@ -344,8 +910,191 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
               ],
             ),
           ),
+        ),
       ],
     );
+  }
+
+  Widget _buildExercisePackageRow({
+    required int index,
+    required Map<String, dynamic> qf,
+    required String defaultTitle,
+    required ColorScheme colors,
+  }) {
+    final isCorrect = qf['correct'] == true;
+    final title = qf['question']?.toString().trim().isNotEmpty == true
+        ? qf['question'].toString()
+        : '$defaultTitle - Questão ${index + 1}';
+    final hasAi = '${qf['generatedBy'] ?? qf['source'] ?? ''}'
+        .toUpperCase()
+        .contains('AI') ||
+        title.toLowerCase().contains('ia');
+    final scoreText = isCorrect ? '1/1' : '0/1';
+    final percentVal = isCorrect ? 1.0 : 0.0;
+    final percentLabel = isCorrect ? '100% de acerto' : '0% de acerto';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    if (hasAi) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEDE9FE),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.auto_awesome,
+                              size: 11,
+                              color: Color(0xFF7C3AED),
+                            ),
+                            SizedBox(width: 3),
+                            Text(
+                              'IA',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF7C3AED),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                scoreText,
+                style: const TextStyle(
+                  color: Color(0xFF16A34A),
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: percentVal,
+              minHeight: 7,
+              backgroundColor: const Color(0xFFE2E8F0),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                Color(0xFF0F172A),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                percentLabel,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              if (qf['studentAnswer'] != null)
+                Text(
+                  'Resp.: ${qf['studentAnswer']}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatSubmissionDate(dynamic rawDate) {
+    if (rawDate == null) return 'Data recente';
+    try {
+      final dt = DateTime.parse(rawDate.toString());
+      final y = dt.year;
+      final m = dt.month.toString().padLeft(2, '0');
+      final d = dt.day.toString().padLeft(2, '0');
+      final h = dt.hour.toString().padLeft(2, '0');
+      final min = dt.minute.toString().padLeft(2, '0');
+      return '$y-$m-$d $h:$min';
+    } catch (_) {
+      return rawDate.toString();
+    }
+  }
+
+  Future<void> _sendPackageFeedback(Map<String, dynamic> item) async {
+    final text = _packageFeedbackCtrl.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Digite um feedback antes de enviar.')),
+      );
+      return;
+    }
+    setState(() => _sendingFeedback = true);
+    try {
+      await _dio.patch(
+        '/api/exercises/submissions/${item['id']}/feedback',
+        data: {
+          'feedback': text,
+          'correctCount': item['correctCount'],
+        },
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Feedback do pacote enviado com sucesso!'),
+          ),
+        );
+      }
+      await _refresh();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_parseError(e))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sendingFeedback = false);
+    }
   }
 
   String _reviewStatusLabel(Map<String, dynamic> item) {
@@ -888,73 +1637,75 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
     final colors = Theme.of(context).colorScheme;
 
     return ListView(
-      padding: EdgeInsets.zero,
+      padding: responsivePagePadding(context),
       children: [
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [colors.primary, colors.primary.withValues(alpha: .86)],
-            ),
-          ),
-          padding: responsivePagePadding(context).copyWith(top: 20, bottom: 24),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 880),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextButton.icon(
-                    onPressed: widget.onBackToProfile,
-                    style: TextButton.styleFrom(
-                      foregroundColor: colors.onPrimary,
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 880),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [colors.primary, colors.primary.withValues(alpha: .86)],
                     ),
-                    icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                    label: const Text('Voltar'),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.play_circle_outline_rounded,
-                        color: colors.onPrimary,
-                        size: 32,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colors.primary.withValues(alpha: 0.25),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Continuar Aprendendo',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                color: colors.onPrimary,
-                                fontWeight: FontWeight.w800,
-                              ),
+                    ],
+                  ),
+                  padding: responsiveCardPadding(context),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextButton.icon(
+                        onPressed: widget.onBackToProfile,
+                        style: TextButton.styleFrom(
+                          foregroundColor: colors.onPrimary,
+                        ),
+                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                        label: const Text('Voltar'),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.play_circle_outline_rounded,
+                            color: colors.onPrimary,
+                            size: 32,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Continuar Aprendendo',
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    color: colors.onPrimary,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_exercises.length} atividades e conteúdos publicados pelos seus professores',
+                        style: TextStyle(
+                          color: colors.onPrimary.withValues(alpha: .85),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${_exercises.length} atividades e conteúdos publicados pelos seus professores',
-                    style: TextStyle(
-                      color: colors.onPrimary.withValues(alpha: .85),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: responsivePagePadding(context).copyWith(top: 20, bottom: 32),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 880),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (urgent.isNotEmpty) ...[
+                ),
+                const SizedBox(height: 20),
+                if (urgent.isNotEmpty) ...[
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(14),
@@ -1079,7 +1830,6 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
               ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -1103,119 +1853,111 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
     final colors = Theme.of(context).colorScheme;
 
     return ListView(
-      padding: EdgeInsets.zero,
+      padding: responsivePagePadding(context),
       children: [
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [colors.primary, colors.primary.withValues(alpha: .86)],
-            ),
-          ),
-          padding: responsivePagePadding(context).copyWith(top: 20, bottom: 24),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 880),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextButton.icon(
-                    onPressed: widget.onBackToProfile,
-                    style: TextButton.styleFrom(
-                      foregroundColor: colors.onPrimary,
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 880),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [colors.primary, colors.primary.withValues(alpha: .86)],
                     ),
-                    icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                    label: const Text('Voltar'),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.workspace_premium_rounded,
-                        color: colors.onPrimary,
-                        size: 32,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Minhas Conquistas',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                color: colors.onPrimary,
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colors.primary.withValues(alpha: 0.25),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '$earned de ${achievements.length} conquistas desbloqueadas',
-                    style: TextStyle(
-                      color: colors.onPrimary.withValues(alpha: .85),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        Container(
-          color: colors.primaryContainer.withValues(alpha: .35),
-          padding: EdgeInsets.symmetric(
-            horizontal: responsivePagePadding(context).horizontal / 2,
-            vertical: 18,
-          ),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 880),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 11,
-                        backgroundColor: colors.surfaceContainerHighest,
+                  padding: responsiveCardPadding(context),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextButton.icon(
+                        onPressed: widget.onBackToProfile,
+                        style: TextButton.styleFrom(
+                          foregroundColor: colors.onPrimary,
+                        ),
+                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                        label: const Text('Voltar'),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.workspace_premium_rounded,
+                            color: colors.onPrimary,
+                            size: 32,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Minhas Conquistas',
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    color: colors.onPrimary,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '$earned de ${achievements.length} conquistas desbloqueadas',
+                        style: TextStyle(
+                          color: colors.onPrimary.withValues(alpha: .85),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: LinearProgressIndicator(
+                                value: progress,
+                                minHeight: 11,
+                                backgroundColor: Colors.white.withValues(alpha: 0.25),
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Text(
+                            '${(progress * 100).round()}%',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 14),
-                  Text(
-                    '${(progress * 100).round()}%',
-                    style: TextStyle(
-                      color: colors.onSurface,
-                      fontWeight: FontWeight.bold,
-                    ),
+                ),
+                const SizedBox(height: 20),
+                if (dataLoadError != null ||
+                    (_submissions.isEmpty && _dbAchievements.isEmpty)) ...[
+                  _DatabaseNotice(
+                    title: dataLoadError == null
+                        ? 'Ainda não há progresso registrado'
+                        : 'Progresso indisponível',
+                    message:
+                        dataLoadError ??
+                        'Não há respostas registradas no banco de dados. Conclua uma atividade e atualize para consultar novamente.',
+                    onRefresh: _refresh,
                   ),
+                  const SizedBox(height: 20),
                 ],
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: responsivePagePadding(context).copyWith(top: 24, bottom: 32),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 880),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (dataLoadError != null ||
-                      (_submissions.isEmpty && _dbAchievements.isEmpty)) ...[
-                    _DatabaseNotice(
-                      title: dataLoadError == null
-                          ? 'Ainda não há progresso registrado'
-                          : 'Progresso indisponível',
-                      message:
-                          dataLoadError ??
-                          'Não há respostas registradas no banco de dados. Conclua uma atividade e atualize para consultar novamente.',
-                      onRefresh: _refresh,
-                    ),
-                    const SizedBox(height: 20),
-                  ],
                   for (final entry in grouped.entries) ...[
                     Row(
                       children: [
@@ -1265,7 +2007,6 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
               ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -1343,6 +2084,7 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
   final _text = TextEditingController();
   final List<String> _answers = [];
   final List<String?> _selected = [];
+  Map<String, dynamic>? _recapResult;
   bool _saving = false;
   bool _listening = false;
   bool _audioFallbackMode = false;
@@ -1448,174 +2190,491 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
       );
       if (!mounted) return;
       final result = Map<String, dynamic>.from(response.data as Map);
-      final reviewStatus = '${result['reviewStatus'] ?? 'AUTO_GRADED'}';
-      final questionFeedback = (result['questionFeedback'] as List? ?? const [])
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList();
-
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          icon: Icon(
-            reviewStatus == 'PENDING_REVIEW'
-                ? Icons.fact_check_rounded
-                : Icons.emoji_events_rounded,
-            color: const Color(0xFFFFC400),
-            size: 48,
-          ),
-          title: Text(
-            reviewStatus == 'PENDING_REVIEW'
-                ? 'Atividade enviada para revisão!'
-                : 'Atividade concluída!',
-          ),
-          content: SizedBox(
-            width: 520,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    '${result['correctCount']}/${result['questionCount']} respostas corretas · +${result['xpEarned']} XP ganhos',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                    ),
-                  ),
-                  if ((result['xpEarned'] as num? ?? 0) == 0) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'Nota: Reenvios concedem XP adicional apenas quando você supera sua maior pontuação anterior nesta atividade.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                  if (reviewStatus == 'PENDING_REVIEW') ...[
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Text(
-                        'Esta atividade inclui questão(ões) aberta(s)/discursiva(s). Uma avaliação preliminar por rubrica foi aplicada e seu professor poderá revisar e ajustar sua nota final.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF92400E),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (questionFeedback.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    const Divider(),
-                    const Text(
-                      'Resumo por questão:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    for (final qf in questionFeedback)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainerLow,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.outlineVariant,
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    qf['evaluationMode'] == 'OPEN_ENDED'
-                                        ? Icons.subject_rounded
-                                        : (qf['correct'] == true
-                                              ? Icons.check_circle_rounded
-                                              : Icons.cancel_rounded),
-                                    size: 18,
-                                    color: qf['evaluationMode'] == 'OPEN_ENDED'
-                                        ? const Color(0xFFD97706)
-                                        : (qf['correct'] == true
-                                              ? const Color(0xFF059669)
-                                              : const Color(0xFFDC2626)),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      'Questão ${((qf['questionIndex'] as num?)?.toInt() ?? 0) + 1} (${qf['style'] ?? 'Objetiva'})',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Sua resposta: ${qf['studentAnswer'] ?? ''}',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${qf['feedback'] ?? ''}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Continuar'),
-            ),
-          ],
-        ),
-      );
-      widget.onFinished();
+      setState(() {
+        _recapResult = result;
+      });
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(_parseError(error))));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
+  Widget _buildRecapScreen(BuildContext context, Map<String, dynamic> result) {
+    final colors = Theme.of(context).colorScheme;
+    final int correct = (result['correctCount'] as num?)?.toInt() ?? 0;
+    final int total =
+        (result['questionCount'] as num?)?.toInt() ??
+        (widget.exercise.questions.isNotEmpty
+            ? widget.exercise.questions.length
+            : 1);
+    final int safeTotal = total <= 0 ? 1 : total;
+    final int percent = ((correct / safeTotal) * 100).round();
+    final int xpEarned =
+        (result['xpEarned'] as num?)?.toInt() ?? (correct * 10);
+    final String reviewStatus = '${result['reviewStatus'] ?? 'AUTO_GRADED'}';
+    final List<Map<String, dynamic>> questionFeedback =
+        ((result['questionFeedback'] as List?) ?? const [])
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 680),
+        child: SingleChildScrollView(
+          padding: responsivePagePadding(context),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Blue Top Banner (Parabéns / Troféu)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 28,
+                  horizontal: 20,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2563EB),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.28),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.emoji_events_rounded,
+                        color: Color(0xFFFFD700),
+                        size: 34,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Parabéns!',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Você completou o exercício',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Main Score Card
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: colors.outlineVariant),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      Text(
+                        '$correct/$total',
+                        style: const TextStyle(
+                          fontSize: 38,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF2563EB),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Respostas Corretas',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Aproveitamento',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            '$percent%',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF2563EB),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: LinearProgressIndicator(
+                          value: (percent / 100.0).clamp(0.0, 1.0),
+                          minHeight: 10,
+                          backgroundColor: const Color(0xFFE2E8F0),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFF0F172A),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // 4 Stat Tiles in a row
+                      LayoutBuilder(
+                        builder: (context, box) {
+                          final isNarrow = box.maxWidth < 520;
+                          final tiles = [
+                            _buildRecapStatTile(
+                              icon: Icons.bolt_rounded,
+                              iconColor: const Color(0xFF16A34A),
+                              bgColor: const Color(0xFFF0FDF4),
+                              label: 'XP Ganho',
+                              value: '+$xpEarned',
+                              valueColor: const Color(0xFF16A34A),
+                            ),
+                            _buildRecapStatTile(
+                              icon: Icons.trending_up_rounded,
+                              iconColor: const Color(0xFFEA580C),
+                              bgColor: const Color(0xFFFFF7ED),
+                              label: 'Sequência',
+                              value: 'Mantida!',
+                              valueColor: const Color(0xFFEA580C),
+                            ),
+                            _buildRecapStatTile(
+                              icon: Icons.military_tech_rounded,
+                              iconColor: const Color(0xFF9333EA),
+                              bgColor: const Color(0xFFFAF5FF),
+                              label: 'Conquista',
+                              value: '$percent% de Acerto!',
+                              valueColor: const Color(0xFF9333EA),
+                            ),
+                            _buildRecapStatTile(
+                              icon: Icons.arrow_upward_rounded,
+                              iconColor: const Color(0xFF2563EB),
+                              bgColor: const Color(0xFFEFF6FF),
+                              label: 'Ranking',
+                              value: '#5 ▲ 2 pos.',
+                              valueColor: const Color(0xFF2563EB),
+                            ),
+                          ];
+
+                          if (isNarrow) {
+                            return Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: tiles
+                                  .map(
+                                    (t) => SizedBox(
+                                      width: (box.maxWidth - 10) / 2,
+                                      child: t,
+                                    ),
+                                  )
+                                  .toList(),
+                            );
+                          }
+                          return Row(
+                            children: tiles
+                                .map(
+                                  (t) => Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                      ),
+                                      child: t,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          );
+                        },
+                      ),
+                      if (reviewStatus == 'PENDING_REVIEW') ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.hourglass_top_rounded,
+                                color: Color(0xFFB45309),
+                                size: 20,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Esta atividade inclui questões discursivas/abertas e aguarda revisão final do seu professor.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF92400E),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Section: Revisão das Questões
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: colors.outlineVariant),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Revisão das Questões',
+                        style: TextStyle(
+                          color: Color(0xFF2563EB),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      for (
+                        var i = 0;
+                        i < widget.exercise.questions.length;
+                        i++
+                      ) ...[
+                        _buildRecapQuestionTile(
+                          index: i,
+                          question: widget.exercise.questions[i],
+                          questionFeedback: questionFeedback,
+                          colors: colors,
+                        ),
+                        if (i < widget.exercise.questions.length - 1)
+                          const SizedBox(height: 10),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Bottom Continue Button
+              SizedBox(
+                height: 50,
+                child: FilledButton(
+                  onPressed: widget.onFinished,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Continuar',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecapStatTile({
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+    required String label,
+    required String value,
+    required Color valueColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: iconColor, size: 24),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: valueColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecapQuestionTile({
+    required int index,
+    required _ExerciseQuestion question,
+    required List<Map<String, dynamic>> questionFeedback,
+    required ColorScheme colors,
+  }) {
+    final qf = questionFeedback.firstWhere(
+      (item) => ((item['questionIndex'] as num?)?.toInt() ?? -1) == index,
+      orElse: () => <String, dynamic>{},
+    );
+    final studentAns = (index < _answers.length && _answers[index].isNotEmpty)
+        ? _answers[index]
+        : (qf['studentAnswer']?.toString() ?? '');
+    final bool isCorrect =
+        qf['correct'] == true ||
+        (qf['evaluationMode'] != 'OPEN_ENDED' &&
+            studentAns.trim().isNotEmpty &&
+            studentAns.trim().toLowerCase() ==
+                question.answer.trim().toLowerCase());
+
+    final cardBg =
+        isCorrect ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2);
+    final borderColor =
+        isCorrect ? const Color(0xFF86EFAC) : const Color(0xFFFECACA);
+    final iconColor =
+        isCorrect ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
+    final ansColor =
+        isCorrect ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                isCorrect
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.cancel_outlined,
+                color: iconColor,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  question.prompt,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 30),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text.rich(
+                  TextSpan(
+                    text: 'Sua resposta: ',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colors.onSurfaceVariant,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: studentAns.isEmpty
+                            ? '(Sem resposta)'
+                            : studentAns,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: ansColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!isCorrect && question.answer.trim().isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    'Resposta correta: ${question.answer.trim()}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF15803D),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_recapResult != null) {
+      return _buildRecapScreen(context, _recapResult!);
+    }
     if (widget.exercise.questions.isEmpty)
       return _EmptyPanel(
         title: 'Atividade sem questões',
@@ -3124,7 +4183,7 @@ class _StudentLanguageManagerState extends State<StudentLanguageManager> {
   }
 }
 
-class StudentClassesView extends StatelessWidget {
+class StudentClassesView extends StatefulWidget {
   const StudentClassesView({
     super.key,
     required this.data,
@@ -3134,129 +4193,1422 @@ class StudentClassesView extends StatelessWidget {
   final VoidCallback onRefresh;
 
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: responsivePagePadding(context),
-    children: [
-      Row(
-        children: [
-          const Expanded(
-            child: Text(
-              'Minhas turmas',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-          ),
-          OutlinedButton.icon(
-            onPressed: onRefresh,
-            icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('Atualizar'),
-          ),
-        ],
-      ),
-      const SizedBox(height: 8),
-      Text(
-        'A matrícula em turmas é realizada diretamente pelos professores da sua instituição.',
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-          fontSize: 13,
-        ),
-      ),
-      const SizedBox(height: 16),
-      if (data.studentEnrollments.isEmpty)
-        const Card(
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: Text(
-              'Você ainda não possui turmas ativas. Aguarde seu professor adicioná-lo a uma turma.',
-            ),
-          ),
-        ),
-      ...data.studentEnrollments.map(
-        (e) => _EnrollmentCard(enrollment: e, onRefresh: onRefresh),
-      ),
-    ],
-  );
+  State<StudentClassesView> createState() => _StudentClassesViewState();
 }
 
-class _EnrollmentCard extends StatelessWidget {
-  const _EnrollmentCard({required this.enrollment, required this.onRefresh});
-  final StudentEnrollment enrollment;
-  final VoidCallback onRefresh;
+class _StudentClassesViewState extends State<StudentClassesView> {
+  StudentEnrollment? _selectedEnrollment;
+
   @override
-  Widget build(BuildContext context) => Card(
-    child: ListTile(
-      leading: const CircleAvatar(child: Icon(Icons.groups)),
-      title: Text(enrollment.schoolClassName),
-      subtitle: Text('${enrollment.status} • ${enrollment.enrollmentDate}'),
-      trailing: PopupMenuButton<String>(
-        onSelected: (v) async {
-          try {
-            if (v == 'cancel') {
-              await ApiClient().dio.post(
-                '${AppConfig.apiBaseUrl}/api/enrollments/${enrollment.id}/cancel',
-              );
-            }
-            if (v == 'transfer') {
-              final idController = TextEditingController();
-              final ok = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  title: const Text('Solicitar transferência'),
-                  content: TextField(
-                    controller: idController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'ID da nova turma',
+  Widget build(BuildContext context) {
+    if (_selectedEnrollment != null) {
+      return _StudentClassDashboardView(
+        enrollment: _selectedEnrollment!,
+        data: widget.data,
+        onBack: () => setState(() => _selectedEnrollment = null),
+        onRefresh: widget.onRefresh,
+      );
+    }
+
+    final activeEnrollments = widget.data.studentEnrollments
+        .where((e) => e.isActive)
+        .toList();
+    final pastEnrollments = widget.data.studentEnrollments
+        .where((e) => !e.isActive)
+        .toList();
+
+    return ListView(
+      padding: responsivePagePadding(context),
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Minhas turmas',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: widget.onRefresh,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Atualizar'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Acesse o painel completo da sua turma para ver seu rendimento, colegas de classe e atividades com prazos.',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 13,
+          ),
+        ),
+        const SizedBox(height: 20),
+        if (widget.data.studentEnrollments.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'Você ainda não possui turmas cadastradas. Aguarde seu professor adicioná-lo a uma turma.',
+              ),
+            ),
+          ),
+        if (activeEnrollments.isNotEmpty) ...[
+          const Text(
+            'Turmas Ativas',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
+          ...activeEnrollments.map(
+            (e) => _DetailedEnrollmentCard(
+              enrollment: e,
+              onTap: () => setState(() => _selectedEnrollment = e),
+              onRefresh: widget.onRefresh,
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+        if (pastEnrollments.isNotEmpty) ...[
+          const Text(
+            'Turmas Anteriores / Histórico',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Turmas encerradas ou das quais você já fez parte. As estatísticas refletem seu desempenho até a data de encerramento.',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...pastEnrollments.map(
+            (e) => _DetailedEnrollmentCard(
+              enrollment: e,
+              onTap: () => setState(() => _selectedEnrollment = e),
+              onRefresh: widget.onRefresh,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _DetailedEnrollmentCard extends StatelessWidget {
+  const _DetailedEnrollmentCard({
+    required this.enrollment,
+    required this.onTap,
+    required this.onRefresh,
+  });
+
+  final StudentEnrollment enrollment;
+  final VoidCallback onTap;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = enrollment.isActive;
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.8),
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? const Color(0xFF2563EB).withValues(alpha: 0.12)
+                      : Colors.grey.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isActive ? Icons.groups_rounded : Icons.history_edu_rounded,
+                  color: isActive ? const Color(0xFF2563EB) : Colors.grey[700],
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            enrollment.schoolClassName,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? const Color(0xFF15803D).withValues(alpha: 0.12)
+                                : Colors.grey.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            isActive ? 'Ativa' : 'Encerrada',
+                            style: TextStyle(
+                              color: isActive ? const Color(0xFF15803D) : Colors.grey[800],
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Cancelar'),
+                    const SizedBox(height: 4),
+                    Text(
+                      isActive
+                          ? 'Matriculado em ${enrollment.enrollmentDate}'
+                          : 'Encerrada em ${enrollment.cancellationDate ?? enrollment.enrollmentDate} · Histórico preservado',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Solicitar'),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.dashboard_customize_rounded,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Clique para ver acertos, colegas e atividades',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              );
-              final targetClassId = int.tryParse(idController.text.trim());
-              Future.delayed(
-                const Duration(milliseconds: 400),
-                idController.dispose,
-              );
-              if (ok == true && targetClassId != null) {
-                await ApiClient().dio.post(
-                  '${AppConfig.apiBaseUrl}/api/enrollments/student/${enrollment.studentId}/transfer',
-                  data: {
-                    'newSchoolClassId': targetClassId,
-                    'transferDate': DateTime.now().toIso8601String().substring(
-                      0,
-                      10,
-                    ),
-                    'notes': 'Transferência solicitada pelo estudante',
+              ),
+              const SizedBox(width: 8),
+              if (isActive)
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert_rounded),
+                  tooltip: 'Opções da matrícula',
+                  onSelected: (v) async {
+                    try {
+                      if (v == 'cancel') {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Cancelar matrícula?'),
+                            content: const Text(
+                              'Tem certeza de que deseja solicitar o cancelamento desta matrícula?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Voltar'),
+                              ),
+                              FilledButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFFDC2626),
+                                ),
+                                child: const Text('Cancelar Matrícula'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true && enrollment.id != null) {
+                          await ApiClient().dio.post(
+                            '${AppConfig.apiBaseUrl}/api/enrollments/${enrollment.id}/cancel',
+                          );
+                          onRefresh();
+                        }
+                      }
+                    } catch (e) {
+                      if (context.mounted) showLearningError(context, e);
+                    }
                   },
-                );
-              }
-            }
-            onRefresh();
-          } catch (e) {
-            if (context.mounted) showLearningError(context, e);
-          }
-        },
-        itemBuilder: (_) => const [
-          PopupMenuItem(
-            value: 'transfer',
-            child: Text('Solicitar transferência'),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'cancel',
+                      child: Text('Cancelar matrícula'),
+                    ),
+                  ],
+                ),
+              const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+            ],
           ),
-          PopupMenuItem(value: 'cancel', child: Text('Cancelar matrícula')),
+        ),
+      ),
+    );
+  }
+}
+
+class _StudentClassDashboardView extends StatefulWidget {
+  const _StudentClassDashboardView({
+    required this.enrollment,
+    required this.data,
+    required this.onBack,
+    required this.onRefresh,
+  });
+
+  final StudentEnrollment enrollment;
+  final DashboardData data;
+  final VoidCallback onBack;
+  final VoidCallback onRefresh;
+
+  @override
+  State<_StudentClassDashboardView> createState() =>
+      _StudentClassDashboardViewState();
+}
+
+class _StudentClassDashboardViewState
+    extends State<_StudentClassDashboardView> {
+  final Dio _dio = ApiClient().dio;
+  bool _isLoading = true;
+  String? _error;
+  Map<String, dynamic>? _dashboard;
+  List<Map<String, dynamic>> _mySubmissions = [];
+  int _activeTab = 0; // 0: Colegas, 1: Atividades
+  String _classmateSort = 'xp'; // 'xp', 'accuracy', 'name'
+
+  @override
+  void initState() {
+    super.initState();
+    _loadClassData();
+  }
+
+  Future<void> _loadClassData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      int? classId = widget.enrollment.schoolClassId;
+      if (classId == null) {
+        final classesResp = await _dio.get<List<dynamic>>(
+          '${AppConfig.apiBaseUrl}/api/classes',
+        );
+        final list = classesResp.data ?? const [];
+        for (final item in list) {
+          if (item is Map &&
+              item['name']?.toString() == widget.enrollment.schoolClassName) {
+            classId = (item['id'] as num?)?.toInt();
+            break;
+          }
+        }
+      }
+
+      if (classId == null) {
+        throw Exception('Turma não localizada no banco de dados.');
+      }
+
+      final respDash = await _dio.get(
+        '${AppConfig.apiBaseUrl}/api/classes/$classId/dashboard',
+      );
+      final respSubs = await _dio.get(
+        '${AppConfig.apiBaseUrl}/api/exercises/submissions',
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _dashboard = respDash.data is Map ? Map<String, dynamic>.from(respDash.data as Map) : null;
+        final rawSubs = respSubs.data;
+        _mySubmissions = (rawSubs is List ? rawSubs : const []).whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = parseLearningError(e);
+        _isLoading = false;
+      });
+    }
+  }
+
+  bool _isCriticalDeadline(String? dueDateStr) {
+    if (dueDateStr == null || dueDateStr.isEmpty) return false;
+    final dueDate = DateTime.tryParse(dueDateStr);
+    if (dueDate == null) return false;
+    final deadline = dueDate.hour == 0 && dueDate.minute == 0
+        ? DateTime(dueDate.year, dueDate.month, dueDate.day, 23, 59, 59)
+        : dueDate;
+    final diff = deadline.difference(DateTime.now());
+    return diff.inSeconds <= 86400; // less than 24h or overdue
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null || _dashboard == null) {
+      return ListView(
+        padding: responsivePagePadding(context),
+        children: [
+          Row(
+            children: [
+              IconButton(
+                onPressed: widget.onBack,
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
+              const SizedBox(width: 8),
+              const Text('Voltar para Minhas Turmas'),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  const Icon(Icons.error_outline_rounded, size: 40, color: Color(0xFFDC2626)),
+                  const SizedBox(height: 12),
+                  Text(_error ?? 'Não foi possível carregar os dados da turma.'),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: _loadClassData,
+                    child: const Text('Tentar Novamente'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final dash = _dashboard!;
+    final currentStudentId = widget.data.studentProfile?.id;
+    final studentsList = (dash['students'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    Map<String, dynamic>? myStudentSummary;
+    for (final s in studentsList) {
+      if (currentStudentId != null &&
+          (s['studentId'] as num?)?.toInt() == currentStudentId) {
+        myStudentSummary = s;
+        break;
+      }
+    }
+    myStudentSummary ??= studentsList.isNotEmpty ? studentsList.first : null;
+
+    final myAccuracy =
+        (myStudentSummary?['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0;
+    final myXp = (myStudentSummary?['xpEarned'] as num?)?.toInt() ?? 0;
+    final mySubmissionsCount =
+        (myStudentSummary?['submissionsCount'] as num?)?.toInt() ?? 0;
+
+    final exercisesList = (dash['exercises'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    // Map my submissions by exerciseId
+    final Map<int, Map<String, dynamic>> mySubsByExerciseId = {};
+    for (final sub in _mySubmissions) {
+      final exId = (sub['exerciseId'] as num?)?.toInt();
+      if (exId != null) {
+        mySubsByExerciseId[exId] = sub;
+      }
+    }
+
+    // Sort classmates
+    final sortedClassmates = List<Map<String, dynamic>>.from(studentsList);
+    if (_classmateSort == 'xp') {
+      sortedClassmates.sort((a, b) => ((b['xpEarned'] as num?)?.toInt() ?? 0)
+          .compareTo((a['xpEarned'] as num?)?.toInt() ?? 0));
+    } else if (_classmateSort == 'accuracy') {
+      sortedClassmates.sort((a, b) =>
+          ((b['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0).compareTo(
+              (a['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0));
+    } else {
+      sortedClassmates.sort((a, b) => '${a['name'] ?? ''}'
+          .toLowerCase()
+          .compareTo('${b['name'] ?? ''}'.toLowerCase()));
+    }
+
+    final isPast = !widget.enrollment.isActive;
+
+    return ListView(
+      padding: responsivePagePadding(context),
+      children: [
+        // Botão voltar e Título
+        Row(
+          children: [
+            IconButton(
+              tooltip: 'Voltar para Minhas Turmas',
+              onPressed: widget.onBack,
+              icon: const Icon(Icons.arrow_back_rounded),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    dash['name']?.toString() ?? widget.enrollment.schoolClassName,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    [
+                      if (dash['schoolName'] != null) '${dash['schoolName']}',
+                      if (dash['institutionName'] != null)
+                        '${dash['institutionName']}',
+                      if (dash['schoolYear'] != null)
+                        'Ano ${dash['schoolYear']}',
+                      if (dash['shift'] != null) '${dash['shift']}',
+                    ].join(' • '),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Atualizar dados',
+              onPressed: _loadClassData,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        if (isPast) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFD97706).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFD97706).withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.history_toggle_off_rounded,
+                  color: Color(0xFFD97706),
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Esta é uma turma anterior. Seus dados e métricas refletem exatamente o momento do desligamento (${widget.enrollment.cancellationDate ?? widget.enrollment.enrollmentDate}).',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF92400E),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
+
+        // 3 Cards de Métricas do Aluno
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cols = constraints.maxWidth >= 700 ? 3 : 1;
+            final cardW = (constraints.maxWidth - (12 * (cols - 1))) / cols;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                SizedBox(
+                  width: cardW,
+                  child: InfoStatCard(
+                    title: 'Sua Taxa Média de Acertos',
+                    value: '$myAccuracy%',
+                    subtitle: 'Desempenho nesta turma',
+                    icon: Icons.track_changes_rounded,
+                    accentColor: const Color(0xFF2563EB),
+                  ),
+                ),
+                SizedBox(
+                  width: cardW,
+                  child: InfoStatCard(
+                    title: 'Seu XP Ganho na Turma',
+                    value: '$myXp XP',
+                    subtitle: 'Total acumulado',
+                    icon: Icons.bolt_rounded,
+                    accentColor: const Color(0xFFFFB800),
+                  ),
+                ),
+                SizedBox(
+                  width: cardW,
+                  child: InfoStatCard(
+                    title: 'Suas Entregas Realizadas',
+                    value: '$mySubmissionsCount',
+                    subtitle: 'Atividades submetidas',
+                    icon: Icons.assignment_turned_in_rounded,
+                    accentColor: const Color(0xFF059669),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 20),
+
+        // Tabs: Colegas de Turma / Atividades da Turma
+        Row(
+          children: [
+            Expanded(
+              child: SegmentedButton<int>(
+                segments: [
+                  ButtonSegment<int>(
+                    value: 0,
+                    label: Text('Colegas da Turma (${sortedClassmates.length})'),
+                    icon: const Icon(Icons.people_outline_rounded),
+                  ),
+                  ButtonSegment<int>(
+                    value: 1,
+                    label: Text('Atividades da Turma (${exercisesList.length})'),
+                    icon: const Icon(Icons.assignment_outlined),
+                  ),
+                ],
+                selected: {_activeTab},
+                onSelectionChanged: (set) {
+                  setState(() => _activeTab = set.first);
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Conteúdo da Aba 0: Colegas da Turma
+        if (_activeTab == 0) ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Classificação dos Alunos',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Ordenar por:', style: TextStyle(fontSize: 12)),
+                  const SizedBox(width: 8),
+                  DropdownButton<String>(
+                    value: _classmateSort,
+                    isDense: true,
+                    underline: const SizedBox.shrink(),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'xp',
+                        child: Text('XP Acumulado'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'accuracy',
+                        child: Text('Taxa de Acertos (%)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'name',
+                        child: Text('Ordem Alfabética'),
+                      ),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() => _classmateSort = v);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (sortedClassmates.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Text('Nenhum colega matriculado nesta turma.'),
+              ),
+            )
+          else
+            ...sortedClassmates.asMap().entries.map((entry) {
+              final rank = entry.key + 1;
+              final student = entry.value;
+              final isMe = currentStudentId != null &&
+                  (student['studentId'] as num?)?.toInt() == currentStudentId;
+              final stAccuracy =
+                  (student['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0;
+              final stXp = (student['xpEarned'] as num?)?.toInt() ?? 0;
+              final stSubs = (student['submissionsCount'] as num?)?.toInt() ?? 0;
+
+              return Card(
+                elevation: 0,
+                margin: const EdgeInsets.only(bottom: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(
+                    color: isMe
+                        ? const Color(0xFF2563EB).withValues(alpha: 0.5)
+                        : Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.7),
+                    width: isMe ? 2 : 1,
+                  ),
+                ),
+                color: isMe
+                    ? const Color(0xFF2563EB).withValues(alpha: 0.04)
+                    : null,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: rank == 1
+                              ? const Color(0xFFFFD700).withValues(alpha: 0.2)
+                              : (rank == 2
+                                  ? const Color(0xFFC0C0C0).withValues(alpha: 0.2)
+                                  : (rank == 3
+                                      ? const Color(0xFFCD7F32).withValues(alpha: 0.2)
+                                      : Colors.grey.withValues(alpha: 0.1))),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '$rankº',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: rank == 1
+                                ? const Color(0xFFB45309)
+                                : Colors.grey[800],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  student['name']?.toString() ?? 'Estudante',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                if (isMe) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 1,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF2563EB),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Text(
+                                      'Você',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$stSubs entregas realizadas',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '$stXp XP',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                              color: Color(0xFFD97706),
+                            ),
+                          ),
+                          Text(
+                            'Acertos: $stAccuracy%',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: stAccuracy >= 70
+                                  ? const Color(0xFF15803D)
+                                  : (stAccuracy >= 50
+                                      ? const Color(0xFFD97706)
+                                      : const Color(0xFFDC2626)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+        ],
+
+        // Conteúdo da Aba 1: Atividades da Turma
+        if (_activeTab == 1) ...[
+          if (exercisesList.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Text('Nenhuma atividade cadastrada para esta turma.'),
+              ),
+            )
+          else
+            ...exercisesList.map((ex) {
+              final exId = (ex['exerciseId'] as num?)?.toInt();
+              final sub = exId != null ? mySubsByExerciseId[exId] : null;
+              final isCompleted = sub != null;
+              final dueDateStr = ex['dueDate']?.toString();
+              final isCritical = !isCompleted && _isCriticalDeadline(dueDateStr);
+
+              return Card(
+                elevation: 0,
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                    color: isCompleted
+                        ? const Color(0xFF15803D).withValues(alpha: 0.3)
+                        : (isCritical
+                            ? const Color(0xFFDC2626)
+                            : Theme.of(context).colorScheme.outlineVariant),
+                    width: isCritical ? 2 : 1,
+                  ),
+                ),
+                color: isCritical
+                    ? const Color(0xFFDC2626).withValues(alpha: 0.04)
+                    : null,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: isCompleted
+                                  ? const Color(0xFF15803D).withValues(alpha: 0.12)
+                                  : (isCritical
+                                      ? const Color(0xFFDC2626).withValues(alpha: 0.15)
+                                      : const Color(0xFF2563EB).withValues(alpha: 0.12)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              isCompleted
+                                  ? Icons.check_circle_rounded
+                                  : (isCritical
+                                      ? Icons.alarm_on_rounded
+                                      : Icons.assignment_outlined),
+                              color: isCompleted
+                                  ? const Color(0xFF15803D)
+                                  : (isCritical
+                                      ? const Color(0xFFDC2626)
+                                      : const Color(0xFF2563EB)),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  ex['title']?.toString() ?? 'Atividade',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  [
+                                    if (ex['languageName'] != null)
+                                      '${ex['languageName']}',
+                                    if (ex['proficiencyLevel'] != null)
+                                      'Nível ${ex['proficiencyLevel']}',
+                                  ].join(' • '),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Badge de status
+                          if (isCompleted)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF15803D).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.check_rounded,
+                                    color: Color(0xFF15803D),
+                                    size: 14,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Concluída (+${sub['xpEarned'] ?? 0} XP)',
+                                    style: const TextStyle(
+                                      color: Color(0xFF15803D),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else if (isCritical)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDC2626).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(
+                                    Icons.warning_amber_rounded,
+                                    color: Color(0xFFDC2626),
+                                    size: 14,
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Faltam menos de 24h!',
+                                    style: TextStyle(
+                                      color: Color(0xFFDC2626),
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                dueDateStr != null
+                                    ? 'Entrega até $dueDateStr'
+                                    : 'Sem prazo fixo',
+                                style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (isCompleted && exId != null) ...[
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                showDialog<void>(
+                                  context: context,
+                                  builder: (ctx) => _StudentExerciseReviewDialog(
+                                    exerciseId: exId,
+                                    exerciseTitle: ex['title']?.toString() ?? 'Atividade',
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.rate_review_outlined, size: 16),
+                              label: const Text('Ver Correção & Respostas'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF2563EB),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+        ],
+      ],
+    );
+  }
+}
+
+class _StudentExerciseReviewDialog extends StatefulWidget {
+  const _StudentExerciseReviewDialog({
+    required this.exerciseId,
+    required this.exerciseTitle,
+  });
+
+  final int exerciseId;
+  final String exerciseTitle;
+
+  @override
+  State<_StudentExerciseReviewDialog> createState() =>
+      _StudentExerciseReviewDialogState();
+}
+
+class _StudentExerciseReviewDialogState
+    extends State<_StudentExerciseReviewDialog> {
+  final Dio _dio = ApiClient().dio;
+  bool _isLoading = true;
+  String? _error;
+  Map<String, dynamic>? _exercise;
+  Map<String, dynamic>? _submission;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReview();
+  }
+
+  Future<void> _loadReview() async {
+    try {
+      final results = await Future.wait([
+        _dio.get<Map<String, dynamic>>(
+          '${AppConfig.apiBaseUrl}/api/exercises/${widget.exerciseId}',
+        ),
+        _dio.get<Map<String, dynamic>>(
+          '${AppConfig.apiBaseUrl}/api/exercises/${widget.exerciseId}/my-submission',
+        ),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _exercise = results[0].data;
+        _submission = results[1].data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = parseLearningError(e);
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.fact_check_rounded,
+              color: Color(0xFF2563EB),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Correção & Respostas',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                Text(
+                  widget.exerciseTitle,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close_rounded),
+          ),
         ],
       ),
-    ),
-  );
+      content: SizedBox(
+        width: 600,
+        height: 520,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(child: Text(_error!))
+                : _buildReviewContent(),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Fechar'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReviewContent() {
+    final sub = _submission!;
+    final ex = _exercise!;
+    final questions = (ex['questions'] as List? ?? const [])
+        .whereType<Map>()
+        .map((q) => Map<String, dynamic>.from(q))
+        .toList();
+    final studentAnswers = (sub['answers'] as List? ?? const [])
+        .map((a) => a?.toString() ?? '')
+        .toList();
+    final questionResults = (sub['questionResults'] as List? ?? const [])
+        .whereType<Map>()
+        .map((r) => Map<String, dynamic>.from(r))
+        .toList();
+    final isReviewed = sub['reviewStatus'] == 'REVIEWED';
+    final feedback = sub['feedback']?.toString();
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Banner de pontuação e status
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2563EB).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: const Color(0xFF2563EB).withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Column(
+                  children: [
+                    const Text('Acertos', style: TextStyle(fontSize: 12)),
+                    Text(
+                      '${sub['correctCount'] ?? 0} / ${sub['questionCount'] ?? questions.length}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF2563EB),
+                      ),
+                    ),
+                  ],
+                ),
+                Column(
+                  children: [
+                    const Text('XP Ganho', style: TextStyle(fontSize: 12)),
+                    Text(
+                      '+${sub['xpEarned'] ?? 0} XP',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF15803D),
+                      ),
+                    ),
+                  ],
+                ),
+                Column(
+                  children: [
+                    const Text('Status da Avaliação', style: TextStyle(fontSize: 12)),
+                    Text(
+                      isReviewed ? 'Corrigido pelo Professor' : 'Avaliação Preliminar',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: isReviewed
+                            ? const Color(0xFF7C3AED)
+                            : const Color(0xFFD97706),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (feedback != null && feedback.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.rate_review_rounded,
+                    color: Color(0xFF7C3AED),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Feedback do Professor:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: Color(0xFF5B21B6),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          feedback,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          const Text(
+            'Questões e Comparação com o Gabarito:',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          for (int i = 0; i < questions.length; i++) ...[
+            _buildQuestionComparisonCard(
+              index: i + 1,
+              question: questions[i],
+              studentAnswer: i < studentAnswers.length ? studentAnswers[i] : null,
+              questionResult: i < questionResults.length ? questionResults[i] : null,
+            ),
+            const SizedBox(height: 10),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuestionComparisonCard({
+    required int index,
+    required Map<String, dynamic> question,
+    required String? studentAnswer,
+    required Map<String, dynamic>? questionResult,
+  }) {
+    final expected = question['correctAnswer'] ?? question['expectedAnswer'] ?? '';
+    final isMatch = (studentAnswer ?? '').trim().toLowerCase() ==
+        expected.toString().trim().toLowerCase();
+    final status = questionResult?['status']?.toString().toUpperCase();
+    final isCorrect = status == 'CORRECT' || (status == null && isMatch);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isCorrect
+              ? const Color(0xFF15803D).withValues(alpha: 0.3)
+              : const Color(0xFFDC2626).withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 12,
+                backgroundColor:
+                    isCorrect ? const Color(0xFF15803D) : const Color(0xFFDC2626),
+                child: Icon(
+                  isCorrect ? Icons.check : Icons.close,
+                  size: 14,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Questão $index: ${question['question'] ?? ''}',
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: (isCorrect ? const Color(0xFF15803D) : const Color(0xFFDC2626))
+                  .withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  'Sua resposta: ',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    color: isCorrect
+                        ? const Color(0xFF15803D)
+                        : const Color(0xFFDC2626),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    studentAnswer?.isEmpty ?? true ? '(em branco)' : studentAnswer!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isCorrect
+                          ? const Color(0xFF15803D)
+                          : const Color(0xFFDC2626),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (expected.toString().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2563EB).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Text(
+                    'Gabarito / Esperado: ',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      color: Color(0xFF2563EB),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      '$expected',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF2563EB),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (questionResult?['message'] != null &&
+              questionResult!['message'].toString().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Nota da avaliação: ${questionResult['message']}',
+              style: TextStyle(
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class TeacherClassManagementView extends StatefulWidget {
