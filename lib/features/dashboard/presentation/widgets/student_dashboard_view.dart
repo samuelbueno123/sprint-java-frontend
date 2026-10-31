@@ -253,7 +253,6 @@ class StudentDashboardView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 16),
           if (student == null)
             Card(
               child: ListTile(
@@ -288,22 +287,20 @@ class StudentDashboardView extends StatelessWidget {
                 ),
               ],
             ),
-            child: Column(
+            child: Stack(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    IconButton(
-                      tooltip: 'Configurações',
-                      onPressed: () => onSectionSelected?.call('settings'),
-                      icon: const Icon(
-                        Icons.settings_rounded,
-                        color: Colors.white,
-                      ),
-                      ),
-                  ],
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: IconButton(
+                    onPressed: () => onSectionSelected?.call('settings'),
+                    icon: const Icon(
+                      Icons.settings_rounded,
+                      color: Colors.white,
+                    ),
+                    tooltip: 'Configurações',
+                  ),
                 ),
-                const SizedBox(height: 12),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final isMobile = constraints.maxWidth < 500;
@@ -427,17 +424,21 @@ class StudentDashboardView extends StatelessWidget {
                       ],
                     );
                     if (isMobile) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [avatar, const SizedBox(height: 16), details],
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [avatar, const SizedBox(height: 16), details],
+                        ),
                       );
                     }
                     return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         avatar,
                         const SizedBox(width: 20),
                         Expanded(child: details),
+                        const SizedBox(width: 48),
                       ],
                     );
                   },
@@ -1003,41 +1004,6 @@ class _ProfileCard extends StatelessWidget {
           ...children,
         ],
       ),
-    ),
-  );
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 7),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 82,
-          child: Text(
-            label,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value.isEmpty ? 'Não informado' : value,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
     ),
   );
 }

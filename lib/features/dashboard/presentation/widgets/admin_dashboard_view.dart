@@ -353,6 +353,47 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     _loadTableRows(tableName, search: '', page: 0);
   }
 
+  String _friendlyTableName(String rawName) {
+    final lower = rawName.toLowerCase();
+    if (lower.contains('usuario') || lower.contains('user')) return 'Usuários';
+    if (lower.contains('estudante') || lower.contains('aluno') || lower.contains('student')) return 'Alunos';
+    if (lower.contains('professor') || lower.contains('teacher')) return 'Professores';
+    if (lower.contains('instituicao') || lower.contains('institution')) return 'Instituições';
+    if (lower.contains('escola') || (lower.contains('school') && !lower.contains('class'))) return 'Escolas';
+    if (lower.contains('turma') || lower.contains('class')) return 'Turmas';
+    if (lower.contains('matricula') || lower.contains('enrollment')) return 'Matrículas';
+    if (lower.contains('atribuicao') || lower.contains('assignment')) return 'Atribuição de Professores';
+    if (lower.contains('idioma_estudante') || lower.contains('student_language')) return 'Idiomas dos Alunos';
+    if (lower.contains('idioma') || lower.contains('language')) return 'Idiomas';
+    if (lower.contains('submissao') || lower.contains('submission')) return 'Entregas de Atividades';
+    if (lower.contains('exercicio') || lower.contains('exercise')) return 'Atividades / Lições';
+    if (lower.contains('conquista_estudante') || lower.contains('student_achievement')) return 'Conquistas de Alunos';
+    if (lower.contains('conquista') || lower.contains('achievement')) return 'Conquistas';
+    if (lower.contains('solicitacao') || lower.contains('request')) return 'Solicitações de Cadastro';
+    if (lower.contains('redefinicao') || lower.contains('reset')) return 'Redefinições de Senha';
+
+    final clean = rawName.replaceFirst(RegExp(r'^tb_', caseSensitive: false), '').replaceAll('_', ' ');
+    return clean.split(' ').map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}').join(' ');
+  }
+
+  IconData _iconForTable(String rawName) {
+    final lower = rawName.toLowerCase();
+    if (lower.contains('usuario') || lower.contains('user')) return Icons.people_alt_rounded;
+    if (lower.contains('estudante') || lower.contains('aluno') || lower.contains('student')) return Icons.school_rounded;
+    if (lower.contains('professor') || lower.contains('teacher')) return Icons.psychology_rounded;
+    if (lower.contains('instituicao') || lower.contains('institution')) return Icons.account_balance_rounded;
+    if (lower.contains('escola') || (lower.contains('school') && !lower.contains('class'))) return Icons.location_city_rounded;
+    if (lower.contains('turma') || lower.contains('class')) return Icons.groups_rounded;
+    if (lower.contains('matricula') || lower.contains('enrollment')) return Icons.how_to_reg_rounded;
+    if (lower.contains('atribuicao') || lower.contains('assignment')) return Icons.assignment_ind_rounded;
+    if (lower.contains('idioma') || lower.contains('language')) return Icons.language_rounded;
+    if (lower.contains('submissao') || lower.contains('submission')) return Icons.task_alt_rounded;
+    if (lower.contains('exercicio') || lower.contains('exercise')) return Icons.menu_book_rounded;
+    if (lower.contains('conquista') || lower.contains('achievement')) return Icons.emoji_events_rounded;
+    if (lower.contains('solicitacao') || lower.contains('request')) return Icons.mark_email_unread_rounded;
+    return Icons.table_chart_rounded;
+  }
+
   @override
   Widget build(BuildContext context) {
     switch (widget.activeSection) {
@@ -1334,148 +1375,90 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           else
             LayoutBuilder(
               builder: (context, constraints) {
-                final cols = constraints.maxWidth >= 980
+                final cols = constraints.maxWidth >= 1000
+                    ? 4
+                    : constraints.maxWidth >= 720
                     ? 3
-                    : constraints.maxWidth >= 620
+                    : constraints.maxWidth >= 480
                     ? 2
                     : 1;
                 final cardWidth =
-                    (constraints.maxWidth - (12 * (cols - 1))) / cols;
+                    (constraints.maxWidth - (10 * (cols - 1))) / cols;
 
                 return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
+                  spacing: 10,
+                  runSpacing: 10,
                   children: _tables.map((table) {
                     return SizedBox(
                       width: cardWidth,
-                      child: Card(
-                        elevation: 0,
+                      child: Material(
+                        color: Theme.of(context).cardColor,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(12),
                           side: BorderSide(
-                            color: Theme.of(context).colorScheme.outlineVariant,
+                            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.7),
                           ),
                         ),
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(12),
                           onTap: () => _openTableInEditor(table.tableName),
                           child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            child: Row(
                               children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: const Color(
-                                          0xFFD97706,
-                                        ).withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: const Icon(
-                                        Icons.table_chart_rounded,
-                                        color: Color(0xFFD97706),
-                                        size: 20,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            table.tableName,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 15,
-                                            ),
-                                          ),
-                                          Text(
-                                            table.label,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.onSurfaceVariant,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: const Color(
-                                          0xFF2563EB,
-                                        ).withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        '${table.rowCount} reg.',
-                                        style: const TextStyle(
-                                          color: Color(0xFF2563EB),
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                Container(
+                                  padding: const EdgeInsets.all(7),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    _iconForTable(table.tableName),
+                                    color: const Color(0xFFD97706),
+                                    size: 18,
+                                  ),
                                 ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.view_column_rounded,
-                                      size: 14,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${table.columns.length} colunas',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Icon(
-                                      Icons.key_rounded,
-                                      size: 14,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        'PK: ${table.primaryKeys.join(", ")}',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        _friendlyTableName(table.tableName),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
                                         ),
+                                        maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
+                                      Text(
+                                        table.tableName,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '${table.rowCount}',
+                                    style: const TextStyle(
+                                      color: Color(0xFF2563EB),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 11,
                                     ),
-                                    const Icon(
-                                      Icons.edit_note_rounded,
-                                      color: Color(0xFFD97706),
-                                      size: 20,
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ],
                             ),
@@ -2444,7 +2427,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
       switch (_userFilter) {
         case 'ADMIN':
-          return u.isAdmin;
+          return u.isAdmin || u.institutionAdmin || u.primaryInstitutionAdmin;
         case 'TEACHER':
           return u.baseProfileType == 'TEACHER';
         case 'STUDENT':
@@ -2455,6 +2438,20 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           return true;
       }
     }).toList();
+
+    int rolePriority(_AdminUserItem u) {
+      if (u.institutionAdmin || u.primaryInstitutionAdmin || u.isAdmin) return 0;
+      if (u.baseProfileType == 'TEACHER') return 1;
+      if (u.baseProfileType == 'STUDENT') return 2;
+      return 3;
+    }
+
+    filteredUsers.sort((a, b) {
+      final pA = rolePriority(a);
+      final pB = rolePriority(b);
+      if (pA != pB) return pA.compareTo(pB);
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
 
     final totalUsers = filteredUsers.length;
     final totalPages = totalUsers == 0
@@ -3183,28 +3180,67 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   // ===========================================================================
 
   List<Map<String, dynamic>> _schoolsList = [];
+  List<Map<String, dynamic>> _classesList = [];
+  List<Map<String, dynamic>> _teachersList = [];
+  List<Map<String, dynamic>> _studentsList = [];
 
   Future<void> _loadCatalogAuxData() async {
     try {
-      final responses = await Future.wait([
+      final futures = <Future<dynamic>>[
         _dio.get<List<dynamic>>(_adminUri('/api/institutions').toString()),
         _dio.get<List<dynamic>>(_adminUri('/api/schools').toString()),
-      ]);
+        _dio.get<List<dynamic>>(_adminUri('/api/classes').toString()),
+        _dio.get<List<dynamic>>(_adminUri('/api/teachers').toString()),
+        _dio.get<List<dynamic>>(_adminUri('/api/students').toString()),
+      ];
+      final responses = await Future.wait(
+        futures.map((f) => f.catchError((_) => null)),
+      );
       if (!mounted) return;
       setState(() {
-        _institutionsList = (responses[0].data ?? const [])
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
-        _schoolsList = (responses[1].data ?? const [])
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
+        if (responses[0]?.data is List) {
+          _institutionsList = (responses[0]!.data as List)
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+        if (responses[1]?.data is List) {
+          _schoolsList = (responses[1]!.data as List)
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+        if (responses[2]?.data is List) {
+          _classesList = (responses[2]!.data as List)
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+        if (responses[3]?.data is List) {
+          _teachersList = (responses[3]!.data as List)
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+        if (responses[4]?.data is List) {
+          _studentsList = (responses[4]!.data as List)
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
       });
     } catch (_) {}
   }
 
   Widget _buildFriendlyToolsSection(BuildContext context) {
+    final myInstId = widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
+    final instName = widget.data.teacherProfile?.institution ??
+        _institutionsList.firstWhere(
+          (i) => (i['id'] as num?)?.toInt() == myInstId,
+          orElse: () => <String, dynamic>{'name': 'sua instituição'},
+        )['name'] ??
+        'sua instituição';
+
     return SingleChildScrollView(
       padding: responsivePagePadding(context),
       child: Column(
@@ -3228,15 +3264,19 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Ferramentas Amigáveis de Cadastro Rápido',
-                      style: TextStyle(
+                    Text(
+                      _isSuperAdmin
+                          ? 'Ferramentas Amigáveis de Cadastro Rápido'
+                          : 'Cadastros Rápidos da Instituição',
+                      style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     Text(
-                      'Crie instituições, escolas, turmas, conquistas e usuários com formulários guiados fora da tela de tabelas.',
+                      _isSuperAdmin
+                          ? 'Crie instituições, escolas, turmas, conquistas e usuários com formulários guiados fora da tela de tabelas.'
+                          : 'Cadastre escolas, turmas, professores, alunos, matrículas e atribuições para $instName de forma autônoma.',
                       style: TextStyle(
                         fontSize: 13,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -3257,6 +3297,84 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             builder: (context, constraints) {
               final cols = constraints.maxWidth >= 900 ? 2 : 1;
               final width = (constraints.maxWidth - (16 * (cols - 1))) / cols;
+
+              if (!_isSuperAdmin) {
+                // Actions available autonomously to Institution Admins
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: [
+                    SizedBox(
+                      width: width,
+                      child: _buildToolActionCard(
+                        icon: Icons.account_balance_rounded,
+                        title: 'Nova Escola / Unidade',
+                        subtitle:
+                            'Cadastre uma nova unidade escolar vinculada à sua instituição ($instName).',
+                        buttonLabel: 'Criar Escola',
+                        onPressed: () => _openCreateSchoolDialog(context),
+                      ),
+                    ),
+                    SizedBox(
+                      width: width,
+                      child: _buildToolActionCard(
+                        icon: Icons.class_rounded,
+                        title: 'Nova Turma',
+                        subtitle:
+                            'Crie uma nova turma em uma escola da sua instituição com turno e série.',
+                        buttonLabel: 'Criar Turma',
+                        onPressed: () => _openCreateClassToolDialog(context),
+                      ),
+                    ),
+                    SizedBox(
+                      width: width,
+                      child: _buildToolActionCard(
+                        icon: Icons.badge_rounded,
+                        title: 'Novo Professor na Instituição',
+                        subtitle:
+                            'Cadastre um novo professor vinculado diretamente à sua instituição com biografia e idiomas.',
+                        buttonLabel: 'Cadastrar Professor',
+                        onPressed: () => _openCreateTeacherDialog(context),
+                      ),
+                    ),
+                    SizedBox(
+                      width: width,
+                      child: _buildToolActionCard(
+                        icon: Icons.person_add_alt_1_rounded,
+                        title: 'Novo Aluno na Instituição',
+                        subtitle:
+                            'Cadastre um estudante associado à sua instituição para inclusão em turmas.',
+                        buttonLabel: 'Cadastrar Aluno',
+                        onPressed: () => _openCreateStudentDialog(context),
+                      ),
+                    ),
+                    SizedBox(
+                      width: width,
+                      child: _buildToolActionCard(
+                        icon: Icons.assignment_ind_rounded,
+                        title: 'Atribuir Professor a Turma',
+                        subtitle:
+                            'Defina o professor responsável por uma das turmas da sua instituição.',
+                        buttonLabel: 'Atribuir Professor',
+                        onPressed: () => _openAssignTeacherDialog(context),
+                      ),
+                    ),
+                    SizedBox(
+                      width: width,
+                      child: _buildToolActionCard(
+                        icon: Icons.how_to_reg_rounded,
+                        title: 'Matricular Aluno em Turma',
+                        subtitle:
+                            'Matricule um aluno da sua instituição em uma das turmas ativas.',
+                        buttonLabel: 'Matricular Aluno',
+                        onPressed: () => _openEnrollStudentDialog(context),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              // Super Admin general actions
               return Wrap(
                 spacing: 16,
                 runSpacing: 16,
@@ -3309,10 +3427,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     width: width,
                     child: _buildToolActionCard(
                       icon: Icons.person_add_alt_1_rounded,
-                      title: 'Novo Usuário / Administrador',
+                      title: 'Novo Administrador Geral / Usuário',
                       subtitle:
-                          'Crie rapidamente uma nova conta de usuário ou administrador.',
-                      buttonLabel: 'Criar Usuário',
+                          'Crie rapidamente uma nova conta com privilégios de acesso gerais.',
+                      buttonLabel: 'Criar Administrador',
                       onPressed: () => _showUserDialog(context, existing: null),
                     ),
                   ),
@@ -3391,8 +3509,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
   Future<void> _openCreateInstitutionDialog(BuildContext context) async {
     final nameCtrl = TextEditingController();
-    final acronymCtrl = TextEditingController();
-    String type = 'UNIVERSIDADE';
+    final codeCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final cityCtrl = TextEditingController();
+    final stateCtrl = TextEditingController(text: 'SP');
 
     final ok = await showDialog<bool>(
       context: context,
@@ -3400,48 +3521,68 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         builder: (ctx, setDialogState) => AlertDialog(
           title: const Text('Criar Nova Instituição'),
           content: SizedBox(
-            width: 440,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Nome da instituição *',
+            width: 460,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nome da instituição *',
+                      hintText: 'Ex: Universidade Federal ou Colégio Duolinfo',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: acronymCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Sigla (opcional)',
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: codeCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Código / Sigla única *',
+                      hintText: 'Ex: UFD01, USP, DUO_INST',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  initialValue: type,
-                  decoration: const InputDecoration(labelText: 'Tipo'),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'ESCOLA',
-                      child: Text('Escola'),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'E-mail de contato institucional *',
+                      hintText: 'contato@instituicao.edu.br',
                     ),
-                    DropdownMenuItem(
-                      value: 'UNIVERSIDADE',
-                      child: Text('Universidade'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: phoneCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Telefone (opcional)',
+                      hintText: '11999999999',
                     ),
-                    DropdownMenuItem(
-                      value: 'CURSO_IDIOMAS',
-                      child: Text('Curso de Idiomas'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'REDE_ENSINO',
-                      child: Text('Rede de Ensino'),
-                    ),
-                  ],
-                  onChanged: (v) => setDialogState(() => type = v ?? type),
-                ),
-              ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: TextField(
+                          controller: cityCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Cidade (opcional)',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: stateCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'UF (opcional)',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -3459,20 +3600,37 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     );
 
     final name = nameCtrl.text.trim();
-    final acronym = acronymCtrl.text.trim();
+    final code = codeCtrl.text.trim();
+    final email = emailCtrl.text.trim();
+    final phone = phoneCtrl.text.trim();
+    final city = cityCtrl.text.trim();
+    final st = stateCtrl.text.trim();
     Future.delayed(const Duration(milliseconds: 400), () {
       nameCtrl.dispose();
-      acronymCtrl.dispose();
+      codeCtrl.dispose();
+      emailCtrl.dispose();
+      phoneCtrl.dispose();
+      cityCtrl.dispose();
+      stateCtrl.dispose();
     });
 
-    if (ok != true || name.isEmpty) return;
+    if (ok != true || name.isEmpty || code.isEmpty || email.isEmpty) {
+      if (ok == true) {
+        _showSnack('Preencha os campos obrigatórios: Nome, Código e E-mail.', isError: true);
+      }
+      return;
+    }
     try {
       await _dio.post(
         _adminUri('/api/institutions').toString(),
         data: {
           'name': name,
-          'acronym': acronym.isEmpty ? null : acronym,
-          'type': type,
+          'code': code.toUpperCase(),
+          'email': email,
+          'phone': phone.isEmpty ? null : phone,
+          'city': city.isEmpty ? null : city,
+          'state': st.isEmpty ? null : st,
+          'country': 'Brasil',
           'active': true,
         },
       );
@@ -3491,11 +3649,14 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     await _loadCatalogAuxData();
     if (!context.mounted) return;
     final nameCtrl = TextEditingController();
-    final cityCtrl = TextEditingController();
-    final stateCtrl = TextEditingController();
-    int? institutionId = _institutionsList.isNotEmpty
-        ? (_institutionsList.first['id'] as num?)?.toInt()
-        : null;
+    final inepCodeCtrl = TextEditingController();
+    final myInstId =
+        widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
+    int? institutionId = !_isSuperAdmin
+        ? myInstId
+        : (_institutionsList.isNotEmpty
+            ? (_institutionsList.first['id'] as num?)?.toInt()
+            : null);
 
     final ok = await showDialog<bool>(
       context: context,
@@ -3507,37 +3668,54 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DropdownButtonFormField<int>(
-                  initialValue: institutionId,
-                  decoration: const InputDecoration(
-                    labelText: 'Instituição vinculada *',
+                if (!_isSuperAdmin) ...[
+                  InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Instituição (sua instituição)',
+                    ),
+                    child: Text(
+                      widget.data.teacherProfile?.institution ??
+                          'Sua Instituição',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
                   ),
-                  items: _institutionsList
-                      .map(
-                        (inst) => DropdownMenuItem<int>(
-                          value: (inst['id'] as num?)?.toInt(),
-                          child: Text('${inst['name'] ?? ''}'),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) => setDialogState(() => institutionId = v),
-                ),
+                ] else ...[
+                  DropdownButtonFormField<int>(
+                    isExpanded: true,
+                    initialValue: institutionId,
+                    decoration: const InputDecoration(
+                      labelText: 'Instituição vinculada *',
+                    ),
+                    items: _institutionsList
+                        .map(
+                          (inst) => DropdownMenuItem<int>(
+                            value: (inst['id'] as num?)?.toInt(),
+                            child: Text(
+                              '${inst['name'] ?? ''}',
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setDialogState(() => institutionId = v),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 TextField(
                   controller: nameCtrl,
                   decoration: const InputDecoration(
-                    labelText: 'Nome da escola *',
+                    labelText: 'Nome da escola / unidade *',
+                    hintText: 'Ex: Escola Central de Idiomas',
                   ),
                 ),
                 const SizedBox(height: 10),
                 TextField(
-                  controller: cityCtrl,
-                  decoration: const InputDecoration(labelText: 'Cidade *'),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: stateCtrl,
-                  decoration: const InputDecoration(labelText: 'Estado (UF) *'),
+                  controller: inepCodeCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Código INEP / Identificador (opcional)',
+                    hintText: 'Ex: 33012345',
+                  ),
                 ),
               ],
             ),
@@ -3557,24 +3735,27 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     );
 
     final name = nameCtrl.text.trim();
-    final city = cityCtrl.text.trim();
-    final st = stateCtrl.text.trim();
+    final inep = inepCodeCtrl.text.trim();
     Future.delayed(const Duration(milliseconds: 400), () {
       nameCtrl.dispose();
-      cityCtrl.dispose();
-      stateCtrl.dispose();
+      inepCodeCtrl.dispose();
     });
 
-    if (ok != true || name.isEmpty || institutionId == null) return;
+    if (ok != true || name.isEmpty || institutionId == null) {
+      if (ok == true && (name.isEmpty || institutionId == null)) {
+        _showSnack(
+          'Selecione uma instituição e informe o nome da escola.',
+          isError: true,
+        );
+      }
+      return;
+    }
     try {
       await _dio.post(
-        _adminUri('/api/schools').toString(),
+        _adminUri('/api/schools/institution/$institutionId').toString(),
         data: {
           'name': name,
-          'city': city.isEmpty ? 'São Paulo' : city,
-          'state': st.isEmpty ? 'SP' : st,
-          'institutionId': institutionId,
-          'active': true,
+          'inepCode': inep.isEmpty ? null : inep,
         },
       );
       _showSnack('Escola "$name" criada com sucesso!');
@@ -3591,13 +3772,28 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   Future<void> _openCreateClassToolDialog(BuildContext context) async {
     await _loadCatalogAuxData();
     if (!context.mounted) return;
+    final myInstId =
+        widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
+    final availableSchools = (!_isSuperAdmin && myInstId != null)
+        ? _schoolsList
+            .where((s) => (s['institutionId'] as num?)?.toInt() == myInstId)
+            .toList()
+        : _schoolsList;
+
+    if (availableSchools.isEmpty) {
+      _showSnack(
+        'Nenhuma escola cadastrada na sua instituição. Crie uma escola primeiro.',
+        isError: true,
+      );
+      return;
+    }
+
     final nameCtrl = TextEditingController();
-    final yearCtrl = TextEditingController(text: DateTime.now().year.toString());
+    final yearCtrl =
+        TextEditingController(text: DateTime.now().year.toString());
     final gradeCtrl = TextEditingController(text: 'Geral');
     String shift = 'MANHÃ';
-    int? schoolId = _schoolsList.isNotEmpty
-        ? (_schoolsList.first['id'] as num?)?.toInt()
-        : null;
+    int? schoolId = (availableSchools.first['id'] as num?)?.toInt();
 
     final ok = await showDialog<bool>(
       context: context,
@@ -3610,15 +3806,20 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<int>(
+                  isExpanded: true,
                   initialValue: schoolId,
                   decoration: const InputDecoration(
                     labelText: 'Escola vinculada *',
                   ),
-                  items: _schoolsList
+                  items: availableSchools
                       .map(
                         (s) => DropdownMenuItem<int>(
                           value: (s['id'] as num?)?.toInt(),
-                          child: Text('${s['name'] ?? ''}'),
+                          child: Text(
+                            '${s['name'] ?? ''}',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
                         ),
                       )
                       .toList(),
@@ -3629,6 +3830,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   controller: nameCtrl,
                   decoration: const InputDecoration(
                     labelText: 'Nome da turma *',
+                    hintText: 'Ex: 1º Ano A',
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -3644,13 +3846,20 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     DropdownMenuItem(value: 'MANHÃ', child: Text('Manhã')),
                     DropdownMenuItem(value: 'TARDE', child: Text('Tarde')),
                     DropdownMenuItem(value: 'NOITE', child: Text('Noite')),
+                    DropdownMenuItem(
+                      value: 'INTEGRAL',
+                      child: Text('Integral'),
+                    ),
                   ],
                   onChanged: (v) => setDialogState(() => shift = v ?? shift),
                 ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: gradeCtrl,
-                  decoration: const InputDecoration(labelText: 'Nível / Série'),
+                  decoration: const InputDecoration(
+                    labelText: 'Nível / Série',
+                    hintText: 'Ex: 1º Ano ou Intermediário',
+                  ),
                 ),
               ],
             ),
@@ -3691,10 +3900,636 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         },
       );
       _showSnack('Turma "$name" criada com sucesso!');
+      await _loadCatalogAuxData();
       await _loadAdminOverview();
     } catch (e) {
       _showSnack(
         _extractErrorMessage(e, 'Erro ao criar turma.'),
+        isError: true,
+      );
+    }
+  }
+
+  Future<void> _openCreateTeacherDialog(BuildContext context) async {
+    await _loadCatalogAuxData();
+    if (!context.mounted) return;
+    final myInstId =
+        widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
+    if (myInstId == null) {
+      _showSnack('Instituição não identificada.', isError: true);
+      return;
+    }
+
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    final langsCtrl = TextEditingController(text: 'Inglês');
+    final specsCtrl = TextEditingController(text: 'Geral');
+    final bioCtrl = TextEditingController();
+    String gender = 'NÃO_INFORMADO';
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Cadastrar Novo Professor'),
+          content: SizedBox(
+            width: 460,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nome completo do professor *',
+                      hintText: 'Ex: Carlos Mendes',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'E-mail institucional *',
+                      hintText: 'carlos@instituicao.edu.br',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: passCtrl,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Senha de acesso provisória *',
+                      hintText: 'Mínimo 6 caracteres',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    initialValue: gender,
+                    decoration: const InputDecoration(labelText: 'Gênero'),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'MASCULINO',
+                        child: Text('Masculino'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'FEMININO',
+                        child: Text('Feminino'),
+                      ),
+                      DropdownMenuItem(value: 'OUTRO', child: Text('Outro')),
+                      DropdownMenuItem(
+                        value: 'NÃO_INFORMADO',
+                        child: Text('Prefiro não informar'),
+                      ),
+                    ],
+                    onChanged: (v) =>
+                        setDialogState(() => gender = v ?? gender),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: langsCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Idiomas lecionados (separados por vírgula)',
+                      hintText: 'Ex: Inglês, Espanhol',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: specsCtrl,
+                    decoration: const InputDecoration(
+                      labelText:
+                          'Áreas de especialização (separadas por vírgula)',
+                      hintText: 'Ex: Gramática, Conversação',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: bioCtrl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Biografia / Perfil (opcional)',
+                      hintText: 'Breve currículo ou apresentação...',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Cadastrar Professor'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final name = nameCtrl.text.trim();
+    final email = emailCtrl.text.trim();
+    final pass = passCtrl.text.trim();
+    final langs = langsCtrl.text
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    final specs = specsCtrl.text
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    final bio = bioCtrl.text.trim();
+
+    Future.delayed(const Duration(milliseconds: 400), () {
+      nameCtrl.dispose();
+      emailCtrl.dispose();
+      passCtrl.dispose();
+      langsCtrl.dispose();
+      specsCtrl.dispose();
+      bioCtrl.dispose();
+    });
+
+    if (ok != true || name.isEmpty || email.isEmpty || pass.length < 6) {
+      if (ok == true) {
+        _showSnack(
+          'Preencha nome, email e senha com pelo menos 6 caracteres.',
+          isError: true,
+        );
+      }
+      return;
+    }
+
+    try {
+      await _dio.post(
+        _adminUri('/api/teachers').toString(),
+        data: {
+          'name': name,
+          'email': email,
+          'password': pass,
+          'gender': gender,
+          'institutionId': myInstId,
+          'taughtLanguages': langs,
+          'specializationAreas': specs,
+          'bibliography': bio.isEmpty ? null : bio,
+        },
+      );
+      _showSnack('Professor "$name" cadastrado com sucesso!');
+      await _loadCatalogAuxData();
+      await _loadAdminOverview();
+    } catch (e) {
+      _showSnack(
+        _extractErrorMessage(e, 'Erro ao cadastrar professor.'),
+        isError: true,
+      );
+    }
+  }
+
+  Future<void> _openCreateStudentDialog(BuildContext context) async {
+    await _loadCatalogAuxData();
+    if (!context.mounted) return;
+    final myInstId =
+        widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
+
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    final langCtrl = TextEditingController(text: 'Inglês');
+    String gender = 'NÃO_INFORMADO';
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Cadastrar Novo Aluno'),
+          content: SizedBox(
+            width: 440,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nome completo do aluno *',
+                      hintText: 'Ex: Maria Oliveira',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'E-mail do aluno *',
+                      hintText: 'maria@exemplo.com',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: passCtrl,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Senha de acesso provisória *',
+                      hintText: 'Mínimo 6 caracteres',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    initialValue: gender,
+                    decoration: const InputDecoration(labelText: 'Gênero'),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'MASCULINO',
+                        child: Text('Masculino'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'FEMININO',
+                        child: Text('Feminino'),
+                      ),
+                      DropdownMenuItem(value: 'OUTRO', child: Text('Outro')),
+                      DropdownMenuItem(
+                        value: 'NÃO_INFORMADO',
+                        child: Text('Prefiro não informar'),
+                      ),
+                    ],
+                    onChanged: (v) =>
+                        setDialogState(() => gender = v ?? gender),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: langCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Idioma inicial de estudo',
+                      hintText: 'Ex: Inglês',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Cadastrar Aluno'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final name = nameCtrl.text.trim();
+    final email = emailCtrl.text.trim();
+    final pass = passCtrl.text.trim();
+    final lang = langCtrl.text.trim();
+
+    Future.delayed(const Duration(milliseconds: 400), () {
+      nameCtrl.dispose();
+      emailCtrl.dispose();
+      passCtrl.dispose();
+      langCtrl.dispose();
+    });
+
+    if (ok != true || name.isEmpty || email.isEmpty || pass.length < 6) {
+      if (ok == true) {
+        _showSnack(
+          'Preencha nome, email e senha com pelo menos 6 caracteres.',
+          isError: true,
+        );
+      }
+      return;
+    }
+
+    try {
+      await _dio.post(
+        _adminUri('/api/students').toString(),
+        data: {
+          'name': name,
+          'email': email,
+          'password': pass,
+          'gender': gender,
+          'institutionId': myInstId,
+          if (lang.isNotEmpty)
+            'languages': [
+              {
+                'language': lang,
+                'proficiencyLevel': 'Básico',
+                'active': true,
+              }
+            ],
+        },
+      );
+      _showSnack('Aluno "$name" cadastrado com sucesso!');
+      await _loadCatalogAuxData();
+      await _loadAdminOverview();
+    } catch (e) {
+      _showSnack(
+        _extractErrorMessage(e, 'Erro ao cadastrar aluno.'),
+        isError: true,
+      );
+    }
+  }
+
+  Future<void> _openAssignTeacherDialog(BuildContext context) async {
+    await _loadCatalogAuxData();
+    if (!context.mounted) return;
+    final myInstId =
+        widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
+
+    final availableClasses = (!_isSuperAdmin && myInstId != null)
+        ? _classesList.where((c) {
+            final sId = (c['schoolId'] as num?)?.toInt();
+            final s = _schoolsList.firstWhere(
+              (sc) => (sc['id'] as num?)?.toInt() == sId,
+              orElse: () => <String, dynamic>{},
+            );
+            return (s['institutionId'] as num?)?.toInt() == myInstId ||
+                (c['institutionId'] as num?)?.toInt() == myInstId;
+          }).toList()
+        : _classesList;
+
+    final availableTeachers = (!_isSuperAdmin && myInstId != null)
+        ? _teachersList
+            .where((t) => (t['institutionId'] as num?)?.toInt() == myInstId)
+            .toList()
+        : _teachersList;
+
+    if (availableClasses.isEmpty || availableTeachers.isEmpty) {
+      _showSnack(
+        availableClasses.isEmpty
+            ? 'Cadastre primeiro uma turma para realizar a atribuição.'
+            : 'Cadastre primeiro um professor para realizar a atribuição.',
+        isError: true,
+      );
+      return;
+    }
+
+    int? classId = (availableClasses.first['id'] as num?)?.toInt();
+    int? teacherId = (availableTeachers.first['id'] as num?)?.toInt();
+    final reasonCtrl = TextEditingController(text: 'Professor Titular');
+    final startCtrl = TextEditingController(
+      text: DateTime.now().toIso8601String().substring(0, 10),
+    );
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Atribuir Professor à Turma'),
+          content: SizedBox(
+            width: 440,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<int>(
+                  isExpanded: true,
+                  initialValue: classId,
+                  decoration: const InputDecoration(labelText: 'Turma *'),
+                  items: availableClasses
+                      .map(
+                        (c) => DropdownMenuItem<int>(
+                          value: (c['id'] as num?)?.toInt(),
+                          child: Text(
+                            '${c['name'] ?? ''}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) => setDialogState(() => classId = v),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<int>(
+                  isExpanded: true,
+                  initialValue: teacherId,
+                  decoration: const InputDecoration(labelText: 'Professor *'),
+                  items: availableTeachers
+                      .map(
+                        (t) => DropdownMenuItem<int>(
+                          value: (t['id'] as num?)?.toInt(),
+                          child: Text(
+                            '${t['name'] ?? ''} (${t['email'] ?? ''})',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) => setDialogState(() => teacherId = v),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: startCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Data de início (AAAA-MM-DD) *',
+                    hintText: '2026-02-01',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: reasonCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Motivo / Cargo da atribuição',
+                    hintText: 'Ex: Professor Titular ou Substituto',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Salvar Atribuição'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final reason = reasonCtrl.text.trim();
+    final start = startCtrl.text.trim();
+    Future.delayed(const Duration(milliseconds: 400), () {
+      reasonCtrl.dispose();
+      startCtrl.dispose();
+    });
+
+    if (ok != true || classId == null || teacherId == null) return;
+
+    try {
+      await _dio.post(
+        _adminUri('/api/assignments').toString(),
+        data: {
+          'schoolClassId': classId,
+          'teacherId': teacherId,
+          'startDate': start.isNotEmpty ? start : null,
+          'reason': reason.isNotEmpty ? reason : 'Professor Titular',
+        },
+      );
+      _showSnack('Professor atribuído à turma com sucesso!');
+      await _loadCatalogAuxData();
+      await _loadAdminOverview();
+    } catch (e) {
+      _showSnack(
+        _extractErrorMessage(e, 'Erro ao atribuir professor à turma.'),
+        isError: true,
+      );
+    }
+  }
+
+  Future<void> _openEnrollStudentDialog(BuildContext context) async {
+    await _loadCatalogAuxData();
+    if (!context.mounted) return;
+    final myInstId =
+        widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
+
+    final availableClasses = (!_isSuperAdmin && myInstId != null)
+        ? _classesList.where((c) {
+            final sId = (c['schoolId'] as num?)?.toInt();
+            final s = _schoolsList.firstWhere(
+              (sc) => (sc['id'] as num?)?.toInt() == sId,
+              orElse: () => <String, dynamic>{},
+            );
+            return (s['institutionId'] as num?)?.toInt() == myInstId ||
+                (c['institutionId'] as num?)?.toInt() == myInstId;
+          }).toList()
+        : _classesList;
+
+    final availableStudents = (!_isSuperAdmin && myInstId != null)
+        ? _studentsList
+            .where((s) => (s['institutionId'] as num?)?.toInt() == myInstId)
+            .toList()
+        : _studentsList;
+
+    if (availableClasses.isEmpty || availableStudents.isEmpty) {
+      _showSnack(
+        availableClasses.isEmpty
+            ? 'Cadastre primeiro uma turma para realizar matrículas.'
+            : 'Cadastre primeiro alunos na instituição para matriculá-los.',
+        isError: true,
+      );
+      return;
+    }
+
+    int? classId = (availableClasses.first['id'] as num?)?.toInt();
+    int? studentId = (availableStudents.first['id'] as num?)?.toInt();
+    final notesCtrl = TextEditingController(text: 'Matrícula regular');
+    final enrollDateCtrl = TextEditingController(
+      text: DateTime.now().toIso8601String().substring(0, 10),
+    );
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Matricular Aluno na Turma'),
+          content: SizedBox(
+            width: 440,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<int>(
+                  isExpanded: true,
+                  initialValue: classId,
+                  decoration: const InputDecoration(labelText: 'Turma *'),
+                  items: availableClasses
+                      .map(
+                        (c) => DropdownMenuItem<int>(
+                          value: (c['id'] as num?)?.toInt(),
+                          child: Text(
+                            '${c['name'] ?? ''}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) => setDialogState(() => classId = v),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<int>(
+                  isExpanded: true,
+                  initialValue: studentId,
+                  decoration: const InputDecoration(labelText: 'Aluno *'),
+                  items: availableStudents
+                      .map(
+                        (s) => DropdownMenuItem<int>(
+                          value: (s['id'] as num?)?.toInt(),
+                          child: Text(
+                            '${s['name'] ?? ''} (${s['email'] ?? ''})',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) => setDialogState(() => studentId = v),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: enrollDateCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Data da matrícula (AAAA-MM-DD) *',
+                    hintText: '2026-02-01',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: notesCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Observações da matrícula',
+                    hintText: 'Ex: Matrícula regular ou bolsista',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Efetivar Matrícula'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final notes = notesCtrl.text.trim();
+    final enrollDate = enrollDateCtrl.text.trim();
+    Future.delayed(const Duration(milliseconds: 400), () {
+      notesCtrl.dispose();
+      enrollDateCtrl.dispose();
+    });
+
+    if (ok != true || classId == null || studentId == null) return;
+
+    try {
+      await _dio.post(
+        _adminUri('/api/enrollments').toString(),
+        data: {
+          'studentId': studentId,
+          'schoolClassId': classId,
+          'enrollmentDate': enrollDate.isNotEmpty ? enrollDate : null,
+          'notes': notes.isNotEmpty ? notes : 'Matrícula regular',
+        },
+      );
+      _showSnack('Aluno matriculado na turma com sucesso!');
+      await _loadCatalogAuxData();
+      await _loadAdminOverview();
+    } catch (e) {
+      _showSnack(
+        _extractErrorMessage(e, 'Erro ao matricular aluno na turma.'),
         isError: true,
       );
     }
@@ -3945,6 +4780,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               SizedBox(
                 width: 280,
                 child: DropdownButtonFormField<int?>(
+                  isExpanded: true,
                   initialValue: _instAdminInstitutionFilter,
                   decoration: InputDecoration(
                     labelText: 'Filtrar por Instituição',
@@ -3956,12 +4792,20 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   items: [
                     const DropdownMenuItem<int?>(
                       value: null,
-                      child: Text('Todas as instituições'),
+                      child: Text(
+                        'Todas as instituições',
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
                     ),
                     ..._institutionsList.map(
                       (i) => DropdownMenuItem<int?>(
                         value: (i['id'] as num?)?.toInt(),
-                        child: Text('${i['name'] ?? ''}'),
+                        child: Text(
+                          '${i['name'] ?? ''}',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       ),
                     ),
                   ],
@@ -4246,6 +5090,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     SizedBox(
                       width: 260,
                       child: DropdownButtonFormField<int>(
+                        isExpanded: true,
                         initialValue: _selectedInstitutionId,
                         decoration: const InputDecoration(
                           labelText: 'Instituição',
@@ -4255,7 +5100,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             .map(
                               (i) => DropdownMenuItem<int>(
                                 value: (i['id'] as num?)?.toInt(),
-                                child: Text('${i['name'] ?? ''}'),
+                                child: Text(
+                                  '${i['name'] ?? ''}',
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
                               ),
                             )
                             .toList(),

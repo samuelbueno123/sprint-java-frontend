@@ -73,6 +73,20 @@ class DashboardRemoteDataSource {
         .toList();
   }
 
+  Future<List<StudentEnrollmentModel>> getAllStudentEnrollments(
+    int studentId,
+  ) async {
+    final response = await _dio.get<List<dynamic>>(
+      Uri.parse(AppConfig.apiBaseUrl)
+          .resolve('/api/students/$studentId/enrollments')
+          .toString(),
+    );
+    return (response.data ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(StudentEnrollmentModel.fromJson)
+        .toList();
+  }
+
   Future<List<TeacherClassAssignmentModel>> getTeacherAssignments(
     int teacherId,
   ) async {
@@ -98,6 +112,7 @@ class DashboardRemoteDataSource {
     String? userId,
     String? name,
     String? email,
+    String? gender,
   }) async {
     final endpoint = AppConfig.authenticatedUserEndpoint.toString();
 
@@ -105,6 +120,9 @@ class DashboardRemoteDataSource {
     if (name != null && name.trim().isNotEmpty) body['name'] = name.trim();
     if (email != null && email.trim().isNotEmpty) {
       body['email'] = email.trim().toLowerCase();
+    }
+    if (gender != null && gender.trim().isNotEmpty) {
+      body['gender'] = gender.trim().toUpperCase();
     }
 
     await _dio.put<void>(endpoint, data: body);

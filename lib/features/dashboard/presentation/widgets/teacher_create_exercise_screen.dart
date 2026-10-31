@@ -6,6 +6,7 @@ import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/teacher_class_assignment.dart';
 import '../../domain/entities/teacher_profile.dart';
 import 'responsive_layout.dart';
+import 'teacher_exercise_preview_screen.dart';
 
 class TeacherCreateExerciseScreen extends StatefulWidget {
   const TeacherCreateExerciseScreen({
@@ -264,67 +265,35 @@ class _TeacherCreateExerciseScreenState
   }
 
   Future<void> _preview() async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(
-          _title.text.trim().isEmpty ? 'Pré-visualização' : _title.text.trim(),
+    final previewQuestions = _questions.map((q) {
+      return {
+        'prompt': q.prompt.text.trim(),
+        'style': q.style,
+        'options': q.options
+            .map((o) => o.text.trim())
+            .where((t) => t.isNotEmpty)
+            .toList(),
+        'expectedAnswer': q.expectedAnswer.text.trim().isNotEmpty
+            ? q.expectedAnswer.text.trim()
+            : (q.correctAnswer ?? ''),
+        'explanation': '',
+      };
+    }).toList();
+
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TeacherExercisePreviewScreen(
+          title: _title.text.trim().isEmpty
+              ? 'Nova Atividade'
+              : _title.text.trim(),
+          category: _category,
+          theme: _theme.text.trim().isEmpty ? 'Geral' : _theme.text.trim(),
+          level: _level,
+          questions: previewQuestions,
+          contentBody: _contentOnly ? _content.text.trim() : null,
+          onBack: () => Navigator.pop(context),
         ),
-        content: SizedBox(
-          width: responsiveDialogWidth(context, maxWidth: 600),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('$_category · ${_theme.text.trim()}'),
-                if (_description.text.trim().isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(_description.text.trim()),
-                ],
-                if (_contentOnly) ...[
-                  const Divider(height: 24),
-                  SelectableText(_content.text.trim()),
-                  if (_mediaUrl.text.trim().isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    SelectableText(_mediaUrl.text.trim()),
-                  ],
-                ] else ...[
-                  const Divider(height: 24),
-                  for (var index = 0; index < _questions.length; index++) ...[
-                    Text(
-                      'Questão ${index + 1} · ${_questions[index].style}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(_questions[index].prompt.text.trim()),
-                    if (_usesOptions(_questions[index].style))
-                      for (final option in _questions[index].options)
-                        if (option.text.trim().isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 10, top: 3),
-                            child: Text('• ${option.text.trim()}'),
-                          )
-                        else if (_questions[index].expectedAnswer.text
-                            .trim()
-                            .isNotEmpty)
-                          Text(
-                            'Resposta esperada: ${_questions[index].expectedAnswer.text.trim()}',
-                          ),
-                    if (index < _questions.length - 1)
-                      const Divider(height: 20),
-                  ],
-                ],
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Fechar pré-visualização'),
-          ),
-        ],
       ),
     );
   }
@@ -335,38 +304,41 @@ class _TeacherCreateExerciseScreenState
     final teacher = _teacher;
     final assignments = _activeAssignments;
     return ListView(
-      padding: EdgeInsets.zero,
+      padding: responsivePagePadding(context),
       children: [
-        _header(context, teacher, colors),
-        Padding(
-          padding: responsivePagePadding(context).copyWith(top: 20, bottom: 32),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 960),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _contentTypeSelector(context),
-                    const SizedBox(height: 16),
-                    _informationCard(context, assignments, teacher),
-                    if (_contentOnly) ...[
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 960),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _header(context, teacher, colors),
+                const SizedBox(height: 20),
+                Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _contentTypeSelector(context),
                       const SizedBox(height: 16),
-                      _theoryCard(context),
-                    ] else ...[
+                      _informationCard(context, assignments, teacher),
+                      if (_contentOnly) ...[
+                        const SizedBox(height: 16),
+                        _theoryCard(context),
+                      ] else ...[
+                        const SizedBox(height: 16),
+                        _aiCard(context),
+                        const SizedBox(height: 16),
+                        _questionsCard(context),
+                      ],
                       const SizedBox(height: 16),
-                      _aiCard(context),
-                      const SizedBox(height: 16),
-                      _questionsCard(context),
+                      _formActions(context),
+                      const SizedBox(height: 24),
+                      _publishedExercises(context),
                     ],
-                    const SizedBox(height: 16),
-                    _formActions(context),
-                    const SizedBox(height: 24),
-                    _publishedExercises(context),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
@@ -385,46 +357,49 @@ class _TeacherCreateExerciseScreenState
         end: Alignment.bottomRight,
         colors: [const Color(0xFF7651C8), colors.primary],
       ),
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFF7651C8).withValues(alpha: 0.25),
+          blurRadius: 16,
+          offset: const Offset(0, 6),
+        ),
+      ],
     ),
-    padding: responsivePagePadding(context).copyWith(top: 16, bottom: 22),
-    child: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 960),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    padding: responsiveBannerPadding(context),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextButton.icon(
+          onPressed: widget.onBack,
+          style: TextButton.styleFrom(foregroundColor: Colors.white),
+          icon: const Icon(Icons.arrow_back_rounded, size: 18),
+          label: const Text('Voltar ao painel'),
+        ),
+        const SizedBox(height: 10),
+        Row(
           children: [
-            TextButton.icon(
-              onPressed: widget.onBack,
-              style: TextButton.styleFrom(foregroundColor: Colors.white),
-              icon: const Icon(Icons.arrow_back_rounded, size: 18),
-              label: const Text('Voltar ao painel'),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 30),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Criar Exercício',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+            const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 30),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Criar Exercício',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
                 ),
-              ],
-            ),
-            const SizedBox(height: 7),
-            Text(
-              teacher == null
-                  ? 'Crie atividades e conteúdos para suas turmas.'
-                  : 'Crie conteúdos para ${teacher.name} publicar às turmas.',
-              style: TextStyle(color: Colors.white.withValues(alpha: .86)),
+              ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 7),
+        Text(
+          teacher == null
+              ? 'Crie atividades e conteúdos para suas turmas.'
+              : 'Crie conteúdos para ${teacher.name} publicar às turmas.',
+          style: TextStyle(color: Colors.white.withValues(alpha: .86)),
+        ),
+      ],
     ),
   );
 

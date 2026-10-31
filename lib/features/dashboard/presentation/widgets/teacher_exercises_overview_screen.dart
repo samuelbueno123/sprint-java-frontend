@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/dashboard_data.dart';
 import 'responsive_layout.dart';
+import 'teacher_exercise_preview_screen.dart';
 
 class TeacherExercisesOverviewScreen extends StatefulWidget {
   const TeacherExercisesOverviewScreen({
@@ -629,52 +630,27 @@ class _TeacherExercisesOverviewScreenState
   Future<void> _previewExercise(
     BuildContext context,
     Map<String, dynamic> exercise,
-  ) => showDialog<void>(
-    context: context,
-    builder: (dialogContext) {
-      final questions = exercise['questions'] as List? ?? const [];
-      return AlertDialog(
-        title: Text('${exercise['title'] ?? 'Atividade'}'),
-        content: SizedBox(
-          width: 560,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if ((exercise['description']?.toString().trim().isNotEmpty ??
-                    false))
-                  Text('${exercise['description']}'),
-                if ((exercise['contentBody']?.toString().trim().isNotEmpty ??
-                    false)) ...[
-                  const SizedBox(height: 12),
-                  Text('${exercise['contentBody']}'),
-                ],
-                const SizedBox(height: 12),
-                for (var index = 0; index < questions.length; index++)
-                  if (questions[index] is Map)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        radius: 15,
-                        child: Text('${index + 1}'),
-                      ),
-                      title: Text('${questions[index]['question'] ?? ''}'),
-                      subtitle: Text('${questions[index]['style'] ?? ''}'),
-                    ),
-              ],
-            ),
-          ),
+  ) {
+    final questions = (exercise['questions'] as List? ?? const [])
+        .whereType<Map>()
+        .map((m) => Map<String, dynamic>.from(m))
+        .toList();
+
+    return Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TeacherExercisePreviewScreen(
+          title: '${exercise['title'] ?? 'Atividade'}',
+          category: '${exercise['category'] ?? 'Geral'}',
+          theme: '${exercise['theme'] ?? 'Geral'}',
+          level: '${exercise['proficiencyLevel'] ?? 'Intermediário'}',
+          questions: questions,
+          contentBody: exercise['contentBody']?.toString(),
+          onBack: () => Navigator.pop(context),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Fechar'),
-          ),
-        ],
-      );
-    },
-  );
+      ),
+    );
+  }
 
   Widget _categoryChip(BuildContext context, String category) {
     final colors = Theme.of(context).colorScheme;
