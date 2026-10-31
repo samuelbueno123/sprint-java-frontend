@@ -38,6 +38,32 @@ class _LoginPageState extends State<LoginPage> {
         AppConfig.hasValidApiBaseUrl) {
       _viewModel.listenForGoogleWebSignIn();
     }
+    _checkResetPasswordParams();
+  }
+
+  void _checkResetPasswordParams() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final uri = Uri.base;
+      String? token = uri.queryParameters['token'];
+      String? email = uri.queryParameters['email'];
+
+      if ((token == null || token.isEmpty) && uri.hasFragment) {
+        final fragmentUri = Uri.tryParse(uri.fragment);
+        if (fragmentUri != null) {
+          token ??= fragmentUri.queryParameters['token'];
+          email ??= fragmentUri.queryParameters['email'];
+        }
+      }
+
+      if (token != null && token.isNotEmpty) {
+        ForgotPasswordDialog.show(
+          context,
+          initialEmail: email ?? '',
+          initialToken: token,
+        );
+      }
+    });
   }
 
   void _onViewModelChanged() {

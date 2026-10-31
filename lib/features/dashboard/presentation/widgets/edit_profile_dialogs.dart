@@ -740,16 +740,28 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
   }
 }
 
-/// Modal dialog for "Esqueci minha senha" (Request code + Reset password).
+/// Modal dialog for "Esqueci minha senha" / Redefinir senha.
 class ForgotPasswordDialog extends StatefulWidget {
-  const ForgotPasswordDialog({super.key, this.initialEmail = ''});
+  const ForgotPasswordDialog({
+    super.key,
+    this.initialEmail = '',
+    this.initialToken = '',
+  });
 
   final String initialEmail;
+  final String initialToken;
 
-  static Future<void> show(BuildContext context, {String initialEmail = ''}) {
+  static Future<void> show(
+    BuildContext context, {
+    String initialEmail = '',
+    String initialToken = '',
+  }) {
     return showDialog<void>(
       context: context,
-      builder: (_) => ForgotPasswordDialog(initialEmail: initialEmail),
+      builder: (_) => ForgotPasswordDialog(
+        initialEmail: initialEmail,
+        initialToken: initialToken,
+      ),
     );
   }
 
@@ -759,11 +771,11 @@ class ForgotPasswordDialog extends StatefulWidget {
 
 class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
   late final TextEditingController _emailController;
-  final _tokenController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  bool _codeSent = false;
+  late final bool _isDirectReset;
+  bool _linkSent = false;
   bool _isLoading = false;
   String? _errorMessage;
   String? _infoMessage;
@@ -772,18 +784,18 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
   void initState() {
     super.initState();
     _emailController = TextEditingController(text: widget.initialEmail.trim());
+    _isDirectReset = widget.initialToken.trim().isNotEmpty;
   }
 
   @override
   void dispose() {
     _emailController.dispose();
-    _tokenController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _requestCode() async {
+  Future<void> _requestLink() async {
     final email = _emailController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
       setState(() => _errorMessage = 'Informe um endereço de e-mail válido.');
@@ -800,14 +812,14 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
       final ds = DashboardRemoteDataSource(ApiClient().dio);
       final response = await ds.requestPasswordReset(email);
       final msg = response['message']?.toString() ??
-          'Se o e-mail estiver cadastrado, um código temporário foi gerado.';
+          'Se o e-mail estiver cadastrado, um link de recuperação foi enviado.';
       final mailConfigured = response['mailConfigured'] == true;
       final extraNote = mailConfigured
           ? ''
-          : ' (Em ambiente local sem SMTP configurado, consulte o log do servidor backend para obter o código de 6 dígitos).';
+          : ' (Em ambiente local sem SMTP configurado, consulte o log do console backend para acessar o link de recuperação).';
       if (mounted) {
         setState(() {
-          _codeSent = true;
+          _linkSent = true;
           _infoMessage = '$msg$extraNote';
         });
       }
@@ -826,17 +838,15 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
   }
 
   Future<void> _submitReset() async {
-    final email = _emailController.text.trim();
-    final token = _tokenController.text.trim();
+    final token = widget.initialToken.trim();
+    final email = widget.initialEmail.trim().isNotEmpty
+        ? widget.initialEmail.trim()
+        : _emailController.text.trim();
     final newPassword = _newPasswordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    if (email.isEmpty || !email.contains('@')) {
-      setState(() => _errorMessage = 'Informe um e-mail válido.');
-      return;
-    }
     if (token.isEmpty) {
-      setState(() => _errorMessage = 'Informe o código de recuperação.');
+      setState(() => _errorMessage = 'Token de recuperação não encontrado.');
       return;
     }
     if (newPassword.length < 6) {
@@ -878,7 +888,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
         setState(() {
           _errorMessage = _parseErrorMsg(
             e,
-            'Código inválido, expirado ou erro ao redefinir a senha.',
+            'Link ou token inválido, expirado ou erro ao redefinir a senha.',
           );
         });
       }
@@ -910,7 +920,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Recuperar Senha',
+                        _isDirectReset ? 'Redefinir Senha' : 'Recuperar Senha',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -928,50 +938,25 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
               ),
               const SizedBox(height: 12),
               Text(
-                _codeSent
-                    ? 'Digite o código de 6 dígitos enviado para o seu e-mail e escolha sua nova senha.'
-                    : 'Informe o e-mail da sua conta para receber um código temporário de redefinição de senha (válido por 15 minutos).',
+                _isDirectReset
+                    ? 'Digite e confirme sua nova senha para acessar sua conta.'
+                    : (_linkSent
+                        ? 'Verifique sua caixa de entrada para acessar o link de redefinição de senha.'
+                        : 'Informe o e-mail da sua conta para enviarmos o link de recuperação de senha (válido por 15 minutos).'),
                 style: TextStyle(
                   fontSize: 13,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 16),
-              TextField(
-                controller: _emailController,
-                autofillHints: const [AutofillHints.email],
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  labelText: 'E-mail da conta',
-                  hintText: 'seu@email.com',
-                  isDense: true,
-                  prefixIcon: const Icon(Icons.mail_outline_rounded),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              if (_codeSent) ...[
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _tokenController,
-                  decoration: InputDecoration(
-                    labelText: 'Código de recuperação (6 dígitos)',
-                    hintText: 'Ex: 123456',
-                    isDense: true,
-                    prefixIcon: const Icon(Icons.pin_outlined),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
+              if (_isDirectReset) ...[
                 TextField(
                   controller: _newPasswordController,
                   autofillHints: const [AutofillHints.newPassword],
                   obscureText: true,
                   decoration: InputDecoration(
                     labelText: 'Nova senha (mín. 6 caracteres)',
+                    hintText: 'Digite sua nova senha',
                     isDense: true,
                     prefixIcon: const Icon(Icons.lock_outline_rounded),
                     border: OutlineInputBorder(
@@ -986,8 +971,24 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                   obscureText: true,
                   decoration: InputDecoration(
                     labelText: 'Confirmar nova senha',
+                    hintText: 'Repita a nova senha',
                     isDense: true,
                     prefixIcon: const Icon(Icons.lock_outline_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ] else if (!_linkSent) ...[
+                TextField(
+                  controller: _emailController,
+                  autofillHints: const [AutofillHints.email],
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    labelText: 'E-mail da conta',
+                    hintText: 'seu@email.com',
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.mail_outline_rounded),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -1031,61 +1032,38 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                 ),
               ],
               const SizedBox(height: 20),
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 8,
-                runSpacing: 8,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () => setState(() {
-                            _codeSent = !_codeSent;
-                            _errorMessage = null;
-                          }),
-                    child: Text(
-                      _codeSent
-                          ? 'Solicitar novo código'
-                          : 'Já tenho um código',
-                    ),
+                    onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                    child: Text(_linkSent ? 'Fechar' : 'Cancelar'),
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextButton(
-                        onPressed: _isLoading
-                            ? null
-                            : () => Navigator.of(context).pop(),
-                        child: const Text('Cancelar'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: _isLoading
-                            ? null
-                            : (_codeSent ? _submitReset : _requestCode),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF5869D8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                  if (!_linkSent || _isDirectReset) ...[
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: _isLoading
+                          ? null
+                          : (_isDirectReset ? _submitReset : _requestLink),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF5869D8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        child: _isLoading
-                            ? const SizedBox.square(
-                                dimension: 18,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Text(
-                                _codeSent
-                                    ? 'Redefinir Senha'
-                                    : 'Enviar Código',
-                              ),
                       ),
-                    ],
-                  ),
+                      child: _isLoading
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Text(
+                              _isDirectReset ? 'Redefinir Senha' : 'Enviar Link',
+                            ),
+                    ),
+                  ],
                 ],
               ),
             ],
@@ -1095,6 +1073,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
     );
   }
 }
+
 
 /// Modal dialog for confirming permanent account deletion (`DELETE /api/auth/me`).
 class DeleteAccountDialog extends StatefulWidget {
