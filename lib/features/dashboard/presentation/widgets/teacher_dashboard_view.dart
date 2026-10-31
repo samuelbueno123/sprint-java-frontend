@@ -458,21 +458,21 @@ class TeacherDashboardView extends StatelessWidget {
                       ),
                     ),
                     IconButton(
+                      tooltip: 'Configurações',
                       onPressed: () => onSectionSelected?.call('settings'),
                       icon: const Icon(
                         Icons.settings_rounded,
                         color: Colors.white,
                       ),
-                      tooltip: 'Configurações',
-                    ),
+                      ),
                     IconButton(
+                      tooltip: 'Sair da conta',
                       onPressed: onLogout,
                       icon: const Icon(
                         Icons.logout_rounded,
                         color: Colors.white,
                       ),
-                      tooltip: 'Sair da conta',
-                    ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 20),
