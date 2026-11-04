@@ -32,6 +32,22 @@ class TeacherCreateExerciseScreen extends StatefulWidget {
       _TeacherCreateExerciseScreenState();
 }
 
+class _ClassOption {
+  const _ClassOption({required this.id, required this.name});
+  final int id;
+  final String name;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _ClassOption &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
 class _TeacherCreateExerciseScreenState
     extends State<TeacherCreateExerciseScreen> {
   static const _categories = [
@@ -73,6 +89,9 @@ class _TeacherCreateExerciseScreenState
   final List<_ComposerQuestion> _questions = [_ComposerQuestion()];
 
   final Dio _dio = ApiClient().dio;
+  final ScrollController _scrollController = ScrollController();
+  final List<_ClassOption> _availableClasses = [];
+  bool _loadingClasses = false;
   bool _contentOnly = false;
   bool _saving = false;
   bool _generatingAi = false;
@@ -94,7 +113,13 @@ class _TeacherCreateExerciseScreenState
       .teacherAssignments
       .where((item) => item.isActive && item.schoolClassId != null)
       .toList();
-  List<String> get _languages => _teacher?.taughtLanguages ?? const [];
+
+  List<String> get _effectiveLanguages {
+    final taught = _teacher?.taughtLanguages ?? const [];
+    final defaults = ['Inglês', 'Espanhol', 'Francês', 'Alemão', 'Italiano', 'Japonês'];
+    return <String>{...taught, ...defaults}.toList();
+  }
+
 
   List<String> get _effectiveLevels {
     if (widget.proficiencyLevels.isNotEmpty) {
@@ -106,17 +131,67 @@ class _TeacherCreateExerciseScreenState
   @override
   void initState() {
     super.initState();
-    final assignments = _activeAssignments;
-    if (assignments.isNotEmpty) _classId = assignments.first.schoolClassId;
-    if (_languages.isNotEmpty) _language = _languages.first;
+    // 1. Initial classes from assignments
+    for (final a in _activeAssignments) {
+      if (a.schoolClassId != null) {
+        _availableClasses.add(_ClassOption(id: a.schoolClassId!, name: a.schoolClassName));
+      }
+    }
+    if (_availableClasses.isNotEmpty) {
+      _classId = _availableClasses.first.id;
+    }
+
+    // 2. Initial language (guaranteed non-null)
+    _language = _effectiveLanguages.first;
+
+    // 3. Initial level (guaranteed non-null)
     final levels = _effectiveLevels;
     if (levels.isNotEmpty) {
-      _level = levels.contains(_level) ? _level : levels.first;
+      _level = levels.first;
+    }
+
+    // 4. Fetch available classes from API for admins and teachers
+    _fetchClassesFromApi();
+  }
+
+  Future<void> _fetchClassesFromApi() async {
+    setState(() => _loadingClasses = true);
+    try {
+      final response = await _dio.get<List<dynamic>>('/api/classes');
+      final list = (response.data ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .toList();
+      final newOptions = <_ClassOption>[];
+      for (final c in list) {
+        final id = (c['id'] as num?)?.toInt();
+        final name = (c['name'] ?? 'Turma $id').toString();
+        if (id != null) {
+          newOptions.add(_ClassOption(id: id, name: name));
+        }
+      }
+      if (mounted && newOptions.isNotEmpty) {
+        setState(() {
+          final existingIds = _availableClasses.map((e) => e.id).toSet();
+          for (final opt in newOptions) {
+            if (!existingIds.contains(opt.id)) {
+              _availableClasses.add(opt);
+            }
+          }
+          if (_classId == null && _availableClasses.isNotEmpty) {
+            _classId = _availableClasses.first.id;
+          }
+        });
+      }
+    } catch (_) {
+      // Ignore if offline
+    } finally {
+      if (mounted) setState(() => _loadingClasses = false);
     }
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _title.dispose();
     _theme.dispose();
     _description.dispose();
@@ -146,48 +221,80 @@ class _TeacherCreateExerciseScreenState
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_activeAssignments.isEmpty ||
-        _classId == null ||
-        _language == null ||
-        _level == null) {
-      _showMessage(
-        'Vincule uma turma ativa, um idioma e um nível ao perfil docente antes de publicar.',
-      );
-      return;
+    final issues = <String>[];
+    final title = _title.text.trim();
+
+    if (title.isEmpty) {
+      issues.add('• O título do exercício é obrigatório.');
     }
-    if (!_contentOnly) {
+    if (_classId == null) {
+      issues.add('• Selecione a turma que receberá a atividade.');
+    }
+    if (_language == null || _language!.isEmpty) {
+      issues.add('• Selecione o idioma da atividade.');
+    }
+    if (_level == null || _level!.isEmpty) {
+      issues.add('• Selecione o nível de dificuldade.');
+    }
+
+    if (_contentOnly) {
+      if (_content.text.trim().isEmpty && _mediaUrl.text.trim().isEmpty) {
+        issues.add('• Informe o texto teórico ou um link de mídia para o conteúdo.');
+      }
+    } else {
+      if (_questions.isEmpty) {
+        issues.add('• Adicione ao menos uma questão na atividade.');
+      }
       for (var index = 0; index < _questions.length; index++) {
-        final question = _questions[index];
-        if (_usesOptions(question.style)) {
-          final options = question.options
-              .map((controller) => controller.text.trim())
-              .where((value) => value.isNotEmpty)
+        final q = _questions[index];
+        final qNum = index + 1;
+        if (q.prompt.text.trim().isEmpty) {
+          issues.add('• Questão $qNum: Informe o enunciado (pergunta).');
+        }
+        if (_usesOptions(q.style)) {
+          final opts = q.options
+              .map((c) => c.text.trim())
+              .where((t) => t.isNotEmpty)
               .toSet();
-          if (options.length < 2) {
-            _showMessage(
-              'A questão ${index + 1} precisa de ao menos duas opções.',
-            );
-            return;
+          if (opts.length < 2) {
+            issues.add('• Questão $qNum: Preencha ao menos 2 opções de resposta.');
           }
-          if (question.correctAnswer == null ||
-              !options.contains(question.correctAnswer)) {
-            _showMessage('Selecione o gabarito da questão ${index + 1}.');
-            return;
+          if (q.correctAnswer == null || !opts.contains(q.correctAnswer)) {
+            if (opts.isNotEmpty) {
+              q.correctAnswer = opts.first;
+            } else {
+              issues.add('• Questão $qNum: Selecione a resposta correta (gabarito).');
+            }
           }
-        } else if (question.expectedAnswer.text.trim().isEmpty) {
-          _showMessage('Informe a resposta esperada da questão ${index + 1}.');
-          return;
+        } else if (q.expectedAnswer.text.trim().isEmpty) {
+          issues.add('• Questão $qNum: Informe o gabarito ou resposta esperada.');
         }
       }
     }
 
+    if (issues.isNotEmpty) {
+      _formKey.currentState?.validate();
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+        );
+      }
+      _showValidationDialog(issues);
+      return;
+    }
+
     setState(() => _saving = true);
     try {
+      final dueDateStr = _dueDate == null
+          ? null
+          : '${_dueDate!.year.toString().padLeft(4, '0')}-${_dueDate!.month.toString().padLeft(2, '0')}-${_dueDate!.day.toString().padLeft(2, '0')}';
+
       await _dio.post(
         '/api/exercises',
         data: {
-          'title': _title.text.trim(),
+          'title': title,
           'category': _category,
           'theme': _theme.text.trim(),
           'languageName': _language,
@@ -197,29 +304,139 @@ class _TeacherCreateExerciseScreenState
           'mediaUrl': _mediaUrl.text.trim().isEmpty
               ? null
               : _mediaUrl.text.trim(),
-          'dueDate': _dueDate == null
-              ? null
-              : '${_dueDate!.year.toString().padLeft(4, '0')}-${_dueDate!.month.toString().padLeft(2, '0')}-${_dueDate!.day.toString().padLeft(2, '0')}',
+          'dueDate': dueDateStr,
           'schoolClassId': _classId,
           'questions': _contentOnly
               ? <Map<String, dynamic>>[]
               : _questions.map(_questionToJson).toList(),
         },
       );
+
       if (!mounted) return;
-      _showMessage(
-        _contentOnly
-            ? 'Conteúdo publicado para a turma.'
-            : 'Atividade publicada para a turma.',
-      );
       await widget.onSaved();
       if (!mounted) return;
-      _resetForm();
+      _showSuccessDialog(title);
     } catch (error) {
-      if (mounted) _showMessage(_errorMessage(error));
+      if (mounted) {
+        _showErrorDialog(_errorMessage(error));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  void _showValidationDialog(List<String> issues) {
+    final colors = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.warning_amber_rounded, color: Color(0xFFE5902D), size: 40),
+        title: const Text(
+          'Campos Pendentes',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Para salvar e publicar a atividade, corrija os itens abaixo:',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+                for (final issue in issues)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      issue,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: colors.error,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF7651C8),
+            ),
+            child: const Text('Entendido, vou preencher'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSuccessDialog(String title) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.check_circle_rounded, color: Color(0xFF2EB872), size: 52),
+        title: const Text(
+          'Atividade Publicada! 🎉',
+          style: TextStyle(fontWeight: FontWeight.w800),
+          textAlign: TextAlign.center,
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: Text(
+            'A atividade "$title" foi salva e publicada com sucesso para a turma!',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14, height: 1.4),
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          OutlinedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _resetForm();
+            },
+            child: const Text('Criar outra atividade'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              widget.onBack();
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF7651C8),
+            ),
+            child: const Text('Voltar ao Painel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 44),
+        title: const Text(
+          'Erro ao Publicar',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        content: Text(message),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Fechar'),
+          ),
+        ],
+      ),
+    );
   }
 
   Map<String, dynamic> _questionToJson(_ComposerQuestion question) {
@@ -319,6 +536,7 @@ class _TeacherCreateExerciseScreenState
     final teacher = _teacher;
     final assignments = _activeAssignments;
     return ListView(
+      controller: _scrollController,
       padding: responsivePagePadding(context),
       children: [
         Center(
@@ -533,25 +751,34 @@ class _TeacherCreateExerciseScreenState
                   SizedBox(
                     width: width,
                     child: DropdownButtonFormField<int>(
-                      initialValue:
-                          assignments.any(
-                            (item) => item.schoolClassId == _classId,
-                          )
+                      initialValue: _availableClasses.any((c) => c.id == _classId)
                           ? _classId
-                          : null,
+                          : (_availableClasses.isNotEmpty ? _availableClasses.first.id : null),
                       isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Turma'),
+                      decoration: InputDecoration(
+                        labelText: 'Turma',
+                        suffixIcon: _loadingClasses
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              )
+                            : null,
+                      ),
                       hint: Text(
-                        assignments.isEmpty
-                            ? 'Nenhuma turma ativa'
+                        _availableClasses.isEmpty
+                            ? (_loadingClasses ? 'Carregando turmas...' : 'Nenhuma turma disponível')
                             : 'Selecione a turma',
                       ),
-                      items: assignments
+                      items: _availableClasses
                           .map(
-                            (item) => DropdownMenuItem(
-                              value: item.schoolClassId,
+                            (c) => DropdownMenuItem<int>(
+                              value: c.id,
                               child: Text(
-                                item.schoolClassName,
+                                c.name,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -563,13 +790,12 @@ class _TeacherCreateExerciseScreenState
                   SizedBox(
                     width: width,
                     child: DropdownButtonFormField<String>(
-                      initialValue: _languages.contains(_language)
+                      initialValue: _effectiveLanguages.contains(_language)
                           ? _language
-                          : null,
+                          : _effectiveLanguages.first,
                       isExpanded: true,
                       decoration: const InputDecoration(labelText: 'Idioma'),
-                      hint: const Text('Selecione um idioma'),
-                      items: _languages
+                      items: _effectiveLanguages
                           .map(
                             (value) => DropdownMenuItem(
                               value: value,
@@ -652,9 +878,7 @@ class _TeacherCreateExerciseScreenState
             hint: 'Adicione instruções ou contexto para os alunos.',
             maxLines: 3,
           ),
-          if (assignments.isEmpty ||
-              _languages.isEmpty ||
-              widget.proficiencyLevels.isEmpty) ...[
+          if (_availableClasses.isEmpty && !_loadingClasses) ...[
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
@@ -664,7 +888,7 @@ class _TeacherCreateExerciseScreenState
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'Para publicar, seu perfil precisa ter uma turma ativa, idioma lecionado e nível disponíveis.',
+                'Nenhuma turma disponível encontrada para publicação. Verifique suas atribuições ou crie uma turma.',
                 style: TextStyle(color: colors.onErrorContainer),
               ),
             ),
@@ -1537,17 +1761,15 @@ class _TeacherCreateExerciseScreenState
         DropdownButtonFormField<String>(
           initialValue: options.contains(question.correctAnswer)
               ? question.correctAnswer
-              : null,
+              : (options.isNotEmpty ? options.first : null),
           isExpanded: true,
-          decoration: const InputDecoration(labelText: 'Resposta correta'),
-          hint: const Text('Escolha uma opção válida'),
+          decoration: const InputDecoration(labelText: 'Resposta correta (Gabarito)'),
+          hint: const Text('Escolha a opção correta'),
           items: options
               .map(
                 (value) => DropdownMenuItem(value: value, child: Text(value)),
               )
               .toList(),
-          validator: (value) =>
-              value == null ? 'Selecione a resposta correta' : null,
           onChanged: (value) => setState(() => question.correctAnswer = value),
         ),
       ],
@@ -1590,10 +1812,16 @@ class _TeacherCreateExerciseScreenState
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
-                    : const Icon(Icons.save_outlined),
-                label: Text(_saving ? 'Publicando...' : 'Salvar e publicar'),
+                    : const Icon(Icons.rocket_launch_rounded),
+                label: Text(
+                  _saving ? 'Publicando no servidor...' : 'Salvar e publicar',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF7651C8),
                   foregroundColor: Colors.white,
