@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/realtime_sync_service.dart';
 import '../../domain/entities/dashboard_data.dart';
 import 'app_user_avatar.dart';
 import 'info_stat_card.dart';
@@ -75,6 +77,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   String _notificationStatusFilter = 'ALL';
   int _notificationPageSize = 10;
   int _notificationPage = 0;
+  StreamSubscription<RealtimeSyncEvent>? _realtimeSubscription;
 
   // Institution Dashboard state
   bool _isLoadingInstDashboard = false;
@@ -82,6 +85,15 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   Map<String, dynamic>? _instDashboardData;
   List<Map<String, dynamic>> _institutionsList = [];
   int? _selectedInstitutionId;
+
+  // Institution Teachers Detail & Class Drilldown state
+  Map<String, dynamic>? _selectedInstitutionTeacher;
+  List<Map<String, dynamic>> _teacherClassesList = [];
+  List<Map<String, dynamic>> _teacherRecentExercises = [];
+  bool _isLoadingTeacherDetails = false;
+  String? _teacherDetailsError;
+  final TextEditingController _instTeacherSearchController =
+      TextEditingController();
 
   // Institution Admins management state (Super Admin only)
   bool _isLoadingTeachers = false;
@@ -104,6 +116,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     super.initState();
     _loadAdminOverview();
     _loadNotifications();
+    _realtimeSubscription = RealtimeSyncService.instance.events.listen((event) {
+      if (!mounted) return;
+      if (event.type == 'NOTIFICATION_ADDED') {
+        _loadNotifications();
+        widget.onRefresh();
+      }
+    });
     if (!_isSuperAdmin || widget.activeSection == 'institutionDashboard') {
       _loadInstitutionDashboard();
     }
@@ -124,7 +143,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     if (oldWidget.activeSection != widget.activeSection) {
       if (widget.activeSection == 'notifications') {
         _loadNotifications();
-      } else if (widget.activeSection == 'institutionDashboard') {
+      } else if (widget.activeSection == 'institutionDashboard' ||
+          widget.activeSection == 'institutionTeachers') {
         _loadInstitutionDashboard();
       } else if (widget.activeSection == 'institutionAdmins' && _isSuperAdmin) {
         _loadTeachersForInstitutionAdmin();
@@ -139,11 +159,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
   @override
   void dispose() {
+    _realtimeSubscription?.cancel();
     _tableSearchController.dispose();
     _userSearchController.dispose();
     _notificationSearchController.dispose();
     _instAdminSearchController.dispose();
     _studentAchievementSearchController.dispose();
+    _instTeacherSearchController.dispose();
     _tableSearchDebounce?.cancel();
     _tableTabsController.dispose();
     _tableVerticalController.dispose();
@@ -355,25 +377,113 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
   String _friendlyTableName(String rawName) {
     final lower = rawName.toLowerCase();
-    if (lower.contains('usuario') || lower.contains('user')) return 'Usuários';
-    if (lower.contains('estudante') || lower.contains('aluno') || lower.contains('student')) return 'Alunos';
-    if (lower.contains('professor') || lower.contains('teacher')) return 'Professores';
-    if (lower.contains('instituicao') || lower.contains('institution')) return 'Instituições';
-    if (lower.contains('escola') || (lower.contains('school') && !lower.contains('class'))) return 'Escolas';
-    if (lower.contains('turma') || lower.contains('class')) return 'Turmas';
-    if (lower.contains('matricula') || lower.contains('enrollment')) return 'Matrículas';
-    if (lower.contains('atribuicao') || lower.contains('assignment')) return 'Atribuição de Professores';
-    if (lower.contains('idioma_estudante') || lower.contains('student_language')) return 'Idiomas dos Alunos';
-    if (lower.contains('idioma') || lower.contains('language')) return 'Idiomas';
-    if (lower.contains('submissao') || lower.contains('submission')) return 'Entregas de Atividades';
-    if (lower.contains('exercicio') || lower.contains('exercise')) return 'Atividades / Lições';
-    if (lower.contains('conquista_estudante') || lower.contains('student_achievement')) return 'Conquistas de Alunos';
-    if (lower.contains('conquista') || lower.contains('achievement')) return 'Conquistas';
-    if (lower.contains('solicitacao') || lower.contains('request')) return 'Solicitações de Cadastro';
-    if (lower.contains('redefinicao') || lower.contains('reset')) return 'Redefinições de Senha';
+    if (lower.contains('usuario') || lower == 'users' || lower == 'tb_users') return 'Tabela de Usuários';
+    if (lower.contains('estudante') || lower.contains('aluno') || lower == 'students' || lower == 'tb_students') return 'Tabela de Estudantes';
+    if (lower.contains('professor') || lower == 'teachers' || lower == 'tb_teachers') return 'Tabela de Professores';
+    if (lower.contains('instituicao') || lower == 'institutions' || lower == 'tb_institutions') return 'Tabela de Instituições';
+    if (lower.contains('escola') || lower == 'schools' || lower == 'tb_schools') return 'Tabela de Escolas';
+    if (lower.contains('turma') || lower == 'classes' || lower == 'school_classes' || lower == 'tb_school_classes') return 'Tabela de Turmas';
+    if (lower.contains('matricula') || lower == 'enrollments' || lower == 'tb_enrollments') return 'Tabela de Matrículas';
+    if (lower.contains('atribuicao') || lower == 'class_teacher_assignments' || lower.contains('assignment')) return 'Tabela de Atribuições Docentes';
+    if (lower.contains('idioma_estudante') || lower.contains('student_language')) return 'Tabela de Idiomas dos Estudantes';
+    if (lower.contains('idioma') || lower == 'languages' || lower == 'tb_languages') return 'Tabela de Idiomas Disponíveis';
+    if (lower.contains('submissao') || lower == 'exercise_submissions' || lower.contains('submission')) return 'Tabela de Entregas de Atividades';
+    if (lower.contains('exercicio') || lower == 'learning_exercises' || lower.contains('exercise')) return 'Tabela de Atividades Pedagógicas';
+    if (lower.contains('conquista_estudante') || lower.contains('student_achievements')) return 'Tabela de Conquistas dos Estudantes';
+    if (lower.contains('conquista') || lower == 'achievements' || lower == 'tb_achievements') return 'Tabela de Conquistas e Medalhas';
+    if (lower.contains('solicitacao') || lower.contains('institution_requests')) return 'Tabela de Solicitações de Cadastro';
+    if (lower.contains('redefinicao') || lower.contains('password_reset')) return 'Tabela de Redefinições de Senha';
 
     final clean = rawName.replaceFirst(RegExp(r'^tb_', caseSensitive: false), '').replaceAll('_', ' ');
-    return clean.split(' ').map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}').join(' ');
+    final title = clean.split(' ').map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}').join(' ');
+    return 'Tabela de $title';
+  }
+
+  String _friendlyColumnName(String rawCol) {
+    final lower = rawCol.trim().toLowerCase();
+    const dictionary = <String, String>{
+      'id': 'ID',
+      'user_id': 'ID do Usuário',
+      'student_id': 'ID do Aluno',
+      'teacher_id': 'ID do Professor',
+      'school_id': 'ID da Escola',
+      'school_class_id': 'ID da Turma',
+      'institution_id': 'ID da Instituição',
+      'learning_exercise_id': 'ID da Atividade',
+      'exercise_id': 'ID da Atividade',
+      'submission_id': 'ID da Entrega',
+      'achievement_id': 'ID da Conquista',
+      'name': 'Nome',
+      'full_name': 'Nome Completo',
+      'first_name': 'Primeiro Nome',
+      'last_name': 'Sobrenome',
+      'email': 'E-mail',
+      'password': 'Senha',
+      'password_hash': 'Hash da Senha',
+      'role': 'Função / Papel',
+      'roles': 'Perfis de Acesso',
+      'gender': 'Gênero',
+      'is_female': 'Gênero Feminino',
+      'picture': 'URL da Foto',
+      'google_id': 'Google ID',
+      'phone': 'Telefone',
+      'phone_number': 'Número de Telefone',
+      'address': 'Endereço',
+      'active': 'Status Ativo',
+      'is_active': 'Status Ativo',
+      'is_admin': 'Administrador',
+      'is_super_admin': 'Super Administrador',
+      'created_at': 'Data de Criação',
+      'updated_at': 'Última Atualização',
+      'due_date': 'Prazo de Entrega',
+      'start_date': 'Data de Início',
+      'end_date': 'Data de Término',
+      'enrollment_date': 'Data de Matrícula',
+      'school_year': 'Ano Letivo',
+      'shift': 'Turno',
+      'grade_level': 'Série / Nível',
+      'inep_code': 'Código INEP',
+      'title': 'Título',
+      'description': 'Descrição',
+      'instructions': 'Instruções',
+      'language': 'Idioma',
+      'target_language': 'Idioma Alvo',
+      'proficiency_level': 'Nível de Proficiência',
+      'accuracy_percent': 'Taxa de Acertos (%)',
+      'average_accuracy': 'Média de Acertos (%)',
+      'xp': 'Experiência (XP)',
+      'total_xp': 'XP Acumulado',
+      'xp_earned': 'XP Ganho',
+      'points': 'Pontos',
+      'status': 'Status',
+      'reason': 'Motivo',
+      'notes': 'Observações',
+      'biography': 'Biografia',
+      'bibliography': 'Biografia / Apresentação',
+      'taught_languages': 'Idiomas Lecionados',
+      'specialization_areas': 'Especializações',
+      'approval_status': 'Status de Aprovação',
+      'approved': 'Aprovado',
+      'rejected': 'Rejeitado',
+      'score': 'Pontuação',
+      'time_spent_seconds': 'Tempo Gasto (seg)',
+      'completed': 'Concluído',
+      'icon_name': 'Ícone',
+      'code': 'Código Identificador',
+      'token': 'Token de Autenticação',
+      'expires_at': 'Data de Expiração',
+    };
+    if (dictionary.containsKey(lower)) {
+      return dictionary[lower]!;
+    }
+    final cleaned = lower.replaceAll('_', ' ');
+    return cleaned.split(' ').map((w) {
+      if (w.isEmpty) return '';
+      if (w == 'id') return 'ID';
+      if (w == 'xp') return 'XP';
+      if (w == 'da' || w == 'de' || w == 'do' || w == 'e') return w;
+      return '${w[0].toUpperCase()}${w.substring(1)}';
+    }).join(' ');
   }
 
   IconData _iconForTable(String rawName) {
@@ -408,10 +518,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         return _isSuperAdmin
             ? _buildDatabaseEditorSection(context)
             : _buildInstitutionDashboardSection(context);
+      case 'institutionTeachers':
+        return _buildInstitutionTeachersSection(context);
       case 'tools':
-        return _isSuperAdmin
-            ? _buildFriendlyToolsSection(context)
-            : _buildInstitutionDashboardSection(context);
+        return _buildFriendlyToolsSection(context);
       case 'institutionAdmins':
         return _isSuperAdmin
             ? _buildInstitutionAdminsSection(context)
@@ -1121,9 +1231,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [
-                  Color(0xFFB45309),
-                  Color(0xFFD97706),
-                  Color(0xFFF59E0B),
+                  Color(0xFF4338CA),
+                  Color(0xFF6366F1),
+                  Color(0xFF8B5CF6),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -1131,8 +1241,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               borderRadius: BorderRadius.circular(22),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFD97706).withValues(alpha: 0.25),
-                  blurRadius: 18,
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                  blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
               ],
@@ -1161,7 +1271,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.2),
+                            color: Colors.black.withValues(alpha: 0.22),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Row(
@@ -1174,7 +1284,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                               ),
                               SizedBox(width: 6),
                               Text(
-                                'PAINEL DE ADMINISTRADOR GERAL • ACESSO SUPREMO',
+                                'PAINEL DO ADMINISTRADOR GERAL • ACESSO SUPREMO',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 11,
@@ -1214,7 +1324,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       onPressed: () => widget.onSectionSelected('tools'),
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFFB45309),
+                        foregroundColor: const Color(0xFF4338CA),
                         textStyle: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                       icon: const Icon(
@@ -1231,7 +1341,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         textStyle: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                       icon: const Icon(Icons.storage_rounded, size: 18),
-                      label: const Text('Tabelas (SELECT *)'),
+                      label: const Text('Banco de Dados'),
                     ),
                     OutlinedButton.icon(
                       onPressed: () =>
@@ -1273,7 +1383,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 ),
               ],
             ),
-          ),
+          ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.05, end: 0),
           const SizedBox(height: 24),
           if (_overviewError != null) ...[
             _buildErrorBanner(_overviewError!, onRetry: _loadAdminOverview),
@@ -1300,16 +1410,16 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       value: '${_tables.length}',
                       subtitle: 'Schema public ativo',
                       icon: Icons.table_view_rounded,
-                      accentColor: const Color(0xFFD97706),
+                      accentColor: const Color(0xFF6366F1),
                       onTap: () => widget.onSectionSelected('database'),
                     ),
                   ),
                   SizedBox(
                     width: itemWidth,
                     child: InfoStatCard(
-                      title: 'Registros Totais',
+                      title: 'Registros Persistidos',
                       value: '$totalRows',
-                      subtitle: 'Soma de todas as tabelas',
+                      subtitle: 'Soma em todas as tabelas',
                       icon: Icons.dataset_rounded,
                       accentColor: const Color(0xFF2563EB),
                       onTap: () => widget.onSectionSelected('database'),
@@ -1320,18 +1430,18 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     child: InfoStatCard(
                       title: 'Usuários Cadastrados',
                       value: '${_users.length}',
-                      subtitle: 'Contas na tabela users',
+                      subtitle: 'Contas cadastradas no sistema',
                       icon: Icons.people_alt_rounded,
-                      accentColor: const Color(0xFF7C3AED),
+                      accentColor: const Color(0xFF8B5CF6),
                       onTap: () => _openUsersWithFilter('ALL'),
                     ),
                   ),
                   SizedBox(
                     width: itemWidth,
                     child: InfoStatCard(
-                      title: 'Administradores',
+                      title: 'Administradores Ativos',
                       value: '$adminCount',
-                      subtitle: 'Contas com permissão ADM',
+                      subtitle: 'Contas com permissão de gestão',
                       icon: Icons.shield_rounded,
                       accentColor: const Color(0xFF059669),
                       onTap: () => _openUsersWithFilter('ADMIN'),
@@ -1340,19 +1450,19 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 ],
               );
             },
-          ),
+          ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideY(begin: 0.05, end: 0),
           const SizedBox(height: 28),
           Row(
             children: [
               const Icon(
                 Icons.storage_rounded,
-                color: Color(0xFFD97706),
+                color: Color(0xFF6366F1),
                 size: 22,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Acesso Direto às Tabelas do Banco de Dados (${_tables.length})',
+                  'Acesso Rápido às Tabelas do Banco de Dados (${_tables.length})',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -1362,7 +1472,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               TextButton.icon(
                 onPressed: () => widget.onSectionSelected('database'),
                 icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                label: const Text('Abrir Editor Completo'),
+                label: const Text('Abrir Visualizador Completo'),
               ),
             ],
           ),
@@ -1389,87 +1499,77 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   spacing: 10,
                   runSpacing: 10,
                   children: _tables.map((table) {
+                    final friendly = _friendlyTableName(table.tableName);
                     return SizedBox(
                       width: cardWidth,
-                      child: Material(
-                        color: Theme.of(context).cardColor,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(
-                            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.7),
-                          ),
-                        ),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () => _openTableInEditor(table.tableName),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(7),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFD97706).withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    _iconForTable(table.tableName),
-                                    color: const Color(0xFFD97706),
-                                    size: 18,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        _friendlyTableName(table.tableName),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      Text(
-                                        table.tableName,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF2563EB).withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    '${table.rowCount}',
-                                    style: const TextStyle(
-                                      color: Color(0xFF2563EB),
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                      child: AppHoverCard(
+                        onTap: () => _openTableInEditor(table.tableName),
+                        borderRadius: 14,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                _iconForTable(table.tableName),
+                                color: const Color(0xFF6366F1),
+                                size: 20,
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    friendly,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    table.tableName,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${table.rowCount}',
+                                style: const TextStyle(
+                                  color: Color(0xFF2563EB),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );
                   }).toList(),
                 );
               },
-            ),
+            ).animate().fadeIn(duration: 400.ms, delay: 180.ms).slideY(begin: 0.05, end: 0),
         ],
       ),
     );
@@ -1516,14 +1616,14 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Editor de Tabelas do Banco (SELECT * • PostgreSQL)',
+                        'Visualizador e Gerenciador de Banco de Dados',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                       Text(
-                        'Visualização completa de todas as colunas da tabela (10 entradas por página).',
+                        'Visualização estruturada e gestão segura dos registros do sistema (10 entradas por página).',
                         style: TextStyle(
                           fontSize: 13,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1641,7 +1741,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   decoration: InputDecoration(
                     hintText: _selectedTableName == null
                         ? 'Buscar registros...'
-                        : 'Filtrar registros em "$_selectedTableName"...',
+                        : 'Filtrar registros na ${_friendlyTableName(_selectedTableName!)}...',
                     prefixIcon: const Icon(Icons.search_rounded),
                     suffixIcon: _tableSearchController.text.isNotEmpty
                         ? IconButton(
@@ -1731,10 +1831,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'SELECT * FROM ${tableData.tableName} (${tableData.label})',
+                      _friendlyTableName(tableData.tableName),
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 15,
+                        fontSize: 16,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1850,7 +1950,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                             const SizedBox(width: 4),
                                           ],
                                           Text(
-                                            col.name,
+                                            _friendlyColumnName(col.name),
                                             style: const TextStyle(
                                               fontWeight: FontWeight.w800,
                                               fontSize: 13,
@@ -1859,7 +1959,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                         ],
                                       ),
                                       Text(
-                                        '${col.udtName}${col.nullable ? "" : " *"}',
+                                        '${col.name} • ${col.udtName}${col.nullable ? "" : " *"}',
                                         style: TextStyle(
                                           fontSize: 10,
                                           color: Theme.of(
@@ -2077,8 +2177,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   Expanded(
                     child: Text(
                       isEditing
-                          ? 'Editar Registro em "${tableData.tableName}"'
-                          : 'Novo Registro em "${tableData.tableName}"',
+                          ? 'Editar Registro na ${_friendlyTableName(tableData.tableName)}'
+                          : 'Novo Registro na ${_friendlyTableName(tableData.tableName)}',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
@@ -2124,10 +2224,18 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                     const SizedBox(width: 4),
                                   ],
                                   Text(
-                                    col.name,
+                                    _friendlyColumnName(col.name),
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '(${col.name})',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                   const SizedBox(width: 6),
@@ -4367,7 +4475,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
     try {
       await _dio.post(
-        _adminUri('/api/assignments').toString(),
+        _adminUri('/api/class-teacher-assignments').toString(),
         data: {
           'schoolClassId': classId,
           'teacherId': teacherId,
@@ -4675,8 +4783,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             .toString(),
         data: {
           'institutionAdmin': institutionAdmin,
-          if (primaryInstitutionAdmin != null)
-            'primaryInstitutionAdmin': primaryInstitutionAdmin,
+          'primaryInstitutionAdmin': ?primaryInstitutionAdmin,
         },
       );
       _showSnack('Permissão de administrador de instituição atualizada!');
@@ -5157,7 +5264,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           : 'Todos aprovados',
                       icon: Icons.co_present_rounded,
                       accentColor: const Color(0xFF7C3AED),
-                      onTap: () => widget.onSectionSelected('notifications'),
+                      onTap: () => widget.onSectionSelected('institutionTeachers'),
                     ),
                   ),
                   SizedBox(
@@ -5313,6 +5420,1241 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               );
             }),
         ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // MENU EXCLUSIVO: PROFESSORES DA INSTITUIÇÃO & DASHBOARD DAS TURMAS
+  // ===========================================================================
+
+  Widget _buildInstitutionTeachersSection(BuildContext context) {
+    final dash = _instDashboardData;
+    final inst = dash?['institution'] as Map?;
+    final instName = inst?['name']?.toString() ??
+        widget.data.teacherProfile?.institution ??
+        'Sua Instituição';
+
+    final teachers = ((dash?['teachers'] as List<dynamic>?) ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+
+    final query = _instTeacherSearchController.text.trim().toLowerCase();
+    final filteredTeachers = teachers.where((t) {
+      if (query.isEmpty) return true;
+      final name = (t['name'] ?? '').toString().toLowerCase();
+      final email = (t['email'] ?? '').toString().toLowerCase();
+      return name.contains(query) || email.contains(query);
+    }).toList();
+
+    return SingleChildScrollView(
+      padding: responsivePagePadding(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_selectedInstitutionTeacher != null)
+            _buildTeacherDetailView(context, _selectedInstitutionTeacher!)
+          else ...[
+            Container(
+              padding: responsiveBannerPadding(context),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF6D28D9),
+                    Color(0xFF7C3AED),
+                    Color(0xFF8B5CF6),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.co_present_rounded,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Professores da Instituição',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Gerencie os professores vinculados a $instName. Clique em um docente para ver suas últimas 5 atividades e turmas atribuídas.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _loadInstitutionDashboard,
+                    tooltip: 'Recarregar professores',
+                    icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                  ),
+                ],
+              ),
+            ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.05, end: 0),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _instTeacherSearchController,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: 'Pesquisar professor por nome ou e-mail...',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _instTeacherSearchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded),
+                              onPressed: () {
+                                _instTeacherSearchController.clear();
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                      isDense: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                FilledButton.icon(
+                  onPressed: () => _openCreateTeacherDialog(context),
+                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                  label: const Text('Cadastrar Professor'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            if (_isLoadingInstDashboard) ...[
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+            ] else if (filteredTeachers.isEmpty) ...[
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.person_off_rounded, size: 48, color: Colors.grey),
+                      const SizedBox(height: 12),
+                      Text(
+                        teachers.isEmpty
+                            ? 'Nenhum professor cadastrado nesta instituição ainda.'
+                            : 'Nenhum professor encontrado para a pesquisa.',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text('Utilize o botão acima para cadastrar um professor na instituição.'),
+                    ],
+                  ),
+                ),
+              ),
+            ] else ...[
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final cols = constraints.maxWidth >= 960 ? 3 : constraints.maxWidth >= 600 ? 2 : 1;
+                  final w = (constraints.maxWidth - (14 * (cols - 1))) / cols;
+                  return Wrap(
+                    spacing: 14,
+                    runSpacing: 14,
+                    children: filteredTeachers.map((t) {
+                      final name = t['name']?.toString() ?? 'Professor';
+                      final email = t['email']?.toString() ?? '';
+                      final status = (t['approvalStatus'] ?? 'APPROVED').toString();
+                      final gender = (t['gender'] ?? '').toString().toUpperCase();
+                      final roleLabel = gender == 'FEMININO' ? 'Professora' : 'Professor';
+                      final teacherId = (t['id'] as num?)?.toInt();
+                      final languages = ((t['taughtLanguages'] as List<dynamic>?) ?? const [])
+                          .map((l) => l.toString())
+                          .toList();
+
+                      return SizedBox(
+                        width: w,
+                        child: AppHoverCard(
+                          onTap: teacherId == null
+                              ? null
+                              : () {
+                                  setState(() => _selectedInstitutionTeacher = t);
+                                  _loadTeacherDetails(teacherId, email);
+                                },
+                          borderRadius: 16,
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  AppUserAvatar(
+                                    name: name,
+                                    radius: 24,
+                                    backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                                    textColor: const Color(0xFF7C3AED),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          email,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  _buildStatusBadge(status),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              if (languages.isNotEmpty) ...[
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  children: languages.take(3).map((lang) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        lang,
+                                        style: const TextStyle(
+                                          color: Color(0xFF2563EB),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    roleLabel,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Ver Atividades & Turmas',
+                                        style: TextStyle(
+                                          color: Color(0xFF7C3AED),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      SizedBox(width: 4),
+                                      Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF7C3AED)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
+              ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideY(begin: 0.05, end: 0),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeacherDetailView(BuildContext context, Map<String, dynamic> teacher) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final name = teacher['name']?.toString() ?? 'Professor';
+    final email = teacher['email']?.toString() ?? '';
+    final status = (teacher['approvalStatus'] ?? 'APPROVED').toString();
+    final teacherId = (teacher['id'] as num?)?.toInt();
+    final gender = (teacher['gender'] ?? '').toString().toUpperCase();
+    final roleLabel = gender == 'FEMININO' ? 'Professora' : 'Professor';
+    final languages = ((teacher['taughtLanguages'] as List<dynamic>?) ?? const [])
+        .map((l) => l.toString())
+        .toList();
+    final specs = ((teacher['specializationAreas'] as List<dynamic>?) ?? const [])
+        .map((s) => s.toString())
+        .toList();
+    final bio = teacher['bibliography']?.toString() ?? teacher['biography']?.toString() ?? '';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => setState(() => _selectedInstitutionTeacher = null),
+              icon: const Icon(Icons.arrow_back_rounded, size: 18),
+              label: const Text('Voltar para Todos os Professores'),
+            ),
+            const Spacer(),
+            if (status == 'PENDING' && teacherId != null) ...[
+              OutlinedButton(
+                onPressed: () async {
+                  await _decideTeacherRequest(teacherId, approve: false);
+                  setState(() => _selectedInstitutionTeacher = null);
+                },
+                child: const Text('Recusar Acesso'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () async {
+                  await _decideTeacherRequest(teacherId, approve: true);
+                  setState(() => _selectedInstitutionTeacher = null);
+                },
+                child: const Text('Aprovar Professor'),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF4F46E5), Color(0xFF7C3AED), Color(0xFF9333EA)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              AppUserAvatar(
+                name: name,
+                radius: 36,
+                backgroundColor: Colors.white.withValues(alpha: 0.25),
+                textColor: Colors.white,
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        _buildStatusBadge(status),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$email • $roleLabel',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 13,
+                      ),
+                    ),
+                    if (bio.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        bio,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    if (languages.isNotEmpty || specs.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          ...languages.map((l) => Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  l,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              )),
+                          ...specs.map((s) => Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  s,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              )),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.05, end: 0),
+        const SizedBox(height: 24),
+        if (_isLoadingTeacherDetails) ...[
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(40),
+              child: CircularProgressIndicator(),
+            ),
+          ),
+        ] else if (_teacherDetailsError != null) ...[
+          _buildErrorBanner(
+            _teacherDetailsError!,
+            onRetry: teacherId == null ? null : () => _loadTeacherDetails(teacherId, email),
+          ),
+        ] else ...[
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isDesktop = constraints.maxWidth >= 840;
+              final colWidth = isDesktop
+                  ? (constraints.maxWidth - 20) / 2
+                  : constraints.maxWidth;
+
+              return Wrap(
+                spacing: 20,
+                runSpacing: 20,
+                children: [
+                  SizedBox(
+                    width: colWidth,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.menu_book_rounded,
+                                color: Color(0xFFD97706),
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Últimas 5 Atividades (${_teacherRecentExercises.length})',
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (_teacherRecentExercises.isEmpty)
+                          Card(
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              side: BorderSide(
+                                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Center(
+                                child: Text('Nenhuma atividade recente encontrada para este professor.'),
+                              ),
+                            ),
+                          )
+                        else
+                          ..._teacherRecentExercises.map((ex) {
+                            final title = ex['title']?.toString() ?? 'Atividade';
+                            final lang = ex['languageName']?.toString() ?? 'Idioma';
+                            final level = ex['proficiencyLevel']?.toString() ?? 'Básico';
+                            final due = ex['dueDate']?.toString() ?? 'Sem prazo';
+                            final className = ex['schoolClassName']?.toString() ?? 'Turma';
+                            final subCount = (ex['submissionsCount'] as num?)?.toInt() ?? 0;
+                            final accuracy = (ex['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0;
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: AppHoverCard(
+                                borderRadius: 14,
+                                padding: const EdgeInsets.all(14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            title,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            '$lang • $level',
+                                            style: const TextStyle(
+                                              color: Color(0xFFD97706),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Turma: $className • Prazo: $due',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.check_circle_outline_rounded, size: 14, color: Color(0xFF059669)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '$subCount entregas',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        const Icon(Icons.track_changes_rounded, size: 14, color: Color(0xFF7C3AED)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${accuracy.toStringAsFixed(0)}% taxa acertos',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    width: colWidth,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF059669).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.groups_rounded,
+                                color: Color(0xFF059669),
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Turmas Lecionadas (${_teacherClassesList.length})',
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (_teacherClassesList.isEmpty)
+                          Card(
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              side: BorderSide(
+                                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Center(
+                                child: Text('Nenhuma turma vinculada a este professor.'),
+                              ),
+                            ),
+                          )
+                        else
+                          ..._teacherClassesList.map((c) {
+                            final cId = (c['id'] as num?)?.toInt() ?? 0;
+                            final cName = c['name']?.toString() ?? 'Turma';
+                            final year = c['schoolYear']?.toString() ?? '';
+                            final shift = c['shift']?.toString() ?? '';
+                            final grade = c['gradeLevel']?.toString() ?? '';
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: AppHoverCard(
+                                onTap: () => _showClassDashboardDialog(context, cId, cName),
+                                borderRadius: 14,
+                                padding: const EdgeInsets.all(14),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF059669).withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(
+                                        Icons.class_rounded,
+                                        color: Color(0xFF059669),
+                                        size: 22,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            cName,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Ano: $year • Turno: $shift • Nível: $grade',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF059669).withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'Ver Dashboard',
+                                            style: TextStyle(
+                                              color: Color(0xFF059669),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          SizedBox(width: 4),
+                                          Icon(
+                                            Icons.analytics_rounded,
+                                            size: 14,
+                                            color: Color(0xFF059669),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _loadTeacherDetails(int teacherId, String teacherEmail) async {
+    setState(() {
+      _isLoadingTeacherDetails = true;
+      _teacherDetailsError = null;
+      _teacherClassesList = [];
+      _teacherRecentExercises = [];
+    });
+    try {
+      final assignResp = await _dio.get<List<dynamic>>(
+        _adminUri('/api/class-teacher-assignments/teacher/$teacherId').toString(),
+      );
+      final rawAssignments = (assignResp.data ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .toList();
+
+      final classesMap = <int, Map<String, dynamic>>{};
+      for (final a in rawAssignments) {
+        final cId = (a['schoolClassId'] as num?)?.toInt();
+        if (cId != null && !classesMap.containsKey(cId)) {
+          classesMap[cId] = {
+            'id': cId,
+            'name': a['schoolClassName'] ?? 'Turma $cId',
+            'schoolYear': a['schoolYear'] ?? '',
+            'shift': a['shift'] ?? '',
+            'gradeLevel': a['gradeLevel'] ?? '',
+            'active': a['active'] ?? true,
+          };
+        }
+      }
+
+      final instClasses = ((_instDashboardData?['classes'] as List<dynamic>?) ?? const [])
+          .whereType<Map<String, dynamic>>();
+      for (final c in instClasses) {
+        final cId = (c['id'] as num?)?.toInt();
+        if (cId != null && classesMap.containsKey(cId)) {
+          classesMap[cId] = {...classesMap[cId]!, ...c};
+        }
+      }
+
+      final exercisesList = <Map<String, dynamic>>[];
+      final instExercises = ((_instDashboardData?['exercises'] as List<dynamic>?) ?? const [])
+          .whereType<Map<String, dynamic>>();
+      for (final ex in instExercises) {
+        final exClassId = (ex['schoolClassId'] as num?)?.toInt();
+        final creator = (ex['creatorEmail'] ?? '').toString().toLowerCase();
+        if ((exClassId != null && classesMap.containsKey(exClassId)) ||
+            (teacherEmail.isNotEmpty && creator == teacherEmail.toLowerCase())) {
+          exercisesList.add(ex);
+        }
+      }
+
+      if (exercisesList.isEmpty && classesMap.isNotEmpty) {
+        for (final entry in classesMap.entries.take(3)) {
+          try {
+            final dashResp = await _dio.get<Map<String, dynamic>>(
+              _adminUri('/api/classes/${entry.key}/dashboard').toString(),
+            );
+            final exList = ((dashResp.data?['exercises'] as List<dynamic>?) ?? const [])
+                .whereType<Map<String, dynamic>>();
+            for (final ex in exList) {
+              exercisesList.add({
+                ...ex,
+                'schoolClassName': entry.value['name'],
+                'schoolClassId': entry.key,
+              });
+            }
+          } catch (_) {}
+        }
+      }
+
+      exercisesList.sort((a, b) {
+        final d1 = (a['dueDate'] ?? '').toString();
+        final d2 = (b['dueDate'] ?? '').toString();
+        if (d1.isNotEmpty && d2.isNotEmpty) return d2.compareTo(d1);
+        final id1 = (a['id'] ?? a['exerciseId'] as num?)?.toInt() ?? 0;
+        final id2 = (b['id'] ?? b['exerciseId'] as num?)?.toInt() ?? 0;
+        return id2.compareTo(id1);
+      });
+
+      if (!mounted) return;
+      setState(() {
+        _teacherClassesList = classesMap.values.toList();
+        _teacherRecentExercises = exercisesList.take(5).toList();
+        _isLoadingTeacherDetails = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _teacherDetailsError = _extractErrorMessage(e, 'Erro ao carregar detalhes do professor.');
+        _isLoadingTeacherDetails = false;
+      });
+    }
+  }
+
+  Future<void> _showClassDashboardDialog(
+    BuildContext context,
+    int classId,
+    String className,
+  ) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 820, maxHeight: 720),
+            child: FutureBuilder<Response<Map<String, dynamic>>>(
+              future: _dio.get<Map<String, dynamic>>(
+                _adminUri('/api/classes/$classId/dashboard').toString(),
+              ),
+              builder: (ctx, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SizedBox(
+                    height: 320,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (snapshot.hasError || !snapshot.hasData || snapshot.data?.data == null) {
+                  return Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 40),
+                        const SizedBox(height: 12),
+                        Text('Não foi possível carregar o dashboard da turma $className.'),
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Fechar'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final d = snapshot.data!.data!;
+                final totalStudents = (d['totalStudents'] as num?)?.toInt() ?? 0;
+                final totalExercises = (d['totalExercises'] as num?)?.toInt() ?? 0;
+                final totalSubmissions = (d['totalSubmissions'] as num?)?.toInt() ?? 0;
+                final avgAccuracy = (d['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0;
+                final schoolName = d['schoolName']?.toString() ?? '';
+                final shift = d['shift']?.toString() ?? '';
+                final year = d['schoolYear']?.toString() ?? '';
+                final students = ((d['students'] as List<dynamic>?) ?? const [])
+                    .whereType<Map<String, dynamic>>()
+                    .toList();
+                final exercises = ((d['exercises'] as List<dynamic>?) ?? const [])
+                    .whereType<Map<String, dynamic>>()
+                    .toList();
+
+                return DefaultTabController(
+                  length: 2,
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF2563EB), Color(0xFF1D4ED8), Color(0xFF1E40AF)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(Icons.groups_rounded, color: Colors.white, size: 28),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        d['name']?.toString() ?? className,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.25),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          'Ano $year • $shift',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    schoolName.isNotEmpty ? 'Unidade: $schoolName' : 'Dashboard da Turma',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.9),
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              icon: const Icon(Icons.close_rounded, color: Colors.white),
+                              tooltip: 'Fechar',
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            _buildMiniKpi(
+                              title: 'Estudantes',
+                              value: '$totalStudents',
+                              icon: Icons.school_rounded,
+                              color: const Color(0xFF2563EB),
+                              isDark: isDark,
+                            ),
+                            const SizedBox(width: 10),
+                            _buildMiniKpi(
+                              title: 'Atividades',
+                              value: '$totalExercises',
+                              icon: Icons.menu_book_rounded,
+                              color: const Color(0xFFD97706),
+                              isDark: isDark,
+                            ),
+                            const SizedBox(width: 10),
+                            _buildMiniKpi(
+                              title: 'Entregas',
+                              value: '$totalSubmissions',
+                              icon: Icons.task_alt_rounded,
+                              color: const Color(0xFF059669),
+                              isDark: isDark,
+                            ),
+                            const SizedBox(width: 10),
+                            _buildMiniKpi(
+                              title: 'Média Acertos',
+                              value: '${avgAccuracy.toStringAsFixed(0)}%',
+                              icon: Icons.track_changes_rounded,
+                              color: const Color(0xFF7C3AED),
+                              isDark: isDark,
+                            ),
+                          ],
+                        ),
+                      ),
+                      TabBar(
+                        indicatorColor: const Color(0xFF2563EB),
+                        labelColor: const Color(0xFF2563EB),
+                        unselectedLabelColor: isDark ? Colors.white60 : Colors.black54,
+                        tabs: [
+                          Tab(
+                            icon: const Icon(Icons.people_outline_rounded, size: 18),
+                            text: 'Alunos Matriculados (${students.length})',
+                          ),
+                          Tab(
+                            icon: const Icon(Icons.assignment_outlined, size: 18),
+                            text: 'Atividades da Turma (${exercises.length})',
+                          ),
+                        ],
+                      ),
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            students.isEmpty
+                                ? const Center(child: Text('Nenhum aluno matriculado nesta turma.'))
+                                : ListView.separated(
+                                    padding: const EdgeInsets.all(16),
+                                    itemCount: students.length,
+                                    separatorBuilder: (_, index) => const SizedBox(height: 8),
+                                    itemBuilder: (ctx, i) {
+                                      final s = students[i];
+                                      final sName = s['name']?.toString() ?? 'Aluno';
+                                      final sEmail = s['email']?.toString() ?? '';
+                                      final sAcc = (s['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0;
+                                      final sXp = (s['xpEarned'] as num?)?.toInt() ?? 0;
+
+                                      return Card(
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          side: BorderSide(
+                                            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                                          ),
+                                        ),
+                                        child: ListTile(
+                                          leading: CircleAvatar(
+                                            backgroundColor: const Color(0xFF2563EB).withValues(alpha: 0.15),
+                                            child: Text(
+                                              sName.isNotEmpty ? sName[0].toUpperCase() : 'A',
+                                              style: const TextStyle(
+                                                color: Color(0xFF2563EB),
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          title: Text(
+                                            sName,
+                                            style: const TextStyle(fontWeight: FontWeight.w700),
+                                          ),
+                                          subtitle: Text(sEmail),
+                                          trailing: Wrap(
+                                            spacing: 12,
+                                            crossAxisAlignment: WrapCrossAlignment.center,
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFF059669).withValues(alpha: 0.12),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: Text(
+                                                  '${sAcc.toStringAsFixed(0)}% Acertos',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFF059669),
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: Text(
+                                                  '⚡ $sXp XP',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFFD97706),
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                            exercises.isEmpty
+                                ? const Center(child: Text('Nenhuma atividade cadastrada nesta turma.'))
+                                : ListView.separated(
+                                    padding: const EdgeInsets.all(16),
+                                    itemCount: exercises.length,
+                                    separatorBuilder: (_, index) => const SizedBox(height: 8),
+                                    itemBuilder: (ctx, i) {
+                                      final ex = exercises[i];
+                                      final title = ex['title']?.toString() ?? 'Atividade';
+                                      final lang = ex['languageName']?.toString() ?? 'Idioma';
+                                      final level = ex['proficiencyLevel']?.toString() ?? 'Básico';
+                                      final due = ex['dueDate']?.toString() ?? 'Sem prazo';
+                                      final exSub = (ex['submissionsCount'] as num?)?.toInt() ?? 0;
+                                      final exAcc = (ex['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0;
+
+                                      return Card(
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          side: BorderSide(
+                                            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                                          ),
+                                        ),
+                                        child: ListTile(
+                                          leading: Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: const Icon(
+                                              Icons.menu_book_rounded,
+                                              color: Color(0xFFD97706),
+                                              size: 20,
+                                            ),
+                                          ),
+                                          title: Text(
+                                            title,
+                                            style: const TextStyle(fontWeight: FontWeight.w700),
+                                          ),
+                                          subtitle: Text('$lang • $level • Entrega: $due'),
+                                          trailing: Wrap(
+                                            spacing: 8,
+                                            children: [
+                                              Chip(
+                                                label: Text('$exSub entregas'),
+                                                visualDensity: VisualDensity.compact,
+                                                padding: EdgeInsets.zero,
+                                              ),
+                                              Chip(
+                                                label: Text('${exAcc.toStringAsFixed(0)}% acertos'),
+                                                visualDensity: VisualDensity.compact,
+                                                padding: EdgeInsets.zero,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMiniKpi({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+    required bool isDark,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: isDark ? 0.15 : 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -53,4 +53,14 @@ void main() {
       'https://prod.duolinfo.edu.br',
     );
   });
+
+  test('overrideUrl takes precedence regardless of web or mobile', () {
+    expect(
+      AppConfig.resolveApiBaseUrl(
+        overrideUrl: 'http://custom-server:9090',
+        isWeb: true,
+      ),
+      'http://custom-server:9090',
+    );
+  });
 }

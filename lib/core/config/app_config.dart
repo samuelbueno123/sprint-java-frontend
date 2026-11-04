@@ -45,7 +45,27 @@ class AppConfig {
     bool isWeb = kIsWeb,
     TargetPlatform? platform,
   }) {
-    final configured = (overrideUrl ?? _envValue('API_BASE_URL')).trim();
+    if (overrideUrl != null && overrideUrl.trim().isNotEmpty) {
+      return overrideUrl.trim();
+    }
+    final configured = _envValue('API_BASE_URL').trim();
+
+    // Se estiver rodando na Web e acessado via IP de rede local (ex: celular em http://192.168.x.x:5500),
+    // 'localhost' apontaria para o proprio celular. Substituimos automaticamente pelo host do navegador!
+    if (isWeb &&
+        Uri.base.host.isNotEmpty &&
+        Uri.base.host != 'localhost' &&
+        Uri.base.host != '127.0.0.1') {
+      final baseUrlToUse =
+          configured.isNotEmpty ? configured : 'http://localhost:8080';
+      final parsed = Uri.tryParse(baseUrlToUse);
+      if (parsed != null &&
+          (parsed.host == 'localhost' || parsed.host == '127.0.0.1')) {
+        return parsed.replace(host: Uri.base.host).toString();
+      }
+      return baseUrlToUse;
+    }
+
     if (configured.isNotEmpty) {
       return configured;
     }

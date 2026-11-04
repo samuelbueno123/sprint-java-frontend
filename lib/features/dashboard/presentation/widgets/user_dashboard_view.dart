@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../auth/presentation/pages/student_signup_page.dart';
 import '../../../auth/presentation/pages/teacher_signup_page.dart';
@@ -98,28 +99,57 @@ class UserDashboardView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _PendingProfileCard(
-                      title: data.isFemale ? 'Sou Aluna' : 'Sou Estudante',
-                      description: 'Cadastre seus idiomas e acesse cursos.',
-                      icon: Icons.school_rounded,
-                      color: const Color(0xFF3579E8),
-                      onTap: () => _openStudentSignup(context),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _PendingProfileCard(
-                      title: data.isFemale ? 'Sou Professora' : 'Sou Professor',
-                      description: 'Vincule sua instituição e turmas.',
-                      icon: Icons.co_present_rounded,
-                      color: const Color(0xFF7651C8),
-                      onTap: () => _openTeacherSignup(context),
-                    ),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, c) {
+                  final isNarrow = c.maxWidth < 520;
+                  final noAnim = MediaQuery.of(context).disableAnimations;
+
+                  final studentCard = _PendingProfileCard(
+                    title: data.isFemale ? 'Sou Aluna' : 'Sou Estudante',
+                    description: 'Cadastre seus idiomas e acesse cursos.',
+                    icon: Icons.school_rounded,
+                    color: const Color(0xFF3579E8),
+                    onTap: () => _openStudentSignup(context),
+                  );
+
+                  final teacherCard = _PendingProfileCard(
+                    title: data.isFemale ? 'Sou Professora' : 'Sou Professor',
+                    description: 'Vincule sua instituição e turmas.',
+                    icon: Icons.co_present_rounded,
+                    color: const Color(0xFF7651C8),
+                    onTap: () => _openTeacherSignup(context),
+                  );
+
+                  Widget rowOrCol;
+                  if (isNarrow) {
+                    rowOrCol = Column(
+                      children: [
+                        studentCard,
+                        const SizedBox(height: 12),
+                        teacherCard,
+                      ],
+                    );
+                  } else {
+                    rowOrCol = Row(
+                      children: [
+                        Expanded(child: studentCard),
+                        const SizedBox(width: 14),
+                        Expanded(child: teacherCard),
+                      ],
+                    );
+                  }
+
+                  if (noAnim) return rowOrCol;
+                  return rowOrCol
+                      .animate()
+                      .fadeIn(duration: const Duration(milliseconds: 300))
+                      .slideY(
+                        begin: 0.05,
+                        end: 0,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
+                      );
+                },
               ),
             ],
           ),
@@ -419,7 +449,7 @@ class UserDashboardView extends StatelessWidget {
   }
 }
 
-class _PendingProfileCard extends StatelessWidget {
+class _PendingProfileCard extends StatefulWidget {
   const _PendingProfileCard({
     required this.title,
     required this.description,
@@ -435,51 +465,81 @@ class _PendingProfileCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_PendingProfileCard> createState() => _PendingProfileCardState();
+}
+
+class _PendingProfileCardState extends State<_PendingProfileCard> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Material(
-      color: color.withValues(alpha: isDark ? .14 : .06),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: .3)),
+    final color = widget.color;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        transform: Matrix4.translationValues(0, _isHovered ? -2 : 0, 0),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: isDark ? (_isHovered ? .22 : .14) : (_isHovered ? .12 : .06)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: color.withValues(alpha: _isHovered ? .7 : .3),
+            width: _isHovered ? 1.5 : 1.0,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: .2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 22),
+          boxShadow: _isHovered
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.18),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: widget.onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: .2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(widget.icon, color: color, size: 24),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.title,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : color,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.description,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 13,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: TextStyle(
-                  color: isDark ? Colors.white : color,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 12,
-                  height: 1.35,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

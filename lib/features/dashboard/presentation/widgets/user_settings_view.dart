@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/localization/app_locale_controller.dart';
 import '../../../../core/network/api_client.dart';
@@ -39,6 +41,12 @@ class _UserSettingsViewState extends State<UserSettingsView> {
   String? _channelNotice;
   bool _savingPrefs = false;
 
+  // Preferências do Sistema e Experiência
+  bool _soundEffects = true;
+  double _ttsSpeed = 1.0;
+  String _aiAssistanceMode = 'balanced';
+  bool _denseUiMode = false;
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +55,16 @@ class _UserSettingsViewState extends State<UserSettingsView> {
 
   Future<void> _loadPreferences() async {
     try {
+      final sp = await SharedPreferences.getInstance();
+      if (mounted) {
+        setState(() {
+          _soundEffects = sp.getBool('sound_effects_enabled') ?? true;
+          _ttsSpeed = sp.getDouble('tts_speed') ?? 1.0;
+          _aiAssistanceMode = sp.getString('ai_assistance_mode') ?? 'balanced';
+          _denseUiMode = sp.getBool('dense_ui_mode') ?? false;
+        });
+      }
+
       final ds = DashboardRemoteDataSource(ApiClient().dio);
       final prefs = await ds.getMyPreferences();
       if (!mounted || prefs.isEmpty) return;
@@ -72,6 +90,14 @@ class _UserSettingsViewState extends State<UserSettingsView> {
     } catch (_) {
       // Keep current local state if offline.
     }
+  }
+
+  Future<void> _saveLocalPref<T>(String key, T value) async {
+    final sp = await SharedPreferences.getInstance();
+    if (value is bool) await sp.setBool(key, value);
+    if (value is double) await sp.setDouble(key, value);
+    if (value is String) await sp.setString(key, value);
+    if (value is int) await sp.setInt(key, value);
   }
 
   Future<void> _savePreferences({
@@ -259,7 +285,7 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                       ),
                   ],
                 ),
-              ),
+              ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.05, end: 0),
               const SizedBox(height: 20),
 
               // Card 1: Perfil da Conta
@@ -642,7 +668,200 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                     ],
                   ),
                 ),
-              ),
+              ).animate().fadeIn(duration: 350.ms, delay: 100.ms).slideY(begin: 0.05, end: 0),
+              const SizedBox(height: 16),
+
+              // Card Novo: Preferências Globais do Sistema & IA
+              Card(
+                elevation: 0,
+                color: cardBg,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: cardBorder),
+                ),
+                child: Padding(
+                  padding: responsiveCardPadding(context),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.tune_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Experiência do Sistema & Assistente IA',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: Color(0xFF0D9488),
+                                  ),
+                                ),
+                                Text(
+                                  'Personalize alertas sonoros, densidade visual e assistência.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+
+                      // Opção 1: Efeitos Sonoros
+                      SwitchListTile(
+                        value: _soundEffects,
+                        activeThumbColor: const Color(0xFF0D9488),
+                        title: Text(
+                          'Sons do Sistema e Notificações Sonoras',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: primaryTextColor,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Tocar alertas sonoros para confirmações de ações e avisos importantes.',
+                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                        ),
+                        onChanged: (val) {
+                          setState(() => _soundEffects = val);
+                          _saveLocalPref('sound_effects_enabled', val);
+                        },
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      Divider(height: 24, color: cardBorder),
+
+                      // Opção 2: Modo do Assistente IA
+                      Text(
+                        'Modo do Assistente de Inteligência Artificial',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: primaryTextColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Comportamento do assistente nas análises de dados e relatórios.',
+                        style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        key: ValueKey<String>('ai_assist_$_aiAssistanceMode'),
+                        initialValue: _aiAssistanceMode,
+                        isExpanded: true,
+                        decoration: _inputDecoration(context, 'Comportamento da IA'),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'fast',
+                            child: Text('Rápido e Conciso (Foco em dados brutos)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'balanced',
+                            child: Text('Equilibrado (Explicações claras com insights)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'detailed',
+                            child: Text('Analítico Avançado (Com métricas estatísticas detalhadas)'),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _aiAssistanceMode = val);
+                            _saveLocalPref('ai_assistance_mode', val);
+                          }
+                        },
+                      ),
+                      Divider(height: 24, color: cardBorder),
+
+                      // Opção 3: Velocidade de Áudio da Fala (TTS)
+                      Text(
+                        'Velocidade de Áudio (TTS)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: primaryTextColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [0.75, 1.0, 1.25].map((speed) {
+                          final isSelected = (_ttsSpeed - speed).abs() < 0.05;
+                          final label = speed == 0.75
+                              ? '0.75x (Lenta)'
+                              : speed == 1.0
+                                  ? '1.0x (Padrão)'
+                                  : '1.25x (Rápida)';
+                          return ChoiceChip(
+                            label: Text(label),
+                            selected: isSelected,
+                            selectedColor: const Color(0xFF0D9488),
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              fontSize: 12,
+                            ),
+                            onSelected: (selected) {
+                              if (selected) {
+                                setState(() => _ttsSpeed = speed);
+                                _saveLocalPref('tts_speed', speed);
+                              }
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      Divider(height: 24, color: cardBorder),
+
+                      // Opção 4: Densidade Visual
+                      SwitchListTile(
+                        value: _denseUiMode,
+                        activeThumbColor: const Color(0xFF0D9488),
+                        title: Text(
+                          'Visual Compacto para Grandes Telas',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: primaryTextColor,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Ajusta o espaçamento de tabelas e listas para exibir mais conteúdo sem rolagem.',
+                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                        ),
+                        onChanged: (val) {
+                          setState(() => _denseUiMode = val);
+                          _saveLocalPref('dense_ui_mode', val);
+                        },
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ],
+                  ),
+                ),
+              ).animate().fadeIn(duration: 350.ms, delay: 150.ms).slideY(begin: 0.05, end: 0),
               const SizedBox(height: 16),
 
               // Card 5: Notificações & Conectividade

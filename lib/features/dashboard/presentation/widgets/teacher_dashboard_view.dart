@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/teacher_class_assignment.dart';
@@ -416,7 +417,7 @@ class TeacherDashboardView extends StatelessWidget {
     final roleNoun = isFemale ? 'Professora' : 'Professor';
     final primarySubject = teacher.taughtLanguages.isNotEmpty
         ? '$roleNoun de ${teacher.taughtLanguages.join(', ')}'
-        : '$roleNoun Duolinfo';
+        : roleNoun;
     final instName = teacher.institution.isNotEmpty
         ? teacher.institution
         : 'Instituição Cadastrada';
@@ -623,123 +624,169 @@ class TeacherDashboardView extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          _ProfileCard(
-            icon: Icons.bolt_rounded,
-            title: 'Ações Rápidas',
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final wide = constraints.maxWidth >= 560;
-                final width = wide
-                    ? (constraints.maxWidth - 12) / 2
-                    : constraints.maxWidth;
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    SizedBox(
-                      width: width,
-                      child: _teacherQuickAction(
-                        context,
-                        icon: Icons.add_circle_outline_rounded,
-                        label: 'Criar conteúdo',
-                        onPressed: () =>
-                            onSectionSelected?.call('createExercise'),
-                        primary: true,
-                      ),
+          // Seções adaptadas para Desktop (2 colunas) e Mobile (1 coluna)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isDesktop = constraints.maxWidth >= 960;
+              final noAnim = MediaQuery.of(context).disableAnimations;
+
+              final leftColumn = Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _ProfileCard(
+                    icon: Icons.bolt_rounded,
+                    title: 'Ações Rápidas',
+                    child: LayoutBuilder(
+                      builder: (context, c) {
+                        final wide = c.maxWidth >= 520;
+                        final width = wide
+                            ? (c.maxWidth - 12) / 2
+                            : c.maxWidth;
+                        return Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            SizedBox(
+                              width: width,
+                              child: _teacherQuickAction(
+                                context,
+                                icon: Icons.add_circle_outline_rounded,
+                                label: 'Criar conteúdo',
+                                onPressed: () =>
+                                    onSectionSelected?.call('createExercise'),
+                                primary: true,
+                              ),
+                            ),
+                            SizedBox(
+                              width: width,
+                              child: _teacherQuickAction(
+                                context,
+                                icon: Icons.groups_outlined,
+                                label: 'Gerenciar turmas',
+                                onPressed: () => onSectionSelected?.call('classes'),
+                              ),
+                            ),
+                            SizedBox(
+                              width: width,
+                              child: _teacherQuickAction(
+                                context,
+                                icon: Icons.rate_review_outlined,
+                                label: 'Analisar respostas',
+                                onPressed: () =>
+                                    onSectionSelected?.call('reviewExercises'),
+                              ),
+                            ),
+                            SizedBox(
+                              width: width,
+                              child: _teacherQuickAction(
+                                context,
+                                icon: Icons.trending_up_rounded,
+                                label: 'Ver rankings',
+                                onPressed: () =>
+                                    onSectionSelected?.call('teacherRanking'),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                    SizedBox(
-                      width: width,
-                      child: _teacherQuickAction(
-                        context,
-                        icon: Icons.groups_outlined,
-                        label: 'Gerenciar turmas',
-                        onPressed: () => onSectionSelected?.call('classes'),
-                      ),
+                  ),
+                  const SizedBox(height: 16),
+                  _ProfileCard(
+                    icon: Icons.groups_rounded,
+                    title: 'Minhas Turmas e Atribuições',
+                    child: _assignmentContent(assignments, context),
+                  ),
+                ],
+              );
+
+              final rightColumn = Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _ProfileCard(
+                    icon: Icons.translate_rounded,
+                    title: 'Competências Docentes & Idiomas',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Idiomas lecionados:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _tagList(teacher.taughtLanguages, _purple, context),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Áreas de especialização:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _tagList(
+                          teacher.specializationAreas,
+                          const Color(0xFFE5902D),
+                          context,
+                        ),
+                      ],
                     ),
-                    SizedBox(
-                      width: width,
-                      child: _teacherQuickAction(
-                        context,
-                        icon: Icons.rate_review_outlined,
-                        label: 'Analisar respostas',
-                        onPressed: () =>
-                            onSectionSelected?.call('reviewExercises'),
-                      ),
-                    ),
-                    SizedBox(
-                      width: width,
-                      child: _teacherQuickAction(
-                        context,
-                        icon: Icons.trending_up_rounded,
-                        label: 'Ver rankings',
-                        onPressed: () =>
-                            onSectionSelected?.call('teacherRanking'),
+                  ),
+                  if (teacher.bibliography?.trim().isNotEmpty == true) ...[
+                    const SizedBox(height: 16),
+                    _ProfileCard(
+                      icon: Icons.menu_book_rounded,
+                      title: 'Biografia e Mini-Currículo',
+                      child: Text(
+                        teacher.bibliography!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          height: 1.55,
+                        ),
                       ),
                     ),
                   ],
+                ],
+              );
+
+              Widget content;
+              if (isDesktop) {
+                content = Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 6, child: leftColumn),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 5, child: rightColumn),
+                  ],
                 );
-              },
-            ),
-          ),
-          const SizedBox(height: 16),
+              } else {
+                content = Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    leftColumn,
+                    const SizedBox(height: 16),
+                    rightColumn,
+                  ],
+                );
+              }
 
-          // Seção: Minhas Turmas Atribuídas
-          _ProfileCard(
-            icon: Icons.groups_rounded,
-            title: 'Minhas Turmas e Atribuições',
-            child: _assignmentContent(assignments, context),
+              if (noAnim) return content;
+              return content
+                  .animate()
+                  .fadeIn(duration: const Duration(milliseconds: 320))
+                  .slideY(
+                    begin: 0.03,
+                    end: 0,
+                    duration: const Duration(milliseconds: 320),
+                    curve: Curves.easeOutCubic,
+                  );
+            },
           ),
-          const SizedBox(height: 16),
-
-          // Seção: Competências Docentes
-          _ProfileCard(
-            icon: Icons.translate_rounded,
-            title: 'Competências Docentes & Idiomas',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Idiomas lecionados:',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _tagList(teacher.taughtLanguages, _purple, context),
-                const SizedBox(height: 16),
-                Text(
-                  'Áreas de especialização:',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _tagList(
-                  teacher.specializationAreas,
-                  const Color(0xFFE5902D),
-                  context,
-                ),
-              ],
-            ),
-          ),
-          if (teacher.bibliography?.trim().isNotEmpty == true) ...[
-            const SizedBox(height: 16),
-            _ProfileCard(
-              icon: Icons.menu_book_rounded,
-              title: 'Biografia e Mini-Currículo',
-              child: Text(
-                teacher.bibliography!,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  height: 1.55,
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -1073,7 +1120,15 @@ class _ProfileCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: TeacherDashboardView._purple, size: 21),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: TeacherDashboardView._purple.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: TeacherDashboardView._purple, size: 18),
+              ),
               const SizedBox(width: 10),
               Text(
                 title,

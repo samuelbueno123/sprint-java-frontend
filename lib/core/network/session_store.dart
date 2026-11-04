@@ -6,6 +6,7 @@ import '../config/app_config.dart';
 import 'browser_credentials_stub.dart'
     if (dart.library.js_interop) 'browser_credentials_web.dart'
     as browser;
+import 'realtime_sync_service.dart';
 
 /// Mantém os tokens da sessão entre reinicializações e renova o acesso expirado.
 class SessionStore {
@@ -43,7 +44,7 @@ class SessionStore {
     required String refreshToken,
   }) async {
     _hasSession = accessToken.isNotEmpty && refreshToken.isNotEmpty;
-    _accessToken = kIsWeb || accessToken.isEmpty ? null : accessToken;
+    _accessToken = accessToken.isEmpty ? null : accessToken;
     _refreshToken = kIsWeb || refreshToken.isEmpty ? null : refreshToken;
 
     final preferences = await SharedPreferences.getInstance();
@@ -58,6 +59,7 @@ class SessionStore {
     } else {
       await preferences.setString(_refreshTokenKey, _refreshToken!);
     }
+    RealtimeSyncService.instance.connect();
   }
 
   static Future<String?> refreshAccessToken() {
@@ -74,6 +76,7 @@ class SessionStore {
     await preferences.remove(_accessTokenKey);
     await preferences.remove(_refreshTokenKey);
     await preferences.remove(_hasSessionKey);
+    RealtimeSyncService.instance.disconnect();
   }
 
   static Future<String?> _requestNewTokens() async {

@@ -4,6 +4,7 @@ import 'package:frontend/main.dart';
 void main() {
   testWidgets('shows the email and password login screen', (tester) async {
     await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
 
     expect(find.text('Entrar'), findsNWidgets(2));
     expect(find.text('Email'), findsOneWidget);

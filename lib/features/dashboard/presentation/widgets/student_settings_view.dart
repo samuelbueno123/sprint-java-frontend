@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/localization/app_locale_controller.dart';
 import '../../../../core/network/api_client.dart';
@@ -43,6 +45,13 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
   String? _channelNotice;
   bool _savingPrefs = false;
 
+  // Novos ajustes avançados de experiência e IA
+  double _ttsSpeed = 1.0;
+  bool _soundEffects = true;
+  String _aiDetail = 'tips'; // 'direct', 'tips', 'grammar'
+  bool _studyFocusMode = false;
+  String _reminderTime = '19:00';
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +60,17 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
 
   Future<void> _loadPreferences() async {
     try {
+      final sp = await SharedPreferences.getInstance();
+      if (mounted) {
+        setState(() {
+          _ttsSpeed = sp.getDouble('tts_speed') ?? 1.0;
+          _soundEffects = sp.getBool('sound_effects_enabled') ?? true;
+          _aiDetail = sp.getString('ai_explanation_detail') ?? 'tips';
+          _studyFocusMode = sp.getBool('study_focus_mode') ?? false;
+          _reminderTime = sp.getString('streak_reminder_time') ?? '19:00';
+        });
+      }
+
       final ds = DashboardRemoteDataSource(ApiClient().dio);
       final prefs = await ds.getMyPreferences();
       if (!mounted || prefs.isEmpty) return;
@@ -84,6 +104,14 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
     } catch (_) {
       // Keep current local state if offline.
     }
+  }
+
+  Future<void> _saveLocalPref<T>(String key, T value) async {
+    final sp = await SharedPreferences.getInstance();
+    if (value is bool) await sp.setBool(key, value);
+    if (value is double) await sp.setDouble(key, value);
+    if (value is String) await sp.setString(key, value);
+    if (value is int) await sp.setInt(key, value);
   }
 
   Future<void> _savePreferences({
@@ -277,7 +305,7 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                       ),
                   ],
                 ),
-              ),
+              ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.05, end: 0),
               const SizedBox(height: 20),
 
               // Card 1: Perfil do Estudante
@@ -359,7 +387,7 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
-                                        '$roleWord Duolinfo',
+                                        roleWord,
                                         style: TextStyle(
                                           color: isDark ? Colors.white : blueColor,
                                           fontSize: 11,
@@ -421,7 +449,7 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                     ],
                   ),
                 ),
-              ),
+              ).animate().fadeIn(duration: 350.ms, delay: 60.ms).slideY(begin: 0.05, end: 0),
               const SizedBox(height: 16),
 
               // Card 2: Informações Pessoais & Institucionais
@@ -513,7 +541,7 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                     ],
                   ),
                 ),
-              ),
+              ).animate().fadeIn(duration: 350.ms, delay: 100.ms).slideY(begin: 0.05, end: 0),
               const SizedBox(height: 16),
 
               // Card 3: Segurança e Senha
@@ -599,7 +627,7 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                     ],
                   ),
                 ),
-              ),
+              ).animate().fadeIn(duration: 350.ms, delay: 140.ms).slideY(begin: 0.05, end: 0),
               const SizedBox(height: 16),
 
               // Card 4: Preferências de Estudo & Visualização
@@ -728,7 +756,259 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                     ],
                   ),
                 ),
-              ),
+              ).animate().fadeIn(duration: 350.ms, delay: 180.ms).slideY(begin: 0.05, end: 0),
+              const SizedBox(height: 16),
+
+              // Card Novo: Experiência de Aprendizado & IA (Opções Avançadas)
+              Card(
+                elevation: 0,
+                color: cardBg,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: cardBorder),
+                ),
+                child: Padding(
+                  padding: responsiveCardPadding(context),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF8B5CF6), Color(0xFF6D28D9)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.psychology_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Experiência de Aprendizado & IA',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: Color(0xFF7C3AED),
+                                  ),
+                                ),
+                                Text(
+                                  'Ajuste o tutor de inteligência artificial, áudio, sons e imersão.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+
+                      // Opção 1: Velocidade do Áudio de Voz (TTS)
+                      Text(
+                        'Velocidade da Voz nos Exercícios (TTS)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: primaryTextColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Ajuste a rapidez com que as frases em áudio são reproduzidas.',
+                        style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [0.75, 1.0, 1.25, 1.5].map((speed) {
+                          final isSelected = (_ttsSpeed - speed).abs() < 0.05;
+                          final speedLabel = speed == 0.75
+                              ? '0.75x (Lento)'
+                              : speed == 1.0
+                                  ? '1.0x (Padrão)'
+                                  : speed == 1.25
+                                      ? '1.25x (Rápido)'
+                                      : '1.5x (Desafio)';
+                          return ChoiceChip(
+                            label: Text(speedLabel),
+                            selected: isSelected,
+                            selectedColor: const Color(0xFF7C3AED),
+                            backgroundColor: isDark
+                                ? const Color(0xFF334155)
+                                : const Color(0xFFEDE9FE),
+                            labelStyle: TextStyle(
+                              color: isSelected
+                                  ? Colors.white
+                                  : (isDark ? Colors.white70 : const Color(0xFF5B21B6)),
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              fontSize: 12,
+                            ),
+                            onSelected: (selected) {
+                              if (selected) {
+                                setState(() => _ttsSpeed = speed);
+                                _saveLocalPref('tts_speed', speed);
+                              }
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      Divider(height: 24, color: cardBorder),
+
+                      // Opção 2: Efeitos Sonoros e Hápticos
+                      SwitchListTile(
+                        value: _soundEffects,
+                        activeThumbColor: const Color(0xFF7C3AED),
+                        title: Text(
+                          'Efeitos Sonoros e Feedback Auditivo',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: primaryTextColor,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Tocar sons de incentivo ao acertar questões ou subir de nível.',
+                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                        ),
+                        onChanged: (val) {
+                          setState(() => _soundEffects = val);
+                          _saveLocalPref('sound_effects_enabled', val);
+                        },
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      Divider(height: 24, color: cardBorder),
+
+                      // Opção 3: Nível de Detalhamento das Respostas com IA
+                      Text(
+                        'Detalhamento do Feedback com Inteligência Artificial',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: primaryTextColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Escolha quanta explicação você deseja receber ao errar ou tirar dúvidas.',
+                        style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        key: ValueKey<String>('ai_$_aiDetail'),
+                        initialValue: _aiDetail,
+                        isExpanded: true,
+                        decoration: _inputDecoration(context, 'Modo do Tutor IA'),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'direct',
+                            child: Text('Direto e Objetivo (Respostas rápidas sem rodeios)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'tips',
+                            child: Text('Explicativo com Dicas (Indica a correção e truques de fixação)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'grammar',
+                            child: Text('Aprofundado com Gramática (Regras detalhadas e etimologia)'),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _aiDetail = val);
+                            _saveLocalPref('ai_explanation_detail', val);
+                          }
+                        },
+                      ),
+                      Divider(height: 24, color: cardBorder),
+
+                      // Opção 4: Modo Foco nos Estudos
+                      SwitchListTile(
+                        value: _studyFocusMode,
+                        activeThumbColor: const Color(0xFF7C3AED),
+                        title: Text(
+                          'Modo Foco nos Estudos (Sem Distrações)',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: primaryTextColor,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Oculta rankings comparativos durante as lições para manter concentração máxima.',
+                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                        ),
+                        onChanged: (val) {
+                          setState(() => _studyFocusMode = val);
+                          _saveLocalPref('study_focus_mode', val);
+                        },
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      Divider(height: 24, color: cardBorder),
+
+                      // Opção 5: Horário do Lembrete de Sequência (Ofensiva 🔥)
+                      Text(
+                        'Horário Preferencial de Lembrete de Ofensiva 🔥',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: primaryTextColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Receba alertas estratégicos para não deixar sua sequência diária zerar.',
+                        style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        key: ValueKey<String>('reminder_$_reminderTime'),
+                        initialValue: _reminderTime,
+                        isExpanded: true,
+                        decoration: _inputDecoration(context, 'Horário do Lembrete'),
+                        items: const [
+                          DropdownMenuItem(
+                            value: '08:00',
+                            child: Text('08:00 • Início da Manhã (Energia matinal)'),
+                          ),
+                          DropdownMenuItem(
+                            value: '12:30',
+                            child: Text('12:30 • Intervalo do Almoço'),
+                          ),
+                          DropdownMenuItem(
+                            value: '19:00',
+                            child: Text('19:00 • Fim de Tarde (Recomendado)'),
+                          ),
+                          DropdownMenuItem(
+                            value: '21:30',
+                            child: Text('21:30 • Noite (Antes de dormir)'),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _reminderTime = val);
+                            _saveLocalPref('streak_reminder_time', val);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ).animate().fadeIn(duration: 350.ms, delay: 220.ms).slideY(begin: 0.05, end: 0),
               const SizedBox(height: 16),
 
               // Card 5: Notificações & Conectividade
@@ -918,7 +1198,7 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                     ],
                   ),
                 ),
-              ),
+              ).animate().fadeIn(duration: 350.ms, delay: 260.ms).slideY(begin: 0.05, end: 0),
               const SizedBox(height: 24),
 
               // Ações da Conta: Logout e Exclusão

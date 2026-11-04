@@ -74,12 +74,12 @@ class _LoginPageState extends State<LoginPage> {
     _handledSession = session;
 
     if (session.profileType == UserRole.user) {
-      Navigator.of(context).pushAndRemoveUntil(
+      final navigator = Navigator.of(context);
+      navigator.pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const DashboardPage()),
         (route) => false,
       );
       Future.microtask(() {
-        final navigator = Navigator.of(context);
         if (navigator.mounted) {
           RegistrationChoiceDialog.show(
             navigator.context,
@@ -157,6 +157,7 @@ class _LoginPageState extends State<LoginPage> {
         child: Form(
           key: _formKey,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextFormField(

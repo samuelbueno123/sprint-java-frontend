@@ -35,6 +35,7 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
     expect(find.textContaining('Olá, Maria!'), findsOneWidget);
     expect(find.text('Inglês'), findsOneWidget);

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/localization/app_locale_controller.dart';
 import '../../../../core/network/api_client.dart';
@@ -40,6 +42,12 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
   String? _channelNotice;
   bool _savingPrefs = false;
 
+  // Preferências Pedagógicas e de IA
+  double _ttsSpeed = 1.0;
+  bool _soundEffects = true;
+  String _aiFeedbackStyle = 'detailed'; // 'concise', 'detailed', 'pedagogical'
+  bool _autoNotifySubmissions = true;
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +56,16 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
 
   Future<void> _loadPreferences() async {
     try {
+      final sp = await SharedPreferences.getInstance();
+      if (mounted) {
+        setState(() {
+          _ttsSpeed = sp.getDouble('teacher_tts_speed') ?? 1.0;
+          _soundEffects = sp.getBool('sound_effects_enabled') ?? true;
+          _aiFeedbackStyle = sp.getString('ai_teacher_feedback_style') ?? 'detailed';
+          _autoNotifySubmissions = sp.getBool('auto_notify_submissions') ?? true;
+        });
+      }
+
       final ds = DashboardRemoteDataSource(ApiClient().dio);
       final prefs = await ds.getMyPreferences();
       if (!mounted || prefs.isEmpty) return;
@@ -74,6 +92,14 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
     } catch (_) {
       // Keep current local state if offline.
     }
+  }
+
+  Future<void> _saveLocalPref<T>(String key, T value) async {
+    final sp = await SharedPreferences.getInstance();
+    if (value is bool) await sp.setBool(key, value);
+    if (value is double) await sp.setDouble(key, value);
+    if (value is String) await sp.setString(key, value);
+    if (value is int) await sp.setInt(key, value);
   }
 
   Future<void> _savePreferences({
@@ -261,7 +287,7 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                       ),
                   ],
                 ),
-              ),
+              ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.05, end: 0),
               const SizedBox(height: 20),
 
               // Card 1: Perfil do Professor
@@ -405,7 +431,7 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                     ],
                   ),
                 ),
-              ),
+              ).animate().fadeIn(duration: 350.ms, delay: 60.ms).slideY(begin: 0.05, end: 0),
               const SizedBox(height: 16),
 
               // Card 2: Informações Pessoais & Instituição
@@ -662,7 +688,212 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                     ],
                   ),
                 ),
-              ),
+              ).animate().fadeIn(duration: 350.ms, delay: 140.ms).slideY(begin: 0.05, end: 0),
+              const SizedBox(height: 16),
+
+              // Card Novo: Recursos Pedagógicos & Assistente IA
+              Card(
+                elevation: 0,
+                color: cardBg,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: cardBorder),
+                ),
+                child: Padding(
+                  padding: responsiveCardPadding(context),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.auto_awesome_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Recursos Pedagógicos & Assistente IA',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: Color(0xFF2563EB),
+                                  ),
+                                ),
+                                Text(
+                                  'Configurações de correção assistida por IA, áudio e alertas docentes.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+
+                      // Opção 1: Velocidade da Voz (TTS)
+                      Text(
+                        'Velocidade da Voz em Exercícios e Demonstrações',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: primaryTextColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Velocidade padrão ao pré-visualizar áudio de questões geradas.',
+                        style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [0.75, 1.0, 1.25, 1.5].map((speed) {
+                          final isSelected = (_ttsSpeed - speed).abs() < 0.05;
+                          final speedLabel = speed == 0.75
+                              ? '0.75x (Lento)'
+                              : speed == 1.0
+                                  ? '1.0x (Padrão)'
+                                  : speed == 1.25
+                                      ? '1.25x (Rápido)'
+                                      : '1.5x (Desafio)';
+                          return ChoiceChip(
+                            label: Text(speedLabel),
+                            selected: isSelected,
+                            selectedColor: const Color(0xFF2563EB),
+                            backgroundColor: isDark
+                                ? const Color(0xFF334155)
+                                : const Color(0xFFDBEAFE),
+                            labelStyle: TextStyle(
+                              color: isSelected
+                                  ? Colors.white
+                                  : (isDark ? Colors.white70 : const Color(0xFF1E40AF)),
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              fontSize: 12,
+                            ),
+                            onSelected: (selected) {
+                              if (selected) {
+                                setState(() => _ttsSpeed = speed);
+                                _saveLocalPref('teacher_tts_speed', speed);
+                              }
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      Divider(height: 24, color: cardBorder),
+
+                      // Opção 2: Detalhamento da Correção com IA
+                      Text(
+                        'Estilo das Sugestões Pedagógicas com IA',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: primaryTextColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Nível de aprofundamento sugerido pela IA ao analisar submissões das turmas.',
+                        style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        key: ValueKey<String>('ai_teacher_$_aiFeedbackStyle'),
+                        initialValue: _aiFeedbackStyle,
+                        isExpanded: true,
+                        decoration: _inputDecoration(context, 'Modo de Sugestão da IA'),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'concise',
+                            child: Text('Resumido (Pontos centrais de erro/acerto)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'detailed',
+                            child: Text('Completo (Análise detalhada de erros comuns da turma)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'pedagogical',
+                            child: Text('Pedagógico com Plano de Ação (Sugere novos exercícios de reforço)'),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _aiFeedbackStyle = val);
+                            _saveLocalPref('ai_teacher_feedback_style', val);
+                          }
+                        },
+                      ),
+                      Divider(height: 24, color: cardBorder),
+
+                      // Opção 3: Efeitos Sonoros
+                      SwitchListTile(
+                        value: _soundEffects,
+                        activeThumbColor: const Color(0xFF2563EB),
+                        title: Text(
+                          'Efeitos Sonoros na Plataforma',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: primaryTextColor,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Sons de feedback ao publicar lições e receber novas entregas.',
+                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                        ),
+                        onChanged: (val) {
+                          setState(() => _soundEffects = val);
+                          _saveLocalPref('sound_effects_enabled', val);
+                        },
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      Divider(height: 24, color: cardBorder),
+
+                      // Opção 4: Notificação Automática de Entregas
+                      SwitchListTile(
+                        value: _autoNotifySubmissions,
+                        activeThumbColor: const Color(0xFF2563EB),
+                        title: Text(
+                          'Alertas Imediatos de Novas Submissões',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: primaryTextColor,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Receber badge visual em tempo real quando alunos enviarem atividades.',
+                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                        ),
+                        onChanged: (val) {
+                          setState(() => _autoNotifySubmissions = val);
+                          _saveLocalPref('auto_notify_submissions', val);
+                        },
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ],
+                  ),
+                ),
+              ).animate().fadeIn(duration: 350.ms, delay: 180.ms).slideY(begin: 0.05, end: 0),
               const SizedBox(height: 16),
 
               // Card 5: Notificações & Conectividade Docente

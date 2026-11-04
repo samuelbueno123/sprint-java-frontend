@@ -97,15 +97,8 @@ class _DashboardShellState extends State<DashboardShell> {
                       widget.data.unreadNotificationsCount,
                 ),
               Expanded(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: widget.data.profileType == UserProfileType.admin
-                          ? 1440
-                          : 1200,
-                    ),
-                    child: _buildMainContent(),
-                  ),
+                child: SizedBox.expand(
+                  child: _buildMainContent(),
                 ),
               ),
             ],
@@ -122,6 +115,7 @@ class _DashboardShellState extends State<DashboardShell> {
           return StudentClassesView(
             data: widget.data,
             onRefresh: widget.onRefresh,
+            onSectionSelected: widget.onSectionSelected,
           );
         }
         if (const {

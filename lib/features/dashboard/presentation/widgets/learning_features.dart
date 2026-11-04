@@ -2,7 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/config/app_config.dart';
+import 'dart:async';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/realtime_sync_service.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/student_enrollment.dart';
 import '../../domain/entities/student_profile.dart';
@@ -81,10 +83,12 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
   String? _dataLoadError;
   int? _selectedSubmissionId;
   final TextEditingController _packageFeedbackCtrl = TextEditingController();
+  StreamSubscription<RealtimeSyncEvent>? _realtimeSubscription;
   bool _sendingFeedback = false;
 
   @override
   void dispose() {
+    _realtimeSubscription?.cancel();
     _packageFeedbackCtrl.dispose();
     super.dispose();
   }
@@ -93,6 +97,12 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
   void initState() {
     super.initState();
     _load = _loadData();
+    _realtimeSubscription = RealtimeSyncService.instance.events.listen((event) {
+      if (!mounted) return;
+      if (event.type == 'EXERCISE_SUBMITTED' || event.type == 'RANKING_UPDATED') {
+        setState(() => _load = _loadData());
+      }
+    });
   }
 
   Future<void> _loadData() async {
@@ -163,13 +173,15 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
   Widget build(BuildContext context) => FutureBuilder<void>(
     future: _load,
     builder: (context, snapshot) {
-      if (snapshot.connectionState != ConnectionState.done)
+      if (snapshot.connectionState != ConnectionState.done) {
         return const Center(child: CircularProgressIndicator());
-      if (snapshot.hasError)
+      }
+      if (snapshot.hasError) {
         return _ErrorPanel(
           message: _parseError(snapshot.error!),
           onRetry: _refresh,
         );
+      }
       if (widget.section == 'reviewExercises') return _reviews();
       if (widget.section == 'teacherRanking') return _performance();
       if (widget.section == 'manageExercises') {
@@ -1159,8 +1171,9 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
     }
     final classId = _submissionClassId(submission);
     for (final assignment in widget.data.teacherAssignments) {
-      if (assignment.schoolClassId == classId)
+      if (assignment.schoolClassId == classId) {
         return assignment.schoolClassName;
+      }
     }
     return null;
   }
@@ -1315,10 +1328,11 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
         await _refresh();
       }
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(_parseError(error))));
+      }
     } finally {
       Future.delayed(const Duration(milliseconds: 400), controller.dispose);
     }
@@ -1338,12 +1352,27 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
   final Set<String> _collapsedLessonGroups = {};
   _Exercise? _selected;
   _Exercise? _selectedContent;
-  bool _loading = false;
+  final bool _loading = false;
+  StreamSubscription<RealtimeSyncEvent>? _realtimeSub;
+
+  @override
+  void dispose() {
+    _realtimeSub?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
     _load = _loadData();
+    _realtimeSub = RealtimeSyncService.instance.events.listen((event) {
+      if (!mounted) return;
+      if (event.type == 'EXERCISE_CREATED' ||
+          event.type == 'SUBMISSION_GRADED' ||
+          event.type == 'RANKING_UPDATED') {
+        _refresh();
+      }
+    });
   }
 
   @override
@@ -1446,7 +1475,7 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
           onRetry: _refresh,
         );
       }
-      if (_selected != null)
+      if (_selected != null) {
         return _ExerciseRunPage(
           exercise: _selected!,
           dio: _dio,
@@ -1460,6 +1489,7 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
           },
           onBack: () => setState(() => _selected = null),
         );
+      }
       if (_selectedContent != null) {
         return _ExerciseContentPage(
           exercise: _selectedContent!,
@@ -1532,91 +1562,537 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
     if (widget.section == 'achievements') {
       return _achievementsView(dataLoadError: _dataLoadError);
     }
+
+    final colors = Theme.of(context).colorScheme;
+    final totalXp = _submissions.fold<int>(0, (sum, item) => sum + item.xp);
+    final totalCorrect = _submissions.fold<int>(0, (sum, item) => sum + item.correct);
+    final totalQuestions = _submissions.fold<int>(0, (sum, item) => sum + item.count);
+    final overallAccuracy = totalQuestions > 0 ? ((totalCorrect / totalQuestions) * 100).round() : 100;
+
+    // Past expired exercises (não entregues e prazo expirado)
+    final submittedIds = _submissions.map((s) => s.exerciseId).toSet();
+    final expiredExercises = _exercises.where((e) {
+      final days = e.daysUntilDue;
+      return !submittedIds.contains(e.id) && days != null && days < 0;
+    }).toList();
+
     return ListView(
       padding: responsivePagePadding(context),
       children: [
-        Text(
-          _title,
-          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 16),
-        if (_dataLoadError != null || _submissions.isEmpty)
-          _DatabaseNotice(
-            title: _dataLoadError == null
-                ? 'Ainda não há resultados'
-                : 'Resultados indisponíveis',
-            message:
-                _dataLoadError ??
-                'Não há respostas registradas no banco de dados. Conclua uma atividade e atualize para consultar novamente.',
-            onRefresh: _refresh,
-          ),
-        for (final item in _submissions)
-          Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            child: ExpansionTile(
-              leading: Icon(
-                item.reviewStatus == 'PENDING_REVIEW'
-                    ? Icons.hourglass_top_rounded
-                    : Icons.history_rounded,
-                color: item.reviewStatus == 'PENDING_REVIEW'
-                    ? const Color(0xFFD97706)
-                    : null,
-              ),
-              title: Text(
-                item.title,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              subtitle: Text(
-                '${item.language} · ${item.correct}/${item.count} corretas · ${item.reviewStatusLabel}${item.feedback == null ? '' : '\nFeedback do professor: ${item.feedback}'}',
-              ),
-              trailing: Text(
-                '+${item.xp} XP',
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (item.questionFeedback.isNotEmpty)
-                  for (final qf in item.questionFeedback)
-                    ListTile(
-                      dense: true,
-                      leading: Icon(
-                        qf['evaluationMode'] == 'OPEN_ENDED'
-                            ? Icons.subject_rounded
-                            : (qf['correct'] == true
-                                  ? Icons.check_circle_outline_rounded
-                                  : Icons.cancel_outlined),
-                        color: qf['evaluationMode'] == 'OPEN_ENDED'
-                            ? const Color(0xFFD97706)
-                            : (qf['correct'] == true
-                                  ? const Color(0xFF059669)
-                                  : const Color(0xFFDC2626)),
+                // Banner Superior do Histórico com Gradiente Elegante
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF0F766E),
+                        Color(0xFF0D9488),
+                        Color(0xFF14B8A6),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0D9488).withValues(alpha: 0.3),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
                       ),
-                      title: Text(
-                        'Questão ${((qf['questionIndex'] as num?)?.toInt() ?? 0) + 1}: ${qf['question'] ?? ''}',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      subtitle: Text(
-                        'Sua resposta: ${qf['studentAnswer'] ?? ''}\n'
-                        '${qf['feedback'] ?? ''}',
-                      ),
-                    )
-                else
-                  const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Text('Sem detalhes individuais para esta entrega.'),
+                    ],
                   ),
+                  padding: responsiveCardPadding(context),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextButton.icon(
+                        onPressed: widget.onBackToProfile,
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                        label: const Text('Voltar'),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.history_edu_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Text(
+                              'Histórico de Atividades Realizadas',
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Detalhamento das suas lições concluídas, correções e feedback dos professores',
+                        style: const TextStyle(
+                          color: Color(0xFFCCFBF1),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // Resumo de Desempenho com 3 Cards Coloridos
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF10B981), Color(0xFF059669)],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            const Icon(Icons.task_alt_rounded, color: Colors.white, size: 20),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${_submissions.length}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const Text(
+                              'Entregas Concluídas',
+                              style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            const Icon(Icons.bolt_rounded, color: Colors.white, size: 20),
+                            const SizedBox(height: 4),
+                            Text(
+                              '+$totalXp XP',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const Text(
+                              'XP Conquistado',
+                              style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF3B82F6).withValues(alpha: 0.25),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            const Icon(Icons.track_changes_rounded, color: Colors.white, size: 20),
+                            const SizedBox(height: 4),
+                            Text(
+                              '$overallAccuracy%',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const Text(
+                              'Taxa de Acertos',
+                              style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                if (_dataLoadError != null || _submissions.isEmpty)
+                  _DatabaseNotice(
+                    title: _dataLoadError == null
+                        ? 'Ainda não há resultados no histórico'
+                        : 'Resultados indisponíveis',
+                    message: _dataLoadError ??
+                        'Você ainda não concluiu nenhuma atividade. Complete uma lição no menu "Praticar lição" para registrar seu progresso.',
+                    onRefresh: _refresh,
+                  )
+                else ...[
+                  for (final item in _submissions)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: colors.outlineVariant),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: ExpansionTile(
+                        shape: const Border(),
+                        leading: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF10B981), Color(0xFF059669)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.assignment_turned_in_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                        title: Text(
+                          item.title,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: colors.onSurface,
+                          ),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: colors.primaryContainer,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  item.language,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: colors.onPrimaryContainer,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '${item.correct}/${item.count} acertos',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF047857),
+                                  ),
+                                ),
+                              ),
+                              if (item.reviewStatus == 'PENDING_REVIEW')
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'Aguardando Correção',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFFB45309),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '+${item.xp} XP',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        children: [
+                          if (item.feedback != null && item.feedback!.trim().isNotEmpty)
+                            Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: colors.secondaryContainer.withValues(alpha: 0.4),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: colors.outlineVariant),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.comment_rounded, size: 18, color: colors.primary),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Feedback do Professor:',
+                                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          item.feedback!,
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (item.questionFeedback.isNotEmpty)
+                            for (final qf in item.questionFeedback)
+                              Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: colors.surfaceContainerHighest.withValues(alpha: 0.35),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: qf['evaluationMode'] == 'OPEN_ENDED'
+                                            ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
+                                            : (qf['correct'] == true
+                                                ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                                                : const Color(0xFFEF4444).withValues(alpha: 0.15)),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(
+                                        qf['evaluationMode'] == 'OPEN_ENDED'
+                                            ? Icons.subject_rounded
+                                            : (qf['correct'] == true
+                                                ? Icons.check_circle_rounded
+                                                : Icons.cancel_rounded),
+                                        size: 18,
+                                        color: qf['evaluationMode'] == 'OPEN_ENDED'
+                                            ? const Color(0xFFD97706)
+                                            : (qf['correct'] == true
+                                                ? const Color(0xFF059669)
+                                                : const Color(0xFFDC2626)),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Questão ${((qf['questionIndex'] as num?)?.toInt() ?? 0) + 1}: ${qf['question'] ?? ''}',
+                                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            'Sua resposta: ${qf['studentAnswer'] ?? ''}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: colors.onSurfaceVariant,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          if (qf['feedback'] != null && qf['feedback'].toString().trim().isNotEmpty) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Comentário: ${qf['feedback']}',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontStyle: FontStyle.italic,
+                                                color: colors.primary,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                          else
+                            const Padding(
+                              padding: EdgeInsets.all(14),
+                              child: Text('Sem detalhes individuais para esta entrega.'),
+                            ),
+                          const SizedBox(height: 8),
+                        ],
+                      ),
+                    ),
+                ],
+
+                if (expiredExercises.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Atividades com Prazo Expirado (${expiredExercises.length})',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  for (final ex in expiredExercises)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.5)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.event_busy_rounded, color: colors.onSurfaceVariant, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  ex.title,
+                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                ),
+                                Text(
+                                  '${ex.language} • Prazo encerrou',
+                                  style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'Prazo Expirado',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ],
             ),
           ),
+        ),
       ],
     );
   }
 
   Widget _lessonsView() {
     final completedIds = _submissions.map((item) => item.exerciseId).toSet();
-    final completed = _exercises
+
+    // Na tela de praticar lição, não deixar aparecer atividades cujo prazo já passou (já passaram)
+    final activeExercises = _exercises.where((exercise) {
+      final daysLeft = exercise.daysUntilDue;
+      return daysLeft == null || daysLeft >= 0;
+    }).toList();
+
+    final completed = activeExercises
         .where((exercise) => completedIds.contains(exercise.id))
         .toList();
-    final pending = _exercises
+    final pending = activeExercises
         .where((exercise) => !completedIds.contains(exercise.id))
         .toList();
     final urgent = pending.where((exercise) {
@@ -1627,7 +2103,7 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
       'pending' => pending,
       'urgent' => urgent,
       'completed' => completed,
-      _ => _exercises,
+      _ => activeExercises,
     };
     final grouped = <String, List<_Exercise>>{};
     for (final exercise in filtered) {
@@ -1641,22 +2117,27 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
       children: [
         Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 880),
+            constraints: const BoxConstraints(maxWidth: 900),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Top Header Banner com Gradiente Vivo
                 Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
+                    gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [colors.primary, colors.primary.withValues(alpha: .86)],
+                      colors: [
+                        Color(0xFF2563EB),
+                        Color(0xFF4F46E5),
+                        Color(0xFF7C3AED),
+                      ],
                     ),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(22),
                     boxShadow: [
                       BoxShadow(
-                        color: colors.primary.withValues(alpha: 0.25),
-                        blurRadius: 16,
+                        color: const Color(0xFF2563EB).withValues(alpha: 0.35),
+                        blurRadius: 18,
                         offset: const Offset(0, 6),
                       ),
                     ],
@@ -1668,7 +2149,7 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                       TextButton.icon(
                         onPressed: widget.onBackToProfile,
                         style: TextButton.styleFrom(
-                          foregroundColor: colors.onPrimary,
+                          foregroundColor: Colors.white,
                         ),
                         icon: const Icon(Icons.arrow_back_rounded, size: 18),
                         label: const Text('Voltar'),
@@ -1676,19 +2157,26 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Icon(
-                            Icons.play_circle_outline_rounded,
-                            color: colors.onPrimary,
-                            size: 32,
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.play_circle_outline_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 14),
                           Expanded(
                             child: Text(
                               'Continuar Aprendendo',
                               style: Theme.of(context).textTheme.headlineSmall
                                   ?.copyWith(
-                                    color: colors.onPrimary,
-                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
                                   ),
                             ),
                           ),
@@ -1696,92 +2184,148 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '${_exercises.length} atividades e conteúdos publicados pelos seus professores',
-                        style: TextStyle(
-                          color: colors.onPrimary.withValues(alpha: .85),
+                        '${activeExercises.length} atividades disponíveis para praticar',
+                        style: const TextStyle(
+                          color: Color(0xFFE0E7FF),
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
                 if (urgent.isNotEmpty) ...[
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: colors.errorContainer,
-                        border: Border.all(
-                          color: colors.error.withValues(alpha: .35),
-                        ),
-                        borderRadius: BorderRadius.circular(14),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFEF4444), Color(0xFFB91C1C)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.warning_amber_rounded,
-                            color: colors.error,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              '${urgent.length} ${urgent.length == 1 ? 'entrega urgente' : 'entregas urgentes'} nos próximos 2 dias ou em atraso.',
-                              style: TextStyle(
-                                color: colors.onErrorContainer,
-                                fontWeight: FontWeight.w600,
-                              ),
+                      border: Border.all(
+                        color: const Color(0xFFFCA5A5),
+                        width: 1.5,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+                          blurRadius: 14,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            '${urgent.length} ${urgent.length == 1 ? 'entrega urgente' : 'entregas urgentes'} nos próximos 2 dias ou em atraso.',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final width = (constraints.maxWidth - 16) / 3;
-                      return Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _LessonStat(
-                            width: width,
-                            value: '${pending.length}',
-                            label: 'Pendentes',
-                            color: colors.secondaryContainer,
-                          ),
-                          _LessonStat(
-                            width: width,
-                            value: '${completed.length}',
-                            label: 'Concluídas',
-                            color: colors.primaryContainer,
-                          ),
-                          _LessonStat(
-                            width: width,
-                            value: '${urgent.length}',
-                            label: 'Urgentes',
-                            color: colors.errorContainer,
-                          ),
-                        ],
-                      );
-                    },
                   ),
-                  const SizedBox(height: 20),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                ],
+                // 3 Cards de Métricas que funcionam como filtros interativos ao clicar
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final width = (constraints.maxWidth - 16) / 3;
+                    return Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _LessonStat(
+                          width: width,
+                          value: '${pending.length}',
+                          label: 'Pendentes',
+                          icon: Icons.pending_actions_rounded,
+                          isSelected: _lessonFilter == 'pending',
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          onTap: () => setState(() {
+                            _lessonFilter =
+                                _lessonFilter == 'pending' ? 'all' : 'pending';
+                          }),
+                        ),
+                        _LessonStat(
+                          width: width,
+                          value: '${completed.length}',
+                          label: 'Concluídas',
+                          icon: Icons.check_circle_outline_rounded,
+                          isSelected: _lessonFilter == 'completed',
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF10B981), Color(0xFF047857)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          onTap: () => setState(() {
+                            _lessonFilter =
+                                _lessonFilter == 'completed' ? 'all' : 'completed';
+                          }),
+                        ),
+                        _LessonStat(
+                          width: width,
+                          value: '${urgent.length}',
+                          label: 'Urgentes',
+                          icon: Icons.alarm_rounded,
+                          isSelected: _lessonFilter == 'urgent',
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFEF4444), Color(0xFFB91C1C)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          onTap: () => setState(() {
+                            _lessonFilter =
+                                _lessonFilter == 'urgent' ? 'all' : 'urgent';
+                          }),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                if (_lessonFilter != 'all') ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _lessonFilterChip('all', 'Todas', _exercises.length),
-                      _lessonFilterChip('pending', 'Pendentes', pending.length),
-                      _lessonFilterChip('urgent', 'Urgentes', urgent.length),
-                      _lessonFilterChip(
-                        'completed',
-                        'Concluídas',
-                        completed.length,
+                      Text(
+                        'Filtro: ${_lessonFilter == 'pending' ? 'Pendentes' : (_lessonFilter == 'completed' ? 'Concluídas' : 'Urgentes')}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: colors.primary,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => setState(() => _lessonFilter = 'all'),
+                        icon: const Icon(Icons.close_rounded, size: 16),
+                        label: const Text('Mostrar todas as lições'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: colors.onSurfaceVariant,
+                          visualDensity: VisualDensity.compact,
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
+                ],
+                const SizedBox(height: 18),
                   if (_dataLoadError != null || _exercises.isEmpty)
                     _DatabaseNotice(
                       title: _dataLoadError == null
@@ -1833,13 +2377,6 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
       ],
     );
   }
-
-  Widget _lessonFilterChip(String filter, String label, int count) =>
-      ChoiceChip(
-        label: Text('$label ($count)'),
-        selected: _lessonFilter == filter,
-        onSelected: (_) => setState(() => _lessonFilter = filter),
-      );
 
   Widget _achievementsView({String? dataLoadError}) {
     final achievements = _buildAchievements(_submissions, _dbAchievements);
@@ -2675,12 +3212,13 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
     if (_recapResult != null) {
       return _buildRecapScreen(context, _recapResult!);
     }
-    if (widget.exercise.questions.isEmpty)
+    if (widget.exercise.questions.isEmpty) {
       return _EmptyPanel(
         title: 'Atividade sem questões',
         message: 'Peça ao professor para atualizar esta atividade.',
         onRefresh: widget.onBack,
       );
+    }
     final q = widget.exercise.questions[_index];
     final isAudio = q.isAudioQuestion(widget.exercise.category);
     final isOpenEnded = q.isOpenEnded;
@@ -2937,45 +3475,96 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
   }
 }
 
-class _LessonStat extends StatelessWidget {
+class _LessonStat extends StatefulWidget {
   const _LessonStat({
     required this.width,
     required this.value,
     required this.label,
-    required this.color,
+    required this.gradient,
+    this.icon,
+    this.isSelected = false,
+    this.onTap,
   });
   final double width;
   final String value, label;
-  final Color color;
+  final LinearGradient gradient;
+  final IconData? icon;
+  final bool isSelected;
+  final VoidCallback? onTap;
+
+  @override
+  State<_LessonStat> createState() => _LessonStatState();
+}
+
+class _LessonStatState extends State<_LessonStat> {
+  bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return SizedBox(
-      width: width,
-      child: Card(
-        elevation: 0,
-        color: color,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          child: Column(
-            children: [
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: colors.onSurface,
+      width: widget.width,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: widget.onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedScale(
+            scale: _isHovered ? 1.03 : 1.0,
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOutCubic,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+              decoration: BoxDecoration(
+                gradient: widget.gradient,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: widget.isSelected
+                      ? Colors.white
+                      : (_isHovered ? Colors.white.withValues(alpha: 0.8) : Colors.transparent),
+                  width: widget.isSelected ? 2.5 : (_isHovered ? 1.5 : 1.0),
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.gradient.colors.first.withValues(
+                      alpha: widget.isSelected || _isHovered ? 0.45 : 0.25,
+                    ),
+                    blurRadius: widget.isSelected || _isHovered ? 16 : 8,
+                    offset: Offset(0, widget.isSelected || _isHovered ? 5 : 2),
+                  ),
+                ],
               ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colors.onSurfaceVariant,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.icon != null) ...[
+                    Icon(widget.icon, color: Colors.white, size: 20),
+                    const SizedBox(height: 4),
+                  ],
+                  Text(
+                    widget.value,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 24,
+                      color: Colors.white,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.label,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -3114,27 +3703,44 @@ class _LessonAssignmentCard extends StatelessWidget {
         ? '1 dia'
         : '$daysLeft dias';
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      elevation: 0,
-      color: colors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: urgent
-              ? colors.error.withValues(alpha: .5)
-              : colors.outlineVariant,
-          width: urgent ? 1.4 : 1,
-        ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          if (urgent)
+            BoxShadow(
+              color: const Color(0xFFEF4444).withValues(alpha: 0.38),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            )
+          else
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+        ],
       ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: !completed && openable ? onTap : null,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      child: Card(
+        margin: EdgeInsets.zero,
+        elevation: 0,
+        color: colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: urgent ? const Color(0xFFEF4444) : colors.outlineVariant,
+            width: urgent ? 2.8 : 1.0,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: !completed && openable ? onTap : null,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               Container(
                 width: 42,
                 height: 42,
@@ -3280,8 +3886,9 @@ class _LessonAssignmentCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _LessonBadge extends StatelessWidget {
@@ -4189,9 +4796,11 @@ class StudentClassesView extends StatefulWidget {
     super.key,
     required this.data,
     required this.onRefresh,
+    this.onSectionSelected,
   });
   final DashboardData data;
   final VoidCallback onRefresh;
+  final ValueChanged<String>? onSectionSelected;
 
   @override
   State<StudentClassesView> createState() => _StudentClassesViewState();
@@ -4208,6 +4817,7 @@ class _StudentClassesViewState extends State<StudentClassesView> {
         data: widget.data,
         onBack: () => setState(() => _selectedEnrollment = null),
         onRefresh: widget.onRefresh,
+        onNavigateSection: widget.onSectionSelected,
       );
     }
 
@@ -4474,12 +5084,14 @@ class _StudentClassDashboardView extends StatefulWidget {
     required this.data,
     required this.onBack,
     required this.onRefresh,
+    this.onNavigateSection,
   });
 
   final StudentEnrollment enrollment;
   final DashboardData data;
   final VoidCallback onBack;
   final VoidCallback onRefresh;
+  final ValueChanged<String>? onNavigateSection;
 
   @override
   State<_StudentClassDashboardView> createState() =>
@@ -4758,6 +5370,10 @@ class _StudentClassDashboardViewState
                     subtitle: 'Desempenho nesta turma',
                     icon: Icons.track_changes_rounded,
                     accentColor: const Color(0xFF2563EB),
+                    onTap: () {
+                      widget.onBack();
+                      widget.onNavigateSection?.call('lesson');
+                    },
                   ),
                 ),
                 SizedBox(
@@ -4768,6 +5384,10 @@ class _StudentClassDashboardViewState
                     subtitle: 'Total acumulado',
                     icon: Icons.bolt_rounded,
                     accentColor: const Color(0xFFFFB800),
+                    onTap: () {
+                      widget.onBack();
+                      widget.onNavigateSection?.call('ranking');
+                    },
                   ),
                 ),
                 SizedBox(
@@ -4778,6 +5398,10 @@ class _StudentClassDashboardViewState
                     subtitle: 'Atividades submetidas',
                     icon: Icons.assignment_turned_in_rounded,
                     accentColor: const Color(0xFF059669),
+                    onTap: () {
+                      widget.onBack();
+                      widget.onNavigateSection?.call('history');
+                    },
                   ),
                 ),
               ],

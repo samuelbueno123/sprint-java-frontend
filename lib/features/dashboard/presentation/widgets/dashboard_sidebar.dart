@@ -65,6 +65,15 @@ class DashboardSidebar extends StatelessWidget {
                 onTap: () => onSectionSelected('profile'),
               ),
               if (profileType == UserProfileType.admin) ...[
+                if (!isSuperAdmin)
+                  _NavItem(
+                    icon: Icons.co_present_rounded,
+                    label: 'Professores',
+                    isSelected: activeSection == 'institutionTeachers',
+                    accentColor: _accentColor,
+                    isCollapsed: isCollapsed,
+                    onTap: () => onSectionSelected('institutionTeachers'),
+                  ),
                 _NavItem(
                   icon: unreadNotificationsCount > 0
                       ? Icons.notifications_active_rounded
@@ -75,14 +84,6 @@ class DashboardSidebar extends StatelessWidget {
                   accentColor: _accentColor,
                   isCollapsed: isCollapsed,
                   onTap: () => onSectionSelected('notifications'),
-                ),
-                _NavItem(
-                  icon: Icons.account_balance_rounded,
-                  label: 'Dashboard Instituição',
-                  isSelected: activeSection == 'institutionDashboard',
-                  accentColor: _accentColor,
-                  isCollapsed: isCollapsed,
-                  onTap: () => onSectionSelected('institutionDashboard'),
                 ),
                 _NavItem(
                   icon: Icons.add_circle_outline_rounded,
@@ -262,7 +263,7 @@ class DashboardSidebar extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatelessWidget {
+class _NavItem extends StatefulWidget {
   const _NavItem({
     required this.icon,
     required this.label,
@@ -282,22 +283,31 @@ class _NavItem extends StatelessWidget {
   final int badgeCount;
 
   @override
+  State<_NavItem> createState() => _NavItemState();
+}
+
+class _NavItemState extends State<_NavItem> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final unselectedIconColor = isDark ? Colors.white70 : Colors.grey.shade600;
     final unselectedTextColor = isDark ? Colors.white : Colors.grey.shade800;
 
     Widget iconWidget = Icon(
-      icon,
-      color: isSelected ? accentColor : unselectedIconColor,
+      widget.icon,
+      color: widget.isSelected
+          ? widget.accentColor
+          : (_isHovered ? widget.accentColor : unselectedIconColor),
       size: 22,
     );
 
-    if (badgeCount > 0) {
+    if (widget.badgeCount > 0) {
       iconWidget = Badge(
         backgroundColor: Colors.redAccent,
         label: Text(
-          badgeCount > 99 ? '99+' : '$badgeCount',
+          widget.badgeCount > 99 ? '99+' : '${widget.badgeCount}',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 9,
@@ -308,18 +318,30 @@ class _NavItem extends StatelessWidget {
       );
     }
 
-    Widget itemContent = Container(
+    Widget itemContent = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: isSelected
-            ? accentColor.withValues(alpha: isDark ? 0.24 : 0.12)
-            : Colors.transparent,
+        color: widget.isSelected
+            ? widget.accentColor.withValues(alpha: isDark ? 0.28 : 0.14)
+            : (_isHovered
+                ? widget.accentColor.withValues(alpha: isDark ? 0.16 : 0.08)
+                : Colors.transparent),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: widget.isSelected
+              ? widget.accentColor.withValues(alpha: 0.5)
+              : (_isHovered
+                  ? widget.accentColor.withValues(alpha: 0.25)
+                  : Colors.transparent),
+          width: 1.0,
+        ),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final showText = !isCollapsed && constraints.maxWidth > 100;
+          final showText = !widget.isCollapsed && constraints.maxWidth > 100;
           return Row(
             mainAxisAlignment: showText
                 ? MainAxisAlignment.start
@@ -330,19 +352,21 @@ class _NavItem extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    label,
+                    widget.label,
                     style: TextStyle(
-                      fontWeight: isSelected
+                      fontWeight: widget.isSelected
                           ? FontWeight.bold
-                          : FontWeight.w500,
-                      color: isSelected ? accentColor : unselectedTextColor,
+                          : (_isHovered ? FontWeight.w600 : FontWeight.w500),
+                      color: widget.isSelected
+                          ? widget.accentColor
+                          : (_isHovered ? widget.accentColor : unselectedTextColor),
                       fontSize: 14,
                     ),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
                 ),
-                if (badgeCount > 0)
+                if (widget.badgeCount > 0)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
@@ -353,7 +377,7 @@ class _NavItem extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                      badgeCount > 99 ? '99+' : '$badgeCount',
+                      widget.badgeCount > 99 ? '99+' : '${widget.badgeCount}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
@@ -368,16 +392,26 @@ class _NavItem extends StatelessWidget {
       ),
     );
 
-    if (isCollapsed) {
-      itemContent = Tooltip(message: label, child: itemContent);
+    if (widget.isCollapsed) {
+      itemContent = Tooltip(message: widget.label, child: itemContent);
     }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: itemContent,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: AnimatedScale(
+          scale: _isHovered ? 1.02 : 1.0,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: itemContent,
+          ),
+        ),
       ),
     );
   }

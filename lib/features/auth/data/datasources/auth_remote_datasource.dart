@@ -103,7 +103,7 @@ class AuthRemoteDataSource {
         'googleId': googleId.isEmpty ? null : googleId,
         'languages': languages,
         'gender': gender,
-        if (institutionId != null) 'institutionId': institutionId,
+        'institutionId': ?institutionId,
       },
     );
   }
