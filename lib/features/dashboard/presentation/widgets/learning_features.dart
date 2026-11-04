@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../core/config/app_config.dart';
 import 'dart:async';
@@ -2798,7 +2799,9 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                         Icons.emoji_events_rounded,
                         color: Color(0xFFFFD700),
                         size: 34,
-                      ),
+                      )
+                          .animate(onPlay: (c) => c.repeat(reverse: true))
+                          .scale(begin: const Offset(0.9, 0.9), end: const Offset(1.15, 1.15), duration: 700.ms),
                     ),
                     const SizedBox(height: 12),
                     const Text(
@@ -2819,7 +2822,7 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                     ),
                   ],
                 ),
-              ),
+              ).animate().scale(duration: 450.ms, curve: Curves.elasticOut),
               const SizedBox(height: 16),
 
               // Main Score Card
@@ -3230,6 +3233,7 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
         child: SingleChildScrollView(
           padding: responsivePagePadding(context),
           child: Column(
+            key: ValueKey(_index),
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
@@ -5374,7 +5378,7 @@ class _StudentClassDashboardViewState
                       widget.onBack();
                       widget.onNavigateSection?.call('lesson');
                     },
-                  ),
+                  ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.08, end: 0),
                 ),
                 SizedBox(
                   width: cardW,
@@ -5388,7 +5392,7 @@ class _StudentClassDashboardViewState
                       widget.onBack();
                       widget.onNavigateSection?.call('ranking');
                     },
-                  ),
+                  ).animate().fadeIn(duration: 350.ms, delay: 60.ms).slideY(begin: 0.08, end: 0),
                 ),
                 SizedBox(
                   width: cardW,
@@ -5402,7 +5406,7 @@ class _StudentClassDashboardViewState
                       widget.onBack();
                       widget.onNavigateSection?.call('history');
                     },
-                  ),
+                  ).animate().fadeIn(duration: 350.ms, delay: 120.ms).slideY(begin: 0.08, end: 0),
                 ),
               ],
             );

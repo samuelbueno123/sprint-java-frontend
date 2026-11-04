@@ -862,46 +862,51 @@ class _ProfileCard extends StatelessWidget {
   final List<Widget> children;
 
   @override
-  Widget build(BuildContext context) => Card(
-    elevation: 0,
-    color: Theme.of(context).colorScheme.surface,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(18),
-      side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: StudentDashboardView._blue.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: StudentDashboardView._blue, size: 18),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 17),
-          ...children,
-        ],
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final card = Card(
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
       ),
-    ),
-  );
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: StudentDashboardView._blue.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: StudentDashboardView._blue, size: 18),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 17),
+            ...children,
+          ],
+        ),
+      ),
+    );
+    if (reduceMotion) return card;
+    return card.animate().fadeIn(duration: 350.ms).slideY(begin: 0.04, end: 0);
+  }
 }
 
 class _HeaderBadge extends StatelessWidget {
