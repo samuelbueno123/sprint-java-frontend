@@ -1,10 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../../core/config/app_config.dart';
 
 /// Componente seguro para exibição de avatar de usuário.
-/// Evita erros HTTP 429 / CORS das fotos do Google utilizando a CDN weserv.nl
-/// e exibe a inicial do nome caso a imagem falhe ao carregar.
+/// Evita erros HTTP 429 / CORS das fotos do Google utilizando a CDN weserv.nl,
+/// suporta imagens em Base64 (data:image) e exibe a inicial do nome caso a imagem falhe ao carregar.
 class AppUserAvatar extends StatelessWidget {
   const AppUserAvatar({
     super.key,
@@ -27,6 +28,9 @@ class AppUserAvatar extends StatelessWidget {
   String? get _safePictureUrl {
     if (pictureUrl == null || pictureUrl!.trim().isEmpty) return null;
     var url = pictureUrl!.trim();
+    if (url.startsWith('data:image/')) {
+      return url;
+    }
     if (url.startsWith('/')) {
       url = Uri.parse(AppConfig.apiBaseUrl).resolve(url).toString();
     }
@@ -59,6 +63,30 @@ class AppUserAvatar extends StatelessWidget {
     );
 
     if (url == null) return fallback();
+
+    if (url.startsWith('data:image/')) {
+      try {
+        final commaIdx = url.indexOf(',');
+        final base64Str = commaIdx >= 0 ? url.substring(commaIdx + 1) : url;
+        final bytes = base64Decode(base64Str.trim());
+        return ClipOval(
+          child: Container(
+            width: size,
+            height: size,
+            color: bg,
+            child: Image.memory(
+              bytes,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => fallback(),
+            ),
+          ),
+        );
+      } catch (_) {
+        return fallback();
+      }
+    }
 
     return ClipOval(
       child: Container(

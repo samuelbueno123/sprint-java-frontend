@@ -9,6 +9,8 @@ import '../../../../core/network/realtime_sync_service.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/student_enrollment.dart';
 import '../../domain/entities/student_profile.dart';
+import 'dart:math' as math;
+import 'app_user_avatar.dart';
 import 'audio_speech_helper.dart';
 import 'info_stat_card.dart';
 import 'responsive_layout.dart';
@@ -86,10 +88,17 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
   final TextEditingController _packageFeedbackCtrl = TextEditingController();
   StreamSubscription<RealtimeSyncEvent>? _realtimeSubscription;
   bool _sendingFeedback = false;
+  int? _loadedFeedbackSubmissionId;
+  final Map<int, bool> _questionCorrectMap = {};
+  final Map<int, TextEditingController> _questionFeedbackCtrls = {};
 
   @override
   void dispose() {
     _realtimeSubscription?.cancel();
+    for (final ctrl in _questionFeedbackCtrls.values) {
+      ctrl.dispose();
+    }
+    _questionFeedbackCtrls.clear();
     _packageFeedbackCtrl.dispose();
     super.dispose();
   }
@@ -219,10 +228,10 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
       return _submissionClassId(item) == selectedClassId;
     }).toList();
     final pending = submissions
-        .where((item) => item['reviewedAt'] == null)
+        .where((item) => item['reviewedAt'] == null && '${item['reviewStatus']}'.toUpperCase() != 'REVIEWED')
         .toList();
     final reviewed = submissions
-        .where((item) => item['reviewedAt'] != null)
+        .where((item) => item['reviewedAt'] != null || '${item['reviewStatus']}'.toUpperCase() == 'REVIEWED')
         .toList();
 
     if (submissions.isNotEmpty) {
@@ -561,19 +570,15 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
           ),
           child: Row(
             children: [
-              CircleAvatar(
+              AppUserAvatar(
+                name: item['studentName']?.toString() ?? 'Estudante',
+                pictureUrl: item['studentProfilePicture']?.toString() ??
+                    item['profilePicture']?.toString(),
                 radius: 18,
                 backgroundColor: isSelected
                     ? const Color(0xFF8B5CF6)
                     : const Color(0xFFEDE9FE),
-                child: Text(
-                  _initial(item['studentName']),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: isSelected ? Colors.white : const Color(0xFF6D28D9),
-                  ),
-                ),
+                textColor: isSelected ? Colors.white : const Color(0xFF6D28D9),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -617,6 +622,167 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
     );
   }
 
+  List<Map<String, dynamic>> _extractSubmissionQuestions(
+    Map<String, dynamic> item,
+  ) {
+    final rawResults = item['questionResults'] as List? ??
+        item['questionFeedback'] as List? ??
+        item['questions'] as List?;
+    if (rawResults != null && rawResults.isNotEmpty) {
+      return rawResults
+          .whereType<Map>()
+          .map((m) => Map<String, dynamic>.from(m))
+          .toList();
+    }
+
+    final exId = (item['exerciseId'] as num?)?.toInt();
+    Map<String, dynamic>? exercise;
+    if (exId != null) {
+      exercise = _exercises.firstWhere(
+        (e) => (e['id'] as num?)?.toInt() == exId,
+        orElse: () => <String, dynamic>{},
+      );
+    }
+
+    final exQuestions = ((exercise?['questions'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((m) => Map<String, dynamic>.from(m))
+        .toList();
+    final answers = ((item['answers'] as List?) ?? const [])
+        .map((a) => a?.toString() ?? '')
+        .toList();
+
+    final list = <Map<String, dynamic>>[];
+    final count = math.max(exQuestions.length, answers.length);
+    for (var i = 0; i < count; i++) {
+      final q = i < exQuestions.length ? exQuestions[i] : null;
+      final ans = i < answers.length ? answers[i] : '';
+      final expected = q?['correctAnswer'] ?? q?['expectedAnswer'];
+      final style = q?['style'] ?? 'Objetiva';
+      final isCorrect = expected != null &&
+          ans.trim().toLowerCase() ==
+              expected.toString().trim().toLowerCase();
+      list.add({
+        'questionIndex': i,
+        'question': q?['question'] ?? 'Questão ${i + 1}',
+        'style': style,
+        'options': q?['options'] ?? [],
+        'expectedAnswer': expected,
+        'studentAnswer': ans,
+        'isCorrect': isCorrect,
+        'status': isCorrect ? 'CORRECT' : 'PENDING_REVIEW',
+        'message': '',
+      });
+    }
+    return list;
+  }
+
+  void _syncSubmissionReviewState(
+    Map<String, dynamic> item,
+    List<Map<String, dynamic>> questions,
+  ) {
+    final subId = item['id'] as int?;
+    if (subId == null || subId == _loadedFeedbackSubmissionId) return;
+    _loadedFeedbackSubmissionId = subId;
+    _packageFeedbackCtrl.text = item['feedback']?.toString() ?? '';
+
+    for (final ctrl in _questionFeedbackCtrls.values) {
+      ctrl.dispose();
+    }
+    _questionFeedbackCtrls.clear();
+    _questionCorrectMap.clear();
+
+    for (var i = 0; i < questions.length; i++) {
+      final q = questions[i];
+      final isCor = q['isCorrect'] == true ||
+          '${q['status']}'.toUpperCase() == 'CORRECT';
+      _questionCorrectMap[i] = isCor;
+      _questionFeedbackCtrls[i] = TextEditingController(
+        text: q['message']?.toString() ?? '',
+      );
+    }
+  }
+
+  Future<void> _saveAllQuestionReviews(
+    Map<String, dynamic> item,
+    List<Map<String, dynamic>> questions,
+  ) async {
+    final subId = item['id'];
+    if (subId == null) return;
+
+    setState(() => _sendingFeedback = true);
+    try {
+      final questionReviews = <Map<String, dynamic>>[];
+      var correctCount = 0;
+
+      for (var i = 0; i < questions.length; i++) {
+        final isCorrect = _questionCorrectMap[i] ?? false;
+        if (isCorrect) correctCount++;
+        final feedbackText =
+            _questionFeedbackCtrls[i]?.text.trim() ?? '';
+        questionReviews.add({
+          'questionIndex': i,
+          'isCorrect': isCorrect,
+          'status': isCorrect ? 'CORRECT' : 'INCORRECT',
+          'feedback': feedbackText,
+        });
+      }
+
+      final payload = {
+        'feedback': _packageFeedbackCtrl.text.trim().isNotEmpty
+            ? _packageFeedbackCtrl.text.trim()
+            : 'Avaliação realizada pelo professor.',
+        'correctCount': correctCount,
+        'questionReviews': questionReviews,
+      };
+
+      await _dio.patch(
+        '/api/exercises/submissions/$subId/feedback',
+        data: payload,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF059669),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            content: Row(
+              children: [
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Correção salva com sucesso! ($correctCount/${questions.length} questões corretas)',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      _loadedFeedbackSubmissionId = null;
+      await _refresh();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFDC2626),
+            content: Text(_parseError(e)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sendingFeedback = false);
+    }
+  }
+
   Widget _buildReviewsRightPane({
     required Map<String, dynamic> item,
     required bool isDark,
@@ -643,19 +809,22 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
       );
     }
 
-    final int correct = (item['correctCount'] as num?)?.toInt() ?? 0;
-    final int total = (item['questionCount'] as num?)?.toInt() ?? 0;
+    final questions = _extractSubmissionQuestions(item);
+    _syncSubmissionReviewState(item, questions);
+
+    final int total = questions.isNotEmpty
+        ? questions.length
+        : ((item['questionCount'] as num?)?.toInt() ?? 0);
     final int safeTotal = total <= 0 ? 1 : total;
+    final int correct =
+        _questionCorrectMap.values.where((v) => v == true).length;
     final int percent = ((correct / safeTotal) * 100).round();
-    final questionFeedback = ((item['questionFeedback'] as List?) ?? const [])
-        .whereType<Map>()
-        .map((m) => Map<String, dynamic>.from(m))
-        .toList();
+    final int awardedXp = correct * 10;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Card 1: Student Header Card
+        // Card 1: Student Header Card with Profile Picture
         Card(
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -669,17 +838,13 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
             padding: const EdgeInsets.all(18),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 26,
+                AppUserAvatar(
+                  name: item['studentName']?.toString() ?? 'Estudante',
+                  pictureUrl: item['studentProfilePicture']?.toString() ??
+                      item['profilePicture']?.toString(),
+                  radius: 28,
                   backgroundColor: const Color(0xFFEDE9FE),
-                  child: Text(
-                    _initial(item['studentName']),
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF6D28D9),
-                    ),
-                  ),
+                  textColor: const Color(0xFF6D28D9),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -723,9 +888,19 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF5F3FF),
+                        gradient: LinearGradient(
+                          colors: percent >= 70
+                              ? [const Color(0xFF10B981), const Color(0xFF059669)]
+                              : [const Color(0xFF8B5CF6), const Color(0xFF6D28D9)],
+                        ),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFDDD6FE)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.25),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Column(
                         children: [
@@ -734,7 +909,7 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                             children: [
                               const Icon(
                                 Icons.trending_up_rounded,
-                                color: Color(0xFF7C3AED),
+                                color: Colors.white,
                                 size: 18,
                               ),
                               const SizedBox(width: 4),
@@ -743,17 +918,17 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w900,
-                                  color: Color(0xFF7C3AED),
+                                  color: Colors.white,
                                 ),
                               ),
                             ],
                           ),
                           Text(
-                            '$correct/$total pontos',
+                            '$correct/$total acertos · +$awardedXp XP',
                             style: const TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF7C3AED),
-                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
@@ -771,7 +946,7 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                       ),
                       icon: const Icon(Icons.tune_rounded, size: 14),
                       label: const Text(
-                        'Ajustar nota',
+                        'Ajuste rápido',
                         style: TextStyle(fontSize: 11),
                       ),
                     ),
@@ -783,7 +958,7 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
         ),
         const SizedBox(height: 14),
 
-        // Card 2: Exercícios do Pacote
+        // Card 2: Question-by-Question Grading & Detailed Student Answers
         Card(
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -798,45 +973,80 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Exercícios do Pacote (${questionFeedback.isNotEmpty ? questionFeedback.length : 1})',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF7C3AED),
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.rule_rounded,
+                          color: Color(0xFF7C3AED),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Respostas do Estudante & Correção Individual (${questions.length})',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF7C3AED),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEDE9FE),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Corrija cada resposta abaixo',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF6D28D9),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 14),
-                if (questionFeedback.isNotEmpty)
-                  for (var i = 0; i < questionFeedback.length; i++) ...[
-                    _buildExercisePackageRow(
-                      index: i,
-                      qf: questionFeedback[i],
-                      defaultTitle: item['exerciseTitle'] ?? 'Exercício',
-                      colors: colors,
+                if (questions.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Center(
+                      child: Text(
+                        'Nenhuma questão encontrada para este exercício.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
                     ),
-                    if (i < questionFeedback.length - 1)
-                      const SizedBox(height: 12),
-                  ]
+                  )
                 else
-                  _buildExercisePackageRow(
-                    index: 0,
-                    qf: {
-                      'question': item['exerciseTitle'] ?? 'Exercício Geral',
-                      'correct': correct > 0,
-                      'correctCount': correct,
-                      'questionCount': total,
-                    },
-                    defaultTitle: item['exerciseTitle'] ?? 'Exercício',
-                    colors: colors,
-                  ),
+                  for (var i = 0; i < questions.length; i++) ...[
+                    _buildQuestionCorrectionCard(
+                      index: i,
+                      questionData: questions[i],
+                      totalQuestions: questions.length,
+                      colors: colors,
+                      isDark: isDark,
+                    ),
+                    if (i < questions.length - 1)
+                      const SizedBox(height: 14),
+                  ],
               ],
             ),
           ),
         ),
         const SizedBox(height: 14),
 
-        // Card 3: Feedback do Pacote
+        // Card 3: Feedback Geral do Pacote & Ação de Salvar
         Card(
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -854,16 +1064,16 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                 const Row(
                   children: [
                     Icon(
-                      Icons.chat_bubble_outline_rounded,
+                      Icons.comment_rounded,
                       color: Color(0xFF7C3AED),
-                      size: 18,
+                      size: 20,
                     ),
                     SizedBox(width: 8),
                     Text(
-                      'Feedback do Pacote',
+                      'Feedback Geral & Conclusão da Correção',
                       style: TextStyle(
                         fontSize: 15,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                         color: Color(0xFF7C3AED),
                       ),
                     ),
@@ -871,7 +1081,7 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Escreva um feedback geral para todo o pacote de exercícios do aluno.',
+                  'Escreva uma mensagem geral de incentivo e orientação para o aluno sobre todo o conjunto de questões.',
                   style: TextStyle(
                     fontSize: 13,
                     color: colors.onSurfaceVariant,
@@ -884,36 +1094,81 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                   maxLines: 5,
                   decoration: InputDecoration(
                     hintText:
-                        "Ex: Ótimo trabalho no módulo! Você mostrou bom domínio dos verbos no Present Simple. Atenção às frases negativas — revise a estrutura 'don't / doesn't'...",
+                        "Ex: Parabéns pelo empenho! Você foi muito bem nas respostas objetivas. Na discursiva, atente-se ao uso dos pronomes e continue praticando!",
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F3FF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFDDD6FE)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.verified_rounded,
+                        color: Color(0xFF7C3AED),
+                        size: 22,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Resumo da Avaliação: $correct de $total questões corretas ($percent%)',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                                color: Color(0xFF4C1D95),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'O estudante receberá +$awardedXp XP nesta entrega e a notificação da sua revisão.',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF6D28D9),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
-                  height: 46,
+                  height: 48,
                   child: FilledButton.icon(
                     onPressed: _sendingFeedback
                         ? null
-                        : () => _sendPackageFeedback(item),
+                        : () => _saveAllQuestionReviews(item, questions),
                     icon: _sendingFeedback
                         ? const SizedBox(
-                            width: 18,
-                            height: 18,
+                            width: 20,
+                            height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               color: Colors.white,
                             ),
                           )
-                        : const Icon(Icons.send_rounded, size: 18),
+                        : const Icon(Icons.check_circle_rounded, size: 20),
                     label: const Text(
-                      'Enviar Feedback do Pacote',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                      'Salvar Correção e Publicar Avaliação',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
                     ),
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF8B5CF6),
+                      backgroundColor: const Color(0xFF7C3AED),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -928,131 +1183,481 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
     );
   }
 
-  Widget _buildExercisePackageRow({
+  Widget _buildQuestionCorrectionCard({
     required int index,
-    required Map<String, dynamic> qf,
-    required String defaultTitle,
+    required Map<String, dynamic> questionData,
+    required int totalQuestions,
     required ColorScheme colors,
+    required bool isDark,
   }) {
-    final isCorrect = qf['correct'] == true;
-    final title = qf['question']?.toString().trim().isNotEmpty == true
-        ? qf['question'].toString()
-        : '$defaultTitle - Questão ${index + 1}';
-    final hasAi = '${qf['generatedBy'] ?? qf['source'] ?? ''}'
-        .toUpperCase()
-        .contains('AI') ||
-        title.toLowerCase().contains('ia');
-    final scoreText = isCorrect ? '1/1' : '0/1';
-    final percentVal = isCorrect ? 1.0 : 0.0;
-    final percentLabel = isCorrect ? '100% de acerto' : '0% de acerto';
+    final style = '${questionData['style'] ?? 'Objetiva'}'.trim();
+    final isDiscursive = style.toLowerCase().contains('aberta') ||
+        style.toLowerCase().contains('discursiva') ||
+        style.toLowerCase().contains('open');
+    final statement =
+        questionData['question']?.toString() ?? 'Questão ${index + 1}';
+    final studentAns = questionData['studentAnswer']?.toString().trim() ?? '';
+    final expectedAns = questionData['expectedAnswer']?.toString().trim() ??
+        questionData['correctAnswer']?.toString().trim() ??
+        '';
+    final options = (questionData['options'] as List? ?? const [])
+        .map((e) => e.toString())
+        .toList();
+
+    final isCorrect = _questionCorrectMap[index] ?? false;
+    final feedbackCtrl = _questionFeedbackCtrls[index];
 
     return Container(
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
+        color: isDark ? colors.surfaceContainerLow : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
+          color: isCorrect
+              ? const Color(0xFF10B981).withValues(alpha: 0.5)
+              : (isDark ? colors.outlineVariant : const Color(0xFFE2E8F0)),
+          width: isCorrect ? 1.5 : 1.0,
         ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                        ),
-                      ),
+          // Header of Question
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isCorrect
+                  ? const Color(0xFF10B981).withValues(alpha: 0.08)
+                  : const Color(0xFF8B5CF6).withValues(alpha: 0.06),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7C3AED),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Questão ${index + 1} de $totalQuestions',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
                     ),
-                    if (hasAi) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEDE9FE),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.auto_awesome,
-                              size: 11,
-                              color: Color(0xFF7C3AED),
-                            ),
-                            SizedBox(width: 3),
-                            Text(
-                              'IA',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF7C3AED),
-                              ),
-                            ),
-                          ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDiscursive
+                        ? const Color(0xFFFEF3C7)
+                        : const Color(0xFFDBEAFE),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isDiscursive
+                            ? Icons.edit_note_rounded
+                            : Icons.checklist_rounded,
+                        size: 13,
+                        color: isDiscursive
+                            ? const Color(0xFFB45309)
+                            : const Color(0xFF1D4ED8),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isDiscursive ? 'Discursiva / Aberta' : style,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: isDiscursive
+                              ? const Color(0xFFB45309)
+                              : const Color(0xFF1D4ED8),
                         ),
                       ),
                     ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                scoreText,
-                style: const TextStyle(
-                  color: Color(0xFF16A34A),
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: percentVal,
-              minHeight: 7,
-              backgroundColor: const Color(0xFFE2E8F0),
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                Color(0xFF0F172A),
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                percentLabel,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: colors.onSurfaceVariant,
-                ),
-              ),
-              if (qf['studentAnswer'] != null)
-                Text(
-                  'Resp.: ${qf['studentAnswer']}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontStyle: FontStyle.italic,
-                    color: colors.onSurfaceVariant,
                   ),
                 ),
-            ],
+                const Spacer(),
+                // Status Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isCorrect
+                        ? const Color(0xFFDCFCE7)
+                        : const Color(0xFFFEE2E2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isCorrect
+                          ? const Color(0xFF86EFAC)
+                          : const Color(0xFFFCA5A5),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isCorrect
+                            ? Icons.check_circle_rounded
+                            : Icons.cancel_rounded,
+                        size: 13,
+                        color: isCorrect
+                            ? const Color(0xFF15803D)
+                            : const Color(0xFFB91C1C),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isCorrect ? 'Correto (+10 XP)' : 'Incorreto (0 XP)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: isCorrect
+                              ? const Color(0xFF15803D)
+                              : const Color(0xFFB91C1C),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Enunciado
+                Text(
+                  statement,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    height: 1.4,
+                  ),
+                ),
+
+                // Alternatives (if multiple choice)
+                if (options.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      for (final opt in options) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: opt.trim().toLowerCase() ==
+                                    studentAns.trim().toLowerCase()
+                                ? const Color(0xFFDDD6FE)
+                                : (isDark
+                                    ? colors.surfaceContainer
+                                    : const Color(0xFFF1F5F9)),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: opt.trim().toLowerCase() ==
+                                      studentAns.trim().toLowerCase()
+                                  ? const Color(0xFF7C3AED)
+                                  : Colors.transparent,
+                            ),
+                          ),
+                          child: Text(
+                            opt,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: opt.trim().toLowerCase() ==
+                                      studentAns.trim().toLowerCase()
+                                  ? FontWeight.w700
+                                  : FontWeight.normal,
+                              color: opt.trim().toLowerCase() ==
+                                      studentAns.trim().toLowerCase()
+                                  ? const Color(0xFF5B21B6)
+                                  : colors.onSurface,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+
+                const SizedBox(height: 12),
+
+                // Student's Submitted Answer
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF1E293B)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFF94A3B8).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.person_pin_rounded,
+                            size: 15,
+                            color: Color(0xFF64748B),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'RESPOSTA DO ALUNO:',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                              color: isDark
+                                  ? const Color(0xFF94A3B8)
+                                  : const Color(0xFF475569),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        studentAns.isNotEmpty
+                            ? studentAns
+                            : '(Aluno deixou a resposta em branco)',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          fontStyle: studentAns.isEmpty
+                              ? FontStyle.italic
+                              : FontStyle.normal,
+                          color: studentAns.isNotEmpty
+                              ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                              : const Color(0xFF94A3B8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Expected Answer (Gabarito)
+                if (expectedAns.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFA7F3D0)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.lightbulb_rounded,
+                          size: 15,
+                          color: Color(0xFF059669),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Gabarito sugerido: $expectedAns',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF065F46),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 12),
+
+                // Correction Actions (Toggles)
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _questionCorrectMap[index] = true;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isCorrect
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFF10B981).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: const Color(0xFF10B981),
+                              width: isCorrect ? 1.5 : 1.0,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.check_circle_rounded,
+                                size: 16,
+                                color: isCorrect ? Colors.white : const Color(0xFF059669),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Marcar Correto',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: isCorrect
+                                      ? Colors.white
+                                      : const Color(0xFF059669),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _questionCorrectMap[index] = false;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: !isCorrect
+                                ? const Color(0xFFEF4444)
+                                : const Color(0xFFEF4444).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: const Color(0xFFEF4444),
+                              width: !isCorrect ? 1.5 : 1.0,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.cancel_rounded,
+                                size: 16,
+                                color: !isCorrect ? Colors.white : const Color(0xFFDC2626),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Marcar Incorreto',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: !isCorrect
+                                      ? Colors.white
+                                      : const Color(0xFFDC2626),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
+                // Question Feedback TextField
+                if (feedbackCtrl != null) ...[
+                  TextField(
+                    controller: feedbackCtrl,
+                    decoration: InputDecoration(
+                      hintText: isDiscursive
+                          ? 'Comentário pedagógico específico para a resposta discursiva...'
+                          : 'Comentário desta questão (opcional)...',
+                      labelText: 'Feedback desta questão',
+                      labelStyle: const TextStyle(fontSize: 12),
+                      isDense: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      for (final chip in [
+                        'Excelente resposta! 🌟',
+                        'Parcialmente correto 👍',
+                        'Atenção à gramática ✍️',
+                        'Revise o vocabulário 📚',
+                      ])
+                        InkWell(
+                          onTap: () {
+                            if (feedbackCtrl.text.isEmpty) {
+                              feedbackCtrl.text = chip;
+                            } else {
+                              feedbackCtrl.text = '${feedbackCtrl.text} $chip';
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? colors.surfaceContainer
+                                  : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isDark
+                                    ? colors.outlineVariant
+                                    : const Color(0xFFCBD5E1),
+                              ),
+                            ),
+                            child: Text(
+                              chip,
+                              style: const TextStyle(fontSize: 10),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
@@ -1071,42 +1676,6 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
       return '$y-$m-$d $h:$min';
     } catch (_) {
       return rawDate.toString();
-    }
-  }
-
-  Future<void> _sendPackageFeedback(Map<String, dynamic> item) async {
-    final text = _packageFeedbackCtrl.text.trim();
-    if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Digite um feedback antes de enviar.')),
-      );
-      return;
-    }
-    setState(() => _sendingFeedback = true);
-    try {
-      await _dio.patch(
-        '/api/exercises/submissions/${item['id']}/feedback',
-        data: {
-          'feedback': text,
-          'correctCount': item['correctCount'],
-        },
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Feedback do pacote enviado com sucesso!'),
-          ),
-        );
-      }
-      await _refresh();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_parseError(e))),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _sendingFeedback = false);
     }
   }
 
