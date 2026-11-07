@@ -9,6 +9,11 @@ import 'student_dashboard_view.dart';
 import 'teacher_dashboard_view.dart';
 import 'user_dashboard_view.dart';
 import 'learning_features.dart';
+import 'advanced_learning/srs_review_view.dart';
+import 'advanced_learning/ai_conversation_view.dart';
+import 'advanced_learning/pronunciation_practice_view.dart';
+import 'advanced_learning/community_peer_review_view.dart';
+import 'advanced_learning/personalized_learning_path_view.dart';
 
 class DashboardShell extends StatefulWidget {
   const DashboardShell({
@@ -117,6 +122,21 @@ class _DashboardShellState extends State<DashboardShell> {
             onRefresh: widget.onRefresh,
             onSectionSelected: widget.onSectionSelected,
           );
+        }
+        if (widget.activeSection == 'srsReview') {
+          return SrsReviewView(onBack: () => widget.onSectionSelected('profile'));
+        }
+        if (widget.activeSection == 'aiConversation') {
+          return AiConversationView(onBack: () => widget.onSectionSelected('profile'));
+        }
+        if (widget.activeSection == 'pronunciation') {
+          return PronunciationPracticeView(onBack: () => widget.onSectionSelected('profile'));
+        }
+        if (widget.activeSection == 'communityReview') {
+          return CommunityPeerReviewView(onBack: () => widget.onSectionSelected('profile'));
+        }
+        if (widget.activeSection == 'learningPath') {
+          return PersonalizedLearningPathView(onBack: () => widget.onSectionSelected('profile'));
         }
         if (const {
           'lesson',

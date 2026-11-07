@@ -203,7 +203,7 @@ class DashboardSidebar extends StatelessWidget {
                   onTap: () => onSectionSelected('teacherRanking'),
                 ),
               ],
-              if (profileType == UserProfileType.student)
+              if (profileType == UserProfileType.student) ...[
                 _NavItem(
                   icon: Icons.school_rounded,
                   label: 'Praticar lição',
@@ -212,6 +212,47 @@ class DashboardSidebar extends StatelessWidget {
                   isCollapsed: isCollapsed,
                   onTap: () => onSectionSelected('lesson'),
                 ),
+                _NavItem(
+                  icon: Icons.psychology_alt_rounded,
+                  label: 'Revisão Espaçada',
+                  isSelected: activeSection == 'srsReview',
+                  accentColor: _accentColor,
+                  isCollapsed: isCollapsed,
+                  onTap: () => onSectionSelected('srsReview'),
+                ),
+                _NavItem(
+                  icon: Icons.smart_toy_rounded,
+                  label: 'Conversação IA',
+                  isSelected: activeSection == 'aiConversation',
+                  accentColor: _accentColor,
+                  isCollapsed: isCollapsed,
+                  onTap: () => onSectionSelected('aiConversation'),
+                ),
+                _NavItem(
+                  icon: Icons.record_voice_over_rounded,
+                  label: 'Prática Oral',
+                  isSelected: activeSection == 'pronunciation',
+                  accentColor: _accentColor,
+                  isCollapsed: isCollapsed,
+                  onTap: () => onSectionSelected('pronunciation'),
+                ),
+                _NavItem(
+                  icon: Icons.diversity_3_rounded,
+                  label: 'Comunidade & Pares',
+                  isSelected: activeSection == 'communityReview',
+                  accentColor: _accentColor,
+                  isCollapsed: isCollapsed,
+                  onTap: () => onSectionSelected('communityReview'),
+                ),
+                _NavItem(
+                  icon: Icons.route_rounded,
+                  label: 'Trilha Personalizada',
+                  isSelected: activeSection == 'learningPath',
+                  accentColor: _accentColor,
+                  isCollapsed: isCollapsed,
+                  onTap: () => onSectionSelected('learningPath'),
+                ),
+              ],
               if (profileType == UserProfileType.student) ...[
                 _NavItem(
                   icon: Icons.history_rounded,
