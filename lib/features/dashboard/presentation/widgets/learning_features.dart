@@ -16,6 +16,8 @@ import 'info_stat_card.dart';
 import 'responsive_layout.dart';
 import 'teacher_create_exercise_screen.dart';
 import 'teacher_exercises_overview_screen.dart';
+import 'advanced_learning/class_announcements_view.dart';
+import 'advanced_learning/teacher_student_notes_dialog.dart';
 
 String parseLearningError(Object error) {
   if (error is DioException) {
@@ -109,7 +111,8 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
     _load = _loadData();
     _realtimeSubscription = RealtimeSyncService.instance.events.listen((event) {
       if (!mounted) return;
-      if (event.type == 'EXERCISE_SUBMITTED' || event.type == 'RANKING_UPDATED') {
+      if (event.type == 'EXERCISE_SUBMITTED' ||
+          event.type == 'RANKING_UPDATED') {
         setState(() => _load = _loadData());
       }
     });
@@ -228,10 +231,18 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
       return _submissionClassId(item) == selectedClassId;
     }).toList();
     final pending = submissions
-        .where((item) => item['reviewedAt'] == null && '${item['reviewStatus']}'.toUpperCase() != 'REVIEWED')
+        .where(
+          (item) =>
+              item['reviewedAt'] == null &&
+              '${item['reviewStatus']}'.toUpperCase() != 'REVIEWED',
+        )
         .toList();
     final reviewed = submissions
-        .where((item) => item['reviewedAt'] != null || '${item['reviewStatus']}'.toUpperCase() == 'REVIEWED')
+        .where(
+          (item) =>
+              item['reviewedAt'] != null ||
+              '${item['reviewStatus']}'.toUpperCase() == 'REVIEWED',
+        )
         .toList();
 
     if (submissions.isNotEmpty) {
@@ -404,11 +415,7 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                 );
               }
               return Column(
-                children: [
-                  leftPane,
-                  const SizedBox(height: 16),
-                  rightPane,
-                ],
+                children: [leftPane, const SizedBox(height: 16), rightPane],
               );
             },
           ),
@@ -555,16 +562,14 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
           decoration: BoxDecoration(
             color: isSelected
                 ? (isDark
-                    ? const Color(0xFF8B5CF6).withValues(alpha: 0.18)
-                    : const Color(0xFFF5F3FF))
+                      ? const Color(0xFF8B5CF6).withValues(alpha: 0.18)
+                      : const Color(0xFFF5F3FF))
                 : (isDark ? colors.surfaceContainerLow : Colors.white),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isSelected
                   ? const Color(0xFF8B5CF6)
-                  : (isDark
-                      ? colors.outlineVariant
-                      : const Color(0xFFE2E8F0)),
+                  : (isDark ? colors.outlineVariant : const Color(0xFFE2E8F0)),
               width: isSelected ? 1.8 : 1.0,
             ),
           ),
@@ -572,7 +577,8 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
             children: [
               AppUserAvatar(
                 name: item['studentName']?.toString() ?? 'Estudante',
-                pictureUrl: item['studentProfilePicture']?.toString() ??
+                pictureUrl:
+                    item['studentProfilePicture']?.toString() ??
                     item['profilePicture']?.toString(),
                 radius: 18,
                 backgroundColor: isSelected
@@ -625,7 +631,8 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
   List<Map<String, dynamic>> _extractSubmissionQuestions(
     Map<String, dynamic> item,
   ) {
-    final rawResults = item['questionResults'] as List? ??
+    final rawResults =
+        item['questionResults'] as List? ??
         item['questionFeedback'] as List? ??
         item['questions'] as List?;
     if (rawResults != null && rawResults.isNotEmpty) {
@@ -659,9 +666,9 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
       final ans = i < answers.length ? answers[i] : '';
       final expected = q?['correctAnswer'] ?? q?['expectedAnswer'];
       final style = q?['style'] ?? 'Objetiva';
-      final isCorrect = expected != null &&
-          ans.trim().toLowerCase() ==
-              expected.toString().trim().toLowerCase();
+      final isCorrect =
+          expected != null &&
+          ans.trim().toLowerCase() == expected.toString().trim().toLowerCase();
       list.add({
         'questionIndex': i,
         'question': q?['question'] ?? 'Questão ${i + 1}',
@@ -694,8 +701,8 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
 
     for (var i = 0; i < questions.length; i++) {
       final q = questions[i];
-      final isCor = q['isCorrect'] == true ||
-          '${q['status']}'.toUpperCase() == 'CORRECT';
+      final isCor =
+          q['isCorrect'] == true || '${q['status']}'.toUpperCase() == 'CORRECT';
       _questionCorrectMap[i] = isCor;
       _questionFeedbackCtrls[i] = TextEditingController(
         text: q['message']?.toString() ?? '',
@@ -718,8 +725,7 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
       for (var i = 0; i < questions.length; i++) {
         final isCorrect = _questionCorrectMap[i] ?? false;
         if (isCorrect) correctCount++;
-        final feedbackText =
-            _questionFeedbackCtrls[i]?.text.trim() ?? '';
+        final feedbackText = _questionFeedbackCtrls[i]?.text.trim() ?? '';
         questionReviews.add({
           'questionIndex': i,
           'isCorrect': isCorrect,
@@ -751,10 +757,7 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
             ),
             content: Row(
               children: [
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: Colors.white,
-                ),
+                const Icon(Icons.check_circle_rounded, color: Colors.white),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -816,8 +819,9 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
         ? questions.length
         : ((item['questionCount'] as num?)?.toInt() ?? 0);
     final int safeTotal = total <= 0 ? 1 : total;
-    final int correct =
-        _questionCorrectMap.values.where((v) => v == true).length;
+    final int correct = _questionCorrectMap.values
+        .where((v) => v == true)
+        .length;
     final int percent = ((correct / safeTotal) * 100).round();
     final int awardedXp = correct * 10;
 
@@ -840,7 +844,8 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
               children: [
                 AppUserAvatar(
                   name: item['studentName']?.toString() ?? 'Estudante',
-                  pictureUrl: item['studentProfilePicture']?.toString() ??
+                  pictureUrl:
+                      item['studentProfilePicture']?.toString() ??
                       item['profilePicture']?.toString(),
                   radius: 28,
                   backgroundColor: const Color(0xFFEDE9FE),
@@ -890,13 +895,21 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: percent >= 70
-                              ? [const Color(0xFF10B981), const Color(0xFF059669)]
-                              : [const Color(0xFF8B5CF6), const Color(0xFF6D28D9)],
+                              ? [
+                                  const Color(0xFF10B981),
+                                  const Color(0xFF059669),
+                                ]
+                              : [
+                                  const Color(0xFF8B5CF6),
+                                  const Color(0xFF6D28D9),
+                                ],
                         ),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.25),
+                            color: const Color(
+                              0xFF8B5CF6,
+                            ).withValues(alpha: 0.25),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -1037,8 +1050,7 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                       colors: colors,
                       isDark: isDark,
                     ),
-                    if (i < questions.length - 1)
-                      const SizedBox(height: 14),
+                    if (i < questions.length - 1) const SizedBox(height: 14),
                   ],
               ],
             ),
@@ -1191,13 +1203,15 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
     required bool isDark,
   }) {
     final style = '${questionData['style'] ?? 'Objetiva'}'.trim();
-    final isDiscursive = style.toLowerCase().contains('aberta') ||
+    final isDiscursive =
+        style.toLowerCase().contains('aberta') ||
         style.toLowerCase().contains('discursiva') ||
         style.toLowerCase().contains('open');
     final statement =
         questionData['question']?.toString() ?? 'Questão ${index + 1}';
     final studentAns = questionData['studentAnswer']?.toString().trim() ?? '';
-    final expectedAns = questionData['expectedAnswer']?.toString().trim() ??
+    final expectedAns =
+        questionData['expectedAnswer']?.toString().trim() ??
         questionData['correctAnswer']?.toString().trim() ??
         '';
     final options = (questionData['options'] as List? ?? const [])
@@ -1228,7 +1242,9 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
               color: isCorrect
                   ? const Color(0xFF10B981).withValues(alpha: 0.08)
                   : const Color(0xFF8B5CF6).withValues(alpha: 0.06),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(13),
+              ),
             ),
             child: Row(
               children: [
@@ -1365,15 +1381,17 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                             vertical: 5,
                           ),
                           decoration: BoxDecoration(
-                            color: opt.trim().toLowerCase() ==
+                            color:
+                                opt.trim().toLowerCase() ==
                                     studentAns.trim().toLowerCase()
                                 ? const Color(0xFFDDD6FE)
                                 : (isDark
-                                    ? colors.surfaceContainer
-                                    : const Color(0xFFF1F5F9)),
+                                      ? colors.surfaceContainer
+                                      : const Color(0xFFF1F5F9)),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: opt.trim().toLowerCase() ==
+                              color:
+                                  opt.trim().toLowerCase() ==
                                       studentAns.trim().toLowerCase()
                                   ? const Color(0xFF7C3AED)
                                   : Colors.transparent,
@@ -1383,11 +1401,13 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                             opt,
                             style: TextStyle(
                               fontSize: 12,
-                              fontWeight: opt.trim().toLowerCase() ==
+                              fontWeight:
+                                  opt.trim().toLowerCase() ==
                                       studentAns.trim().toLowerCase()
                                   ? FontWeight.w700
                                   : FontWeight.normal,
-                              color: opt.trim().toLowerCase() ==
+                              color:
+                                  opt.trim().toLowerCase() ==
                                       studentAns.trim().toLowerCase()
                                   ? const Color(0xFF5B21B6)
                                   : colors.onSurface,
@@ -1450,7 +1470,9 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                               ? FontStyle.italic
                               : FontStyle.normal,
                           color: studentAns.isNotEmpty
-                              ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                              ? (isDark
+                                    ? Colors.white
+                                    : const Color(0xFF0F172A))
                               : const Color(0xFF94A3B8),
                         ),
                       ),
@@ -1512,7 +1534,9 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                           decoration: BoxDecoration(
                             color: isCorrect
                                 ? const Color(0xFF10B981)
-                                : const Color(0xFF10B981).withValues(alpha: 0.1),
+                                : const Color(
+                                    0xFF10B981,
+                                  ).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: const Color(0xFF10B981),
@@ -1525,7 +1549,9 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                               Icon(
                                 Icons.check_circle_rounded,
                                 size: 16,
-                                color: isCorrect ? Colors.white : const Color(0xFF059669),
+                                color: isCorrect
+                                    ? Colors.white
+                                    : const Color(0xFF059669),
                               ),
                               const SizedBox(width: 6),
                               Text(
@@ -1558,7 +1584,9 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                           decoration: BoxDecoration(
                             color: !isCorrect
                                 ? const Color(0xFFEF4444)
-                                : const Color(0xFFEF4444).withValues(alpha: 0.1),
+                                : const Color(
+                                    0xFFEF4444,
+                                  ).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: const Color(0xFFEF4444),
@@ -1571,7 +1599,9 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                               Icon(
                                 Icons.cancel_rounded,
                                 size: 16,
-                                color: !isCorrect ? Colors.white : const Color(0xFFDC2626),
+                                color: !isCorrect
+                                    ? Colors.white
+                                    : const Color(0xFFDC2626),
                               ),
                               const SizedBox(width: 6),
                               Text(
@@ -1818,13 +1848,9 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
     final controller = TextEditingController(
       text: submission['feedback']?.toString() ?? '',
     );
-    final questionCount =
-        (submission['questionCount'] as num?)?.toInt() ?? 1;
-    var selectedCorrect =
-        ((submission['correctCount'] as num?)?.toInt() ?? 0).clamp(
-          0,
-          questionCount,
-        );
+    final questionCount = (submission['questionCount'] as num?)?.toInt() ?? 1;
+    var selectedCorrect = ((submission['correctCount'] as num?)?.toInt() ?? 0)
+        .clamp(0, questionCount);
     try {
       final ok = await showDialog<bool>(
         context: context,
@@ -1850,9 +1876,7 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                       questionCount + 1,
                       (index) => DropdownMenuItem(
                         value: index,
-                        child: Text(
-                          '$index / $questionCount correta(s)',
-                        ),
+                        child: Text('$index / $questionCount correta(s)'),
                       ),
                     ),
                     onChanged: (value) {
@@ -1975,9 +1999,12 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
       } else if (widget.section == 'achievements') {
         final responses = await Future.wait([
           _dio.get('/api/exercises/submissions'),
-          _dio.get('/api/achievements/me').catchError(
-            (_) => Response(requestOptions: RequestOptions(), data: const []),
-          ),
+          _dio
+              .get('/api/achievements/me')
+              .catchError(
+                (_) =>
+                    Response(requestOptions: RequestOptions(), data: const []),
+              ),
         ]);
         _submissions = (responses[0].data as List)
             .map(
@@ -2135,9 +2162,17 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
 
     final colors = Theme.of(context).colorScheme;
     final totalXp = _submissions.fold<int>(0, (sum, item) => sum + item.xp);
-    final totalCorrect = _submissions.fold<int>(0, (sum, item) => sum + item.correct);
-    final totalQuestions = _submissions.fold<int>(0, (sum, item) => sum + item.count);
-    final overallAccuracy = totalQuestions > 0 ? ((totalCorrect / totalQuestions) * 100).round() : 100;
+    final totalCorrect = _submissions.fold<int>(
+      0,
+      (sum, item) => sum + item.correct,
+    );
+    final totalQuestions = _submissions.fold<int>(
+      0,
+      (sum, item) => sum + item.count,
+    );
+    final overallAccuracy = totalQuestions > 0
+        ? ((totalCorrect / totalQuestions) * 100).round()
+        : 100;
 
     // Past expired exercises (não entregues e prazo expirado)
     final submittedIds = _submissions.map((s) => s.exerciseId).toSet();
@@ -2234,7 +2269,10 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                   children: [
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 14,
+                          horizontal: 12,
+                        ),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [Color(0xFF10B981), Color(0xFF059669)],
@@ -2242,7 +2280,9 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                              color: const Color(
+                                0xFF10B981,
+                              ).withValues(alpha: 0.25),
                               blurRadius: 10,
                               offset: const Offset(0, 3),
                             ),
@@ -2250,7 +2290,11 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                         ),
                         child: Column(
                           children: [
-                            const Icon(Icons.task_alt_rounded, color: Colors.white, size: 20),
+                            const Icon(
+                              Icons.task_alt_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                             const SizedBox(height: 4),
                             Text(
                               '${_submissions.length}',
@@ -2262,7 +2306,11 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                             ),
                             const Text(
                               'Entregas Concluídas',
-                              style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ],
                         ),
@@ -2271,7 +2319,10 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 14,
+                          horizontal: 12,
+                        ),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
@@ -2279,7 +2330,9 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+                              color: const Color(
+                                0xFFF59E0B,
+                              ).withValues(alpha: 0.25),
                               blurRadius: 10,
                               offset: const Offset(0, 3),
                             ),
@@ -2287,7 +2340,11 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                         ),
                         child: Column(
                           children: [
-                            const Icon(Icons.bolt_rounded, color: Colors.white, size: 20),
+                            const Icon(
+                              Icons.bolt_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                             const SizedBox(height: 4),
                             Text(
                               '+$totalXp XP',
@@ -2299,7 +2356,11 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                             ),
                             const Text(
                               'XP Conquistado',
-                              style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ],
                         ),
@@ -2308,7 +2369,10 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 14,
+                          horizontal: 12,
+                        ),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
@@ -2316,7 +2380,9 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF3B82F6).withValues(alpha: 0.25),
+                              color: const Color(
+                                0xFF3B82F6,
+                              ).withValues(alpha: 0.25),
                               blurRadius: 10,
                               offset: const Offset(0, 3),
                             ),
@@ -2324,7 +2390,11 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                         ),
                         child: Column(
                           children: [
-                            const Icon(Icons.track_changes_rounded, color: Colors.white, size: 20),
+                            const Icon(
+                              Icons.track_changes_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                             const SizedBox(height: 4),
                             Text(
                               '$overallAccuracy%',
@@ -2336,7 +2406,11 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                             ),
                             const Text(
                               'Taxa de Acertos',
-                              style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ],
                         ),
@@ -2351,7 +2425,8 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                     title: _dataLoadError == null
                         ? 'Ainda não há resultados no histórico'
                         : 'Resultados indisponíveis',
-                    message: _dataLoadError ??
+                    message:
+                        _dataLoadError ??
                         'Você ainda não concluiu nenhuma atividade. Complete uma lição no menu "Praticar lição" para registrar seu progresso.',
                     onRefresh: _refresh,
                   )
@@ -2407,7 +2482,10 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: colors.primaryContainer,
                                   borderRadius: BorderRadius.circular(8),
@@ -2422,9 +2500,14 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                  color: const Color(
+                                    0xFF10B981,
+                                  ).withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
@@ -2438,9 +2521,14 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                               ),
                               if (item.reviewStatus == 'PENDING_REVIEW')
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                                    color: const Color(
+                                      0xFFF59E0B,
+                                    ).withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: const Text(
@@ -2456,7 +2544,10 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                           ),
                         ),
                         trailing: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
                               colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
@@ -2473,27 +2564,43 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                           ),
                         ),
                         children: [
-                          if (item.feedback != null && item.feedback!.trim().isNotEmpty)
+                          if (item.feedback != null &&
+                              item.feedback!.trim().isNotEmpty)
                             Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: colors.secondaryContainer.withValues(alpha: 0.4),
+                                color: colors.secondaryContainer.withValues(
+                                  alpha: 0.4,
+                                ),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: colors.outlineVariant),
+                                border: Border.all(
+                                  color: colors.outlineVariant,
+                                ),
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.comment_rounded, size: 18, color: colors.primary),
+                                  Icon(
+                                    Icons.comment_rounded,
+                                    size: 18,
+                                    color: colors.primary,
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         const Text(
                                           'Feedback do Professor:',
-                                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 12,
+                                          ),
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
@@ -2509,10 +2616,14 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                           if (item.questionFeedback.isNotEmpty)
                             for (final qf in item.questionFeedback)
                               Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 4,
+                                ),
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: colors.surfaceContainerHighest.withValues(alpha: 0.35),
+                                  color: colors.surfaceContainerHighest
+                                      .withValues(alpha: 0.35),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Row(
@@ -2521,35 +2632,47 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                                     Container(
                                       padding: const EdgeInsets.all(6),
                                       decoration: BoxDecoration(
-                                        color: qf['evaluationMode'] == 'OPEN_ENDED'
-                                            ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
+                                        color:
+                                            qf['evaluationMode'] == 'OPEN_ENDED'
+                                            ? const Color(
+                                                0xFFF59E0B,
+                                              ).withValues(alpha: 0.15)
                                             : (qf['correct'] == true
-                                                ? const Color(0xFF10B981).withValues(alpha: 0.15)
-                                                : const Color(0xFFEF4444).withValues(alpha: 0.15)),
+                                                  ? const Color(
+                                                      0xFF10B981,
+                                                    ).withValues(alpha: 0.15)
+                                                  : const Color(
+                                                      0xFFEF4444,
+                                                    ).withValues(alpha: 0.15)),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Icon(
                                         qf['evaluationMode'] == 'OPEN_ENDED'
                                             ? Icons.subject_rounded
                                             : (qf['correct'] == true
-                                                ? Icons.check_circle_rounded
-                                                : Icons.cancel_rounded),
+                                                  ? Icons.check_circle_rounded
+                                                  : Icons.cancel_rounded),
                                         size: 18,
-                                        color: qf['evaluationMode'] == 'OPEN_ENDED'
+                                        color:
+                                            qf['evaluationMode'] == 'OPEN_ENDED'
                                             ? const Color(0xFFD97706)
                                             : (qf['correct'] == true
-                                                ? const Color(0xFF059669)
-                                                : const Color(0xFFDC2626)),
+                                                  ? const Color(0xFF059669)
+                                                  : const Color(0xFFDC2626)),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             'Questão ${((qf['questionIndex'] as num?)?.toInt() ?? 0) + 1}: ${qf['question'] ?? ''}',
-                                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 13,
+                                            ),
                                           ),
                                           const SizedBox(height: 3),
                                           Text(
@@ -2560,7 +2683,11 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
-                                          if (qf['feedback'] != null && qf['feedback'].toString().trim().isNotEmpty) ...[
+                                          if (qf['feedback'] != null &&
+                                              qf['feedback']
+                                                  .toString()
+                                                  .trim()
+                                                  .isNotEmpty) ...[
                                             const SizedBox(height: 2),
                                             Text(
                                               'Comentário: ${qf['feedback']}',
@@ -2580,7 +2707,9 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                           else
                             const Padding(
                               padding: EdgeInsets.all(14),
-                              child: Text('Sem detalhes individuais para esta entrega.'),
+                              child: Text(
+                                'Sem detalhes individuais para esta entrega.',
+                              ),
                             ),
                           const SizedBox(height: 8),
                         ],
@@ -2606,11 +2735,17 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                       decoration: BoxDecoration(
                         color: colors.surface,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.5)),
+                        border: Border.all(
+                          color: colors.outlineVariant.withValues(alpha: 0.5),
+                        ),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.event_busy_rounded, color: colors.onSurfaceVariant, size: 20),
+                          Icon(
+                            Icons.event_busy_rounded,
+                            color: colors.onSurfaceVariant,
+                            size: 20,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
@@ -2618,24 +2753,36 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                               children: [
                                 Text(
                                   ex.title,
-                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                  ),
                                 ),
                                 Text(
                                   '${ex.language} • Prazo encerrou',
-                                  style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: colors.onSurfaceVariant,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.grey.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Text(
                               'Prazo Expirado',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
@@ -2767,7 +2914,10 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                 if (urgent.isNotEmpty) ...[
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 14,
+                    ),
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
@@ -2782,7 +2932,9 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+                          color: const Color(
+                            0xFFEF4444,
+                          ).withValues(alpha: 0.35),
                           blurRadius: 14,
                           offset: const Offset(0, 4),
                         ),
@@ -2830,8 +2982,9 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                             end: Alignment.bottomRight,
                           ),
                           onTap: () => setState(() {
-                            _lessonFilter =
-                                _lessonFilter == 'pending' ? 'all' : 'pending';
+                            _lessonFilter = _lessonFilter == 'pending'
+                                ? 'all'
+                                : 'pending';
                           }),
                         ),
                         _LessonStat(
@@ -2846,8 +2999,9 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                             end: Alignment.bottomRight,
                           ),
                           onTap: () => setState(() {
-                            _lessonFilter =
-                                _lessonFilter == 'completed' ? 'all' : 'completed';
+                            _lessonFilter = _lessonFilter == 'completed'
+                                ? 'all'
+                                : 'completed';
                           }),
                         ),
                         _LessonStat(
@@ -2862,8 +3016,9 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                             end: Alignment.bottomRight,
                           ),
                           onTap: () => setState(() {
-                            _lessonFilter =
-                                _lessonFilter == 'urgent' ? 'all' : 'urgent';
+                            _lessonFilter = _lessonFilter == 'urgent'
+                                ? 'all'
+                                : 'urgent';
                           }),
                         ),
                       ],
@@ -2896,54 +3051,54 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                   ),
                 ],
                 const SizedBox(height: 18),
-                  if (_dataLoadError != null || _exercises.isEmpty)
-                    _DatabaseNotice(
-                      title: _dataLoadError == null
-                          ? 'Nenhuma atividade disponível'
-                          : 'Atividades indisponíveis',
-                      message:
-                          _dataLoadError ??
-                          'Não há atividades publicadas no banco de dados para suas turmas. Atualize para consultar novamente.',
-                      onRefresh: _refresh,
-                    )
-                  else if (filtered.isEmpty)
-                    _LessonEmptyFilter(filter: _lessonFilter)
-                  else
-                    for (final entry in grouped.entries) ...[
-                      _LessonTopicGroup(
-                        category: entry.key.split('\u0000').first,
-                        theme: entry.key.split('\u0000').last,
-                        count: entry.value.length,
-                        expanded: !_collapsedLessonGroups.contains(entry.key),
-                        onToggle: () => setState(() {
-                          if (!_collapsedLessonGroups.add(entry.key)) {
-                            _collapsedLessonGroups.remove(entry.key);
-                          }
-                        }),
-                        children: [
-                          for (final exercise in entry.value)
-                            _LessonAssignmentCard(
-                              exercise: exercise,
-                              completed: completedIds.contains(exercise.id),
-                              onTap: () {
-                                if (completedIds.contains(exercise.id)) return;
-                                setState(() {
-                                  if (exercise.isContent) {
-                                    _selectedContent = exercise;
-                                  } else if (exercise.questions.isNotEmpty) {
-                                    _selected = exercise;
-                                  }
-                                });
-                              },
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                ],
-              ),
+                if (_dataLoadError != null || _exercises.isEmpty)
+                  _DatabaseNotice(
+                    title: _dataLoadError == null
+                        ? 'Nenhuma atividade disponível'
+                        : 'Atividades indisponíveis',
+                    message:
+                        _dataLoadError ??
+                        'Não há atividades publicadas no banco de dados para suas turmas. Atualize para consultar novamente.',
+                    onRefresh: _refresh,
+                  )
+                else if (filtered.isEmpty)
+                  _LessonEmptyFilter(filter: _lessonFilter)
+                else
+                  for (final entry in grouped.entries) ...[
+                    _LessonTopicGroup(
+                      category: entry.key.split('\u0000').first,
+                      theme: entry.key.split('\u0000').last,
+                      count: entry.value.length,
+                      expanded: !_collapsedLessonGroups.contains(entry.key),
+                      onToggle: () => setState(() {
+                        if (!_collapsedLessonGroups.add(entry.key)) {
+                          _collapsedLessonGroups.remove(entry.key);
+                        }
+                      }),
+                      children: [
+                        for (final exercise in entry.value)
+                          _LessonAssignmentCard(
+                            exercise: exercise,
+                            completed: completedIds.contains(exercise.id),
+                            onTap: () {
+                              if (completedIds.contains(exercise.id)) return;
+                              setState(() {
+                                if (exercise.isContent) {
+                                  _selectedContent = exercise;
+                                } else if (exercise.questions.isNotEmpty) {
+                                  _selected = exercise;
+                                }
+                              });
+                            },
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+              ],
             ),
           ),
+        ),
       ],
     );
   }
@@ -2973,7 +3128,10 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [colors.primary, colors.primary.withValues(alpha: .86)],
+                      colors: [
+                        colors.primary,
+                        colors.primary.withValues(alpha: .86),
+                      ],
                     ),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
@@ -3033,7 +3191,9 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                               child: LinearProgressIndicator(
                                 value: progress,
                                 minHeight: 11,
-                                backgroundColor: Colors.white.withValues(alpha: 0.25),
+                                backgroundColor: Colors.white.withValues(
+                                  alpha: 0.25,
+                                ),
                                 color: Colors.white,
                               ),
                             ),
@@ -3065,55 +3225,53 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                   ),
                   const SizedBox(height: 20),
                 ],
-                  for (final entry in grouped.entries) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            entry.key,
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: colors.onSurface,
-                                ),
-                          ),
-                        ),
-                        Text(
-                          '${entry.value.where((item) => item.earned).length}/${entry.value.length}',
-                          style: TextStyle(
-                            color: colors.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final width = constraints.maxWidth >= 650
-                            ? (constraints.maxWidth - 12) / 2
-                            : constraints.maxWidth;
-                        return Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            for (final achievement in entry.value)
-                              SizedBox(
-                                width: width,
-                                child: _AchievementTile(
-                                  achievement: achievement,
-                                ),
+                for (final entry in grouped.entries) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          entry.key,
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: colors.onSurface,
                               ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 28),
-                  ],
+                        ),
+                      ),
+                      Text(
+                        '${entry.value.where((item) => item.earned).length}/${entry.value.length}',
+                        style: TextStyle(
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = constraints.maxWidth >= 650
+                          ? (constraints.maxWidth - 12) / 2
+                          : constraints.maxWidth;
+                      return Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          for (final achievement in entry.value)
+                            SizedBox(
+                              width: width,
+                              child: _AchievementTile(achievement: achievement),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 28),
                 ],
-              ),
+              ],
             ),
           ),
+        ),
       ],
     );
   }
@@ -3364,13 +3522,18 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                         color: Colors.white.withValues(alpha: 0.18),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
-                        Icons.emoji_events_rounded,
-                        color: Color(0xFFFFD700),
-                        size: 34,
-                      )
-                          .animate(onPlay: (c) => c.repeat(reverse: true))
-                          .scale(begin: const Offset(0.9, 0.9), end: const Offset(1.15, 1.15), duration: 700.ms),
+                      child:
+                          const Icon(
+                                Icons.emoji_events_rounded,
+                                color: Color(0xFFFFD700),
+                                size: 34,
+                              )
+                              .animate(onPlay: (c) => c.repeat(reverse: true))
+                              .scale(
+                                begin: const Offset(0.9, 0.9),
+                                end: const Offset(1.15, 1.15),
+                                duration: 700.ms,
+                              ),
                     ),
                     const SizedBox(height: 12),
                     const Text(
@@ -3693,14 +3856,18 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
             studentAns.trim().toLowerCase() ==
                 question.answer.trim().toLowerCase());
 
-    final cardBg =
-        isCorrect ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2);
-    final borderColor =
-        isCorrect ? const Color(0xFF86EFAC) : const Color(0xFFFECACA);
-    final iconColor =
-        isCorrect ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
-    final ansColor =
-        isCorrect ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
+    final cardBg = isCorrect
+        ? const Color(0xFFF0FDF4)
+        : const Color(0xFFFEF2F2);
+    final borderColor = isCorrect
+        ? const Color(0xFF86EFAC)
+        : const Color(0xFFFECACA);
+    final iconColor = isCorrect
+        ? const Color(0xFF16A34A)
+        : const Color(0xFFDC2626);
+    final ansColor = isCorrect
+        ? const Color(0xFF16A34A)
+        : const Color(0xFFDC2626);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -3878,7 +4045,9 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                   decoration: BoxDecoration(
                     color: colors.primaryContainer.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: colors.primary.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3910,13 +4079,18 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                           ),
                           OutlinedButton.icon(
                             onPressed: () => _speakCurrentPrompt(rate: 0.65),
-                            icon: const Icon(Icons.slow_motion_video_rounded, size: 18),
+                            icon: const Icon(
+                              Icons.slow_motion_video_rounded,
+                              size: 18,
+                            ),
                             label: const Text('Ouvir devagar'),
                           ),
                           FilledButton.tonalIcon(
                             onPressed: _listening ? null : _listenMicrophone,
                             icon: Icon(
-                              _listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                              _listening
+                                  ? Icons.mic_rounded
+                                  : Icons.mic_none_rounded,
                               size: 18,
                             ),
                             label: Text(
@@ -3959,7 +4133,8 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                           ),
                         ),
                       ),
-                      if (_audioFallbackMode && q.spokenReference.isNotEmpty) ...[
+                      if (_audioFallbackMode &&
+                          q.spokenReference.isNotEmpty) ...[
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
@@ -4079,7 +4254,9 @@ class _LessonStatState extends State<_LessonStat> {
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
-        cursor: widget.onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        cursor: widget.onTap != null
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedScale(
@@ -4096,7 +4273,9 @@ class _LessonStatState extends State<_LessonStat> {
                 border: Border.all(
                   color: widget.isSelected
                       ? Colors.white
-                      : (_isHovered ? Colors.white.withValues(alpha: 0.8) : Colors.transparent),
+                      : (_isHovered
+                            ? Colors.white.withValues(alpha: 0.8)
+                            : Colors.transparent),
                   width: widget.isSelected ? 2.5 : (_isHovered ? 1.5 : 1.0),
                 ),
                 boxShadow: [
@@ -4314,154 +4493,156 @@ class _LessonAssignmentCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: exercise.isContent
-                      ? colors.tertiaryContainer
-                      : colors.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: exercise.isContent
+                        ? colors.tertiaryContainer
+                        : colors.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    exercise.isContent
+                        ? Icons.description_outlined
+                        : Icons.menu_book_rounded,
+                    color: exercise.isContent
+                        ? colors.onTertiaryContainer
+                        : colors.onPrimaryContainer,
+                    size: 21,
+                  ),
                 ),
-                child: Icon(
-                  exercise.isContent
-                      ? Icons.description_outlined
-                      : Icons.menu_book_rounded,
-                  color: exercise.isContent
-                      ? colors.onTertiaryContainer
-                      : colors.onPrimaryContainer,
-                  size: 21,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text(
-                          exercise.title,
-                          style: TextStyle(
-                            color: colors.onSurface,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            exercise.title,
+                            style: TextStyle(
+                              color: colors.onSurface,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        ),
-                        _LessonBadge(
-                          label: exercise.isContent ? 'Conteúdo' : 'Atividade',
-                          color: exercise.isContent
-                              ? colors.tertiaryContainer
-                              : colors.primaryContainer,
-                          textColor: exercise.isContent
-                              ? colors.onTertiaryContainer
-                              : colors.onPrimaryContainer,
-                        ),
-                        if (completed)
                           _LessonBadge(
-                            label: 'Concluída',
-                            color: colors.primaryContainer,
-                            textColor: colors.onPrimaryContainer,
+                            label: exercise.isContent
+                                ? 'Conteúdo'
+                                : 'Atividade',
+                            color: exercise.isContent
+                                ? colors.tertiaryContainer
+                                : colors.primaryContainer,
+                            textColor: exercise.isContent
+                                ? colors.onTertiaryContainer
+                                : colors.onPrimaryContainer,
                           ),
-                      ],
-                    ),
-                    if (exercise.description?.trim().isNotEmpty ?? false) ...[
-                      const SizedBox(height: 5),
-                      Text(
-                        exercise.description!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colors.onSurfaceVariant,
-                          fontSize: 12,
-                        ),
+                          if (completed)
+                            _LessonBadge(
+                              label: 'Concluída',
+                              color: colors.primaryContainer,
+                              textColor: colors.onPrimaryContainer,
+                            ),
+                        ],
                       ),
-                    ],
-                    if (metadata.isNotEmpty) ...[
-                      const SizedBox(height: 5),
-                      Text(
-                        metadata,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colors.onSurfaceVariant,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 7),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 4,
-                      children: [
+                      if (exercise.description?.trim().isNotEmpty ?? false) ...[
+                        const SizedBox(height: 5),
                         Text(
-                          exercise.dueDateLabel,
+                          exercise.description!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                      if (metadata.isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          metadata,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: colors.onSurfaceVariant,
                             fontSize: 11,
                           ),
                         ),
-                        if (remainingLabel != null && !completed)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (urgent) ...[
-                                Icon(
-                                  Icons.warning_amber_rounded,
-                                  size: 14,
-                                  color: colors.error,
-                                ),
-                                const SizedBox(width: 3),
-                              ] else ...[
-                                Icon(
-                                  Icons.schedule_rounded,
-                                  size: 14,
-                                  color: colors.onSurfaceVariant,
-                                ),
-                                const SizedBox(width: 3),
-                              ],
-                              Text(
-                                remainingLabel,
-                                style: TextStyle(
-                                  color: urgent
-                                      ? colors.error
-                                      : colors.onSurfaceVariant,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        if (!openable && !completed)
+                      ],
+                      const SizedBox(height: 7),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 4,
+                        children: [
                           Text(
-                            'Conteúdo indisponível',
+                            exercise.dueDateLabel,
                             style: TextStyle(
                               color: colors.onSurfaceVariant,
                               fontSize: 11,
                             ),
                           ),
-                      ],
-                    ),
-                  ],
+                          if (remainingLabel != null && !completed)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (urgent) ...[
+                                  Icon(
+                                    Icons.warning_amber_rounded,
+                                    size: 14,
+                                    color: colors.error,
+                                  ),
+                                  const SizedBox(width: 3),
+                                ] else ...[
+                                  Icon(
+                                    Icons.schedule_rounded,
+                                    size: 14,
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 3),
+                                ],
+                                Text(
+                                  remainingLabel,
+                                  style: TextStyle(
+                                    color: urgent
+                                        ? colors.error
+                                        : colors.onSurfaceVariant,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          if (!openable && !completed)
+                            Text(
+                              'Conteúdo indisponível',
+                              style: TextStyle(
+                                color: colors.onSurfaceVariant,
+                                fontSize: 11,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              if (!completed && openable) ...[
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: colors.onSurfaceVariant,
-                ),
+                if (!completed && openable) ...[
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 class _LessonBadge extends StatelessWidget {
@@ -4694,7 +4875,8 @@ class _ExerciseQuestion {
   final String style;
   final String answer;
 
-  String get spokenReference => answer.trim().isNotEmpty ? answer.trim() : prompt.trim();
+  String get spokenReference =>
+      answer.trim().isNotEmpty ? answer.trim() : prompt.trim();
 
   bool get isOpenEnded {
     final s = style.trim().toLowerCase();
@@ -4805,7 +4987,9 @@ List<_AchievementMilestone> _buildAchievements(
   if (dbAchievements.isNotEmpty) {
     return dbAchievements.map((item) {
       final earned = item['earned'] == true;
-      final parsedDate = DateTime.tryParse(item['earnedAt']?.toString() ?? '')?.toLocal();
+      final parsedDate = DateTime.tryParse(
+        item['earnedAt']?.toString() ?? '',
+      )?.toLocal();
       return _AchievementMilestone(
         category: item['category']?.toString() ?? 'Geral',
         title: item['title']?.toString() ?? 'Conquista',
@@ -5263,7 +5447,9 @@ class _StudentLanguageManagerState extends State<StudentLanguageManager> {
           ),
           actions: [
             TextButton(
-              onPressed: busy ? null : () => Navigator.pop(dialogContext, false),
+              onPressed: busy
+                  ? null
+                  : () => Navigator.pop(dialogContext, false),
               child: const Text('Cancelar'),
             ),
             FilledButton(
@@ -5499,7 +5685,9 @@ class _DetailedEnrollmentCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.8),
+          color: Theme.of(
+            context,
+          ).colorScheme.outlineVariant.withValues(alpha: 0.8),
         ),
       ),
       child: InkWell(
@@ -5544,17 +5732,24 @@ class _DetailedEnrollmentCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: isActive
-                                ? const Color(0xFF15803D).withValues(alpha: 0.12)
+                                ? const Color(
+                                    0xFF15803D,
+                                  ).withValues(alpha: 0.12)
                                 : Colors.grey.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             isActive ? 'Ativa' : 'Encerrada',
                             style: TextStyle(
-                              color: isActive ? const Color(0xFF15803D) : Colors.grey[800],
+                              color: isActive
+                                  ? const Color(0xFF15803D)
+                                  : Colors.grey[800],
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),
@@ -5722,9 +5917,14 @@ class _StudentClassDashboardViewState
 
       if (!mounted) return;
       setState(() {
-        _dashboard = respDash.data is Map ? Map<String, dynamic>.from(respDash.data as Map) : null;
+        _dashboard = respDash.data is Map
+            ? Map<String, dynamic>.from(respDash.data as Map)
+            : null;
         final rawSubs = respSubs.data;
-        _mySubmissions = (rawSubs is List ? rawSubs : const []).whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+        _mySubmissions = (rawSubs is List ? rawSubs : const [])
+            .whereType<Map>()
+            .map((m) => Map<String, dynamic>.from(m))
+            .toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -5773,9 +5973,15 @@ class _StudentClassDashboardViewState
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  const Icon(Icons.error_outline_rounded, size: 40, color: Color(0xFFDC2626)),
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    size: 40,
+                    color: Color(0xFFDC2626),
+                  ),
                   const SizedBox(height: 12),
-                  Text(_error ?? 'Não foi possível carregar os dados da turma.'),
+                  Text(
+                    _error ?? 'Não foi possível carregar os dados da turma.',
+                  ),
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: _loadClassData,
@@ -5807,7 +6013,8 @@ class _StudentClassDashboardViewState
     myStudentSummary ??= studentsList.isNotEmpty ? studentsList.first : null;
 
     final myAccuracy =
-        (myStudentSummary?['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0;
+        (myStudentSummary?['averageAccuracyPercent'] as num?)?.toDouble() ??
+        0.0;
     final myXp = (myStudentSummary?['xpEarned'] as num?)?.toInt() ?? 0;
     final mySubmissionsCount =
         (myStudentSummary?['submissionsCount'] as num?)?.toInt() ?? 0;
@@ -5829,16 +6036,24 @@ class _StudentClassDashboardViewState
     // Sort classmates
     final sortedClassmates = List<Map<String, dynamic>>.from(studentsList);
     if (_classmateSort == 'xp') {
-      sortedClassmates.sort((a, b) => ((b['xpEarned'] as num?)?.toInt() ?? 0)
-          .compareTo((a['xpEarned'] as num?)?.toInt() ?? 0));
+      sortedClassmates.sort(
+        (a, b) => ((b['xpEarned'] as num?)?.toInt() ?? 0).compareTo(
+          (a['xpEarned'] as num?)?.toInt() ?? 0,
+        ),
+      );
     } else if (_classmateSort == 'accuracy') {
-      sortedClassmates.sort((a, b) =>
-          ((b['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0).compareTo(
-              (a['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0));
+      sortedClassmates.sort(
+        (a, b) => ((b['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0)
+            .compareTo(
+              (a['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0,
+            ),
+      );
     } else {
-      sortedClassmates.sort((a, b) => '${a['name'] ?? ''}'
-          .toLowerCase()
-          .compareTo('${b['name'] ?? ''}'.toLowerCase()));
+      sortedClassmates.sort(
+        (a, b) => '${a['name'] ?? ''}'.toLowerCase().compareTo(
+          '${b['name'] ?? ''}'.toLowerCase(),
+        ),
+      );
     }
 
     final isPast = !widget.enrollment.isActive;
@@ -5860,7 +6075,8 @@ class _StudentClassDashboardViewState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    dash['name']?.toString() ?? widget.enrollment.schoolClassName,
+                    dash['name']?.toString() ??
+                        widget.enrollment.schoolClassName,
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
@@ -5883,6 +6099,23 @@ class _StudentClassDashboardViewState
                 ],
               ),
             ),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.campaign_rounded, size: 18),
+              label: const Text('Mural de Avisos'),
+              onPressed: () {
+                final classId =
+                    widget.enrollment.schoolClassId ??
+                    (_dashboard?['id'] as num?)?.toInt() ??
+                    0;
+                ClassAnnouncementsView.show(
+                  context,
+                  classId: classId,
+                  className: widget.enrollment.schoolClassName,
+                  isTeacher: false,
+                );
+              },
+            ),
+            const SizedBox(width: 8),
             IconButton(
               tooltip: 'Atualizar dados',
               onPressed: _loadClassData,
@@ -5937,45 +6170,57 @@ class _StudentClassDashboardViewState
               children: [
                 SizedBox(
                   width: cardW,
-                  child: InfoStatCard(
-                    title: 'Sua Taxa Média de Acertos',
-                    value: '$myAccuracy%',
-                    subtitle: 'Desempenho nesta turma',
-                    icon: Icons.track_changes_rounded,
-                    accentColor: const Color(0xFF2563EB),
-                    onTap: () {
-                      widget.onBack();
-                      widget.onNavigateSection?.call('lesson');
-                    },
-                  ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.08, end: 0),
+                  child:
+                      InfoStatCard(
+                            title: 'Sua Taxa Média de Acertos',
+                            value: '$myAccuracy%',
+                            subtitle: 'Desempenho nesta turma',
+                            icon: Icons.track_changes_rounded,
+                            accentColor: const Color(0xFF2563EB),
+                            onTap: () {
+                              widget.onBack();
+                              widget.onNavigateSection?.call('lesson');
+                            },
+                          )
+                          .animate()
+                          .fadeIn(duration: 350.ms)
+                          .slideY(begin: 0.08, end: 0),
                 ),
                 SizedBox(
                   width: cardW,
-                  child: InfoStatCard(
-                    title: 'Seu XP Ganho na Turma',
-                    value: '$myXp XP',
-                    subtitle: 'Total acumulado',
-                    icon: Icons.bolt_rounded,
-                    accentColor: const Color(0xFFFFB800),
-                    onTap: () {
-                      widget.onBack();
-                      widget.onNavigateSection?.call('ranking');
-                    },
-                  ).animate().fadeIn(duration: 350.ms, delay: 60.ms).slideY(begin: 0.08, end: 0),
+                  child:
+                      InfoStatCard(
+                            title: 'Seu XP Ganho na Turma',
+                            value: '$myXp XP',
+                            subtitle: 'Total acumulado',
+                            icon: Icons.bolt_rounded,
+                            accentColor: const Color(0xFFFFB800),
+                            onTap: () {
+                              widget.onBack();
+                              widget.onNavigateSection?.call('ranking');
+                            },
+                          )
+                          .animate()
+                          .fadeIn(duration: 350.ms, delay: 60.ms)
+                          .slideY(begin: 0.08, end: 0),
                 ),
                 SizedBox(
                   width: cardW,
-                  child: InfoStatCard(
-                    title: 'Suas Entregas Realizadas',
-                    value: '$mySubmissionsCount',
-                    subtitle: 'Atividades submetidas',
-                    icon: Icons.assignment_turned_in_rounded,
-                    accentColor: const Color(0xFF059669),
-                    onTap: () {
-                      widget.onBack();
-                      widget.onNavigateSection?.call('history');
-                    },
-                  ).animate().fadeIn(duration: 350.ms, delay: 120.ms).slideY(begin: 0.08, end: 0),
+                  child:
+                      InfoStatCard(
+                            title: 'Suas Entregas Realizadas',
+                            value: '$mySubmissionsCount',
+                            subtitle: 'Atividades submetidas',
+                            icon: Icons.assignment_turned_in_rounded,
+                            accentColor: const Color(0xFF059669),
+                            onTap: () {
+                              widget.onBack();
+                              widget.onNavigateSection?.call('history');
+                            },
+                          )
+                          .animate()
+                          .fadeIn(duration: 350.ms, delay: 120.ms)
+                          .slideY(begin: 0.08, end: 0),
                 ),
               ],
             );
@@ -5991,12 +6236,16 @@ class _StudentClassDashboardViewState
                 segments: [
                   ButtonSegment<int>(
                     value: 0,
-                    label: Text('Colegas da Turma (${sortedClassmates.length})'),
+                    label: Text(
+                      'Colegas da Turma (${sortedClassmates.length})',
+                    ),
                     icon: const Icon(Icons.people_outline_rounded),
                   ),
                   ButtonSegment<int>(
                     value: 1,
-                    label: Text('Atividades da Turma (${exercisesList.length})'),
+                    label: Text(
+                      'Atividades da Turma (${exercisesList.length})',
+                    ),
                     icon: const Icon(Icons.assignment_outlined),
                   ),
                 ],
@@ -6067,12 +6316,15 @@ class _StudentClassDashboardViewState
             ...sortedClassmates.asMap().entries.map((entry) {
               final rank = entry.key + 1;
               final student = entry.value;
-              final isMe = currentStudentId != null &&
+              final isMe =
+                  currentStudentId != null &&
                   (student['studentId'] as num?)?.toInt() == currentStudentId;
               final stAccuracy =
-                  (student['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0;
+                  (student['averageAccuracyPercent'] as num?)?.toDouble() ??
+                  0.0;
               final stXp = (student['xpEarned'] as num?)?.toInt() ?? 0;
-              final stSubs = (student['submissionsCount'] as num?)?.toInt() ?? 0;
+              final stSubs =
+                  (student['submissionsCount'] as num?)?.toInt() ?? 0;
 
               return Card(
                 elevation: 0,
@@ -6082,7 +6334,9 @@ class _StudentClassDashboardViewState
                   side: BorderSide(
                     color: isMe
                         ? const Color(0xFF2563EB).withValues(alpha: 0.5)
-                        : Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.7),
+                        : Theme.of(
+                            context,
+                          ).colorScheme.outlineVariant.withValues(alpha: 0.7),
                     width: isMe ? 2 : 1,
                   ),
                 ),
@@ -6090,7 +6344,10 @@ class _StudentClassDashboardViewState
                     ? const Color(0xFF2563EB).withValues(alpha: 0.04)
                     : null,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   child: Row(
                     children: [
                       Container(
@@ -6101,10 +6358,16 @@ class _StudentClassDashboardViewState
                           color: rank == 1
                               ? const Color(0xFFFFD700).withValues(alpha: 0.2)
                               : (rank == 2
-                                  ? const Color(0xFFC0C0C0).withValues(alpha: 0.2)
-                                  : (rank == 3
-                                      ? const Color(0xFFCD7F32).withValues(alpha: 0.2)
-                                      : Colors.grey.withValues(alpha: 0.1))),
+                                    ? const Color(
+                                        0xFFC0C0C0,
+                                      ).withValues(alpha: 0.2)
+                                    : (rank == 3
+                                          ? const Color(
+                                              0xFFCD7F32,
+                                            ).withValues(alpha: 0.2)
+                                          : Colors.grey.withValues(
+                                              alpha: 0.1,
+                                            ))),
                           shape: BoxShape.circle,
                         ),
                         child: Text(
@@ -6160,9 +6423,9 @@ class _StudentClassDashboardViewState
                               '$stSubs entregas realizadas',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -6187,8 +6450,8 @@ class _StudentClassDashboardViewState
                               color: stAccuracy >= 70
                                   ? const Color(0xFF15803D)
                                   : (stAccuracy >= 50
-                                      ? const Color(0xFFD97706)
-                                      : const Color(0xFFDC2626)),
+                                        ? const Color(0xFFD97706)
+                                        : const Color(0xFFDC2626)),
                             ),
                           ),
                         ],
@@ -6215,7 +6478,8 @@ class _StudentClassDashboardViewState
               final sub = exId != null ? mySubsByExerciseId[exId] : null;
               final isCompleted = sub != null;
               final dueDateStr = ex['dueDate']?.toString();
-              final isCritical = !isCompleted && _isCriticalDeadline(dueDateStr);
+              final isCritical =
+                  !isCompleted && _isCriticalDeadline(dueDateStr);
 
               return Card(
                 elevation: 0,
@@ -6226,8 +6490,8 @@ class _StudentClassDashboardViewState
                     color: isCompleted
                         ? const Color(0xFF15803D).withValues(alpha: 0.3)
                         : (isCritical
-                            ? const Color(0xFFDC2626)
-                            : Theme.of(context).colorScheme.outlineVariant),
+                              ? const Color(0xFFDC2626)
+                              : Theme.of(context).colorScheme.outlineVariant),
                     width: isCritical ? 2 : 1,
                   ),
                 ),
@@ -6246,23 +6510,29 @@ class _StudentClassDashboardViewState
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
                               color: isCompleted
-                                  ? const Color(0xFF15803D).withValues(alpha: 0.12)
+                                  ? const Color(
+                                      0xFF15803D,
+                                    ).withValues(alpha: 0.12)
                                   : (isCritical
-                                      ? const Color(0xFFDC2626).withValues(alpha: 0.15)
-                                      : const Color(0xFF2563EB).withValues(alpha: 0.12)),
+                                        ? const Color(
+                                            0xFFDC2626,
+                                          ).withValues(alpha: 0.15)
+                                        : const Color(
+                                            0xFF2563EB,
+                                          ).withValues(alpha: 0.12)),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Icon(
                               isCompleted
                                   ? Icons.check_circle_rounded
                                   : (isCritical
-                                      ? Icons.alarm_on_rounded
-                                      : Icons.assignment_outlined),
+                                        ? Icons.alarm_on_rounded
+                                        : Icons.assignment_outlined),
                               color: isCompleted
                                   ? const Color(0xFF15803D)
                                   : (isCritical
-                                      ? const Color(0xFFDC2626)
-                                      : const Color(0xFF2563EB)),
+                                        ? const Color(0xFFDC2626)
+                                        : const Color(0xFF2563EB)),
                               size: 20,
                             ),
                           ),
@@ -6288,9 +6558,9 @@ class _StudentClassDashboardViewState
                                   ].join(' • '),
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                               ],
@@ -6304,7 +6574,9 @@ class _StudentClassDashboardViewState
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF15803D).withValues(alpha: 0.12),
+                                color: const Color(
+                                  0xFF15803D,
+                                ).withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Row(
@@ -6334,7 +6606,9 @@ class _StudentClassDashboardViewState
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFDC2626).withValues(alpha: 0.15),
+                                color: const Color(
+                                  0xFFDC2626,
+                                ).withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Row(
@@ -6364,9 +6638,9 @@ class _StudentClassDashboardViewState
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
@@ -6374,9 +6648,9 @@ class _StudentClassDashboardViewState
                                     ? 'Entrega até $dueDateStr'
                                     : 'Sem prazo fixo',
                                 style: TextStyle(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -6393,13 +6667,19 @@ class _StudentClassDashboardViewState
                               onPressed: () {
                                 showDialog<void>(
                                   context: context,
-                                  builder: (ctx) => _StudentExerciseReviewDialog(
-                                    exerciseId: exId,
-                                    exerciseTitle: ex['title']?.toString() ?? 'Atividade',
-                                  ),
+                                  builder: (ctx) =>
+                                      _StudentExerciseReviewDialog(
+                                        exerciseId: exId,
+                                        exerciseTitle:
+                                            ex['title']?.toString() ??
+                                            'Atividade',
+                                      ),
                                 );
                               },
-                              icon: const Icon(Icons.rate_review_outlined, size: 16),
+                              icon: const Icon(
+                                Icons.rate_review_outlined,
+                                size: 16,
+                              ),
                               label: const Text('Ver Correção & Respostas'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF2563EB),
@@ -6523,8 +6803,8 @@ class _StudentExerciseReviewDialogState
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? Center(child: Text(_error!))
-                : _buildReviewContent(),
+            ? Center(child: Text(_error!))
+            : _buildReviewContent(),
       ),
       actions: [
         FilledButton(
@@ -6597,9 +6877,14 @@ class _StudentExerciseReviewDialogState
                 ),
                 Column(
                   children: [
-                    const Text('Status da Avaliação', style: TextStyle(fontSize: 12)),
+                    const Text(
+                      'Status da Avaliação',
+                      style: TextStyle(fontSize: 12),
+                    ),
                     Text(
-                      isReviewed ? 'Corrigido pelo Professor' : 'Avaliação Preliminar',
+                      isReviewed
+                          ? 'Corrigido pelo Professor'
+                          : 'Avaliação Preliminar',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -6646,10 +6931,7 @@ class _StudentExerciseReviewDialogState
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          feedback,
-                          style: const TextStyle(fontSize: 13),
-                        ),
+                        Text(feedback, style: const TextStyle(fontSize: 13)),
                       ],
                     ),
                   ),
@@ -6667,8 +6949,12 @@ class _StudentExerciseReviewDialogState
             _buildQuestionComparisonCard(
               index: i + 1,
               question: questions[i],
-              studentAnswer: i < studentAnswers.length ? studentAnswers[i] : null,
-              questionResult: i < questionResults.length ? questionResults[i] : null,
+              studentAnswer: i < studentAnswers.length
+                  ? studentAnswers[i]
+                  : null,
+              questionResult: i < questionResults.length
+                  ? questionResults[i]
+                  : null,
             ),
             const SizedBox(height: 10),
           ],
@@ -6683,8 +6969,10 @@ class _StudentExerciseReviewDialogState
     required String? studentAnswer,
     required Map<String, dynamic>? questionResult,
   }) {
-    final expected = question['correctAnswer'] ?? question['expectedAnswer'] ?? '';
-    final isMatch = (studentAnswer ?? '').trim().toLowerCase() ==
+    final expected =
+        question['correctAnswer'] ?? question['expectedAnswer'] ?? '';
+    final isMatch =
+        (studentAnswer ?? '').trim().toLowerCase() ==
         expected.toString().trim().toLowerCase();
     final status = questionResult?['status']?.toString().toUpperCase();
     final isCorrect = status == 'CORRECT' || (status == null && isMatch);
@@ -6707,8 +6995,9 @@ class _StudentExerciseReviewDialogState
             children: [
               CircleAvatar(
                 radius: 12,
-                backgroundColor:
-                    isCorrect ? const Color(0xFF15803D) : const Color(0xFFDC2626),
+                backgroundColor: isCorrect
+                    ? const Color(0xFF15803D)
+                    : const Color(0xFFDC2626),
                 child: Icon(
                   isCorrect ? Icons.check : Icons.close,
                   size: 14,
@@ -6719,7 +7008,10 @@ class _StudentExerciseReviewDialogState
               Expanded(
                 child: Text(
                   'Questão $index: ${question['question'] ?? ''}',
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ],
@@ -6728,8 +7020,11 @@ class _StudentExerciseReviewDialogState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: (isCorrect ? const Color(0xFF15803D) : const Color(0xFFDC2626))
-                  .withValues(alpha: 0.08),
+              color:
+                  (isCorrect
+                          ? const Color(0xFF15803D)
+                          : const Color(0xFFDC2626))
+                      .withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -6746,7 +7041,9 @@ class _StudentExerciseReviewDialogState
                 ),
                 Expanded(
                   child: Text(
-                    studentAnswer?.isEmpty ?? true ? '(em branco)' : studentAnswer!,
+                    studentAnswer?.isEmpty ?? true
+                        ? '(em branco)'
+                        : studentAnswer!,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -6908,9 +7205,7 @@ class _TeacherClassManagementViewState
                 const SizedBox(height: 10),
                 TextField(
                   controller: gradeCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Nível / Série',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Nível / Série'),
                 ),
               ],
             ),
@@ -7214,6 +7509,18 @@ class _TeacherClassManagementViewState
                   label: const Text('Adicionar Estudante'),
                 ),
                 OutlinedButton.icon(
+                  onPressed: () {
+                    ClassAnnouncementsView.show(
+                      context,
+                      classId: classId,
+                      className: _selectedClassName ?? 'Turma',
+                      isTeacher: true,
+                    );
+                  },
+                  icon: const Icon(Icons.campaign_rounded, size: 18),
+                  label: const Text('Mural de Avisos'),
+                ),
+                OutlinedButton.icon(
                   onPressed: () => _openClassDashboard(
                     classId,
                     _selectedClassName ?? 'Turma',
@@ -7334,9 +7641,7 @@ class _TeacherClassManagementViewState
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
-                  leading: CircleAvatar(
-                    child: Text(_initial(s['name'])),
-                  ),
+                  leading: CircleAvatar(child: Text(_initial(s['name']))),
                   title: Text(
                     '${s['name'] ?? roleLabel}',
                     style: const TextStyle(fontWeight: FontWeight.w700),
@@ -7349,12 +7654,35 @@ class _TeacherClassManagementViewState
                   trailing: enrollmentId == null
                       ? null
                       : PopupMenuButton<String>(
-                          onSelected: (action) => _updateEnrollmentStatus(
-                            enrollmentId,
-                            action,
-                            classId,
-                          ),
+                          onSelected: (action) {
+                            if (action == 'notes') {
+                              final studentId =
+                                  (s['studentId'] as num?)?.toInt() ?? 0;
+                              TeacherStudentNotesDialog.show(
+                                context,
+                                studentId: studentId,
+                                studentName: '${s['name'] ?? 'Estudante'}',
+                                classId: classId,
+                              );
+                            } else {
+                              _updateEnrollmentStatus(
+                                enrollmentId,
+                                action,
+                                classId,
+                              );
+                            }
+                          },
                           itemBuilder: (_) => const [
+                            PopupMenuItem(
+                              value: 'notes',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.sticky_note_2_rounded, size: 16),
+                                  SizedBox(width: 8),
+                                  Text('Anotações privadas'),
+                                ],
+                              ),
+                            ),
                             PopupMenuItem(
                               value: 'approve',
                               child: Text('Aprovar / ativar'),

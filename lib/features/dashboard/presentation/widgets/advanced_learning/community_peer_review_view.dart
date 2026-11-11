@@ -8,17 +8,18 @@ class CommunityPeerReviewView extends StatefulWidget {
   final VoidCallback onBack;
 
   @override
-  State<CommunityPeerReviewView> createState() => _CommunityPeerReviewViewState();
+  State<CommunityPeerReviewView> createState() =>
+      _CommunityPeerReviewViewState();
 }
 
-class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> with SingleTickerProviderStateMixin {
+class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView>
+    with SingleTickerProviderStateMixin {
   final Dio _dio = ApiClient().dio;
   late TabController _tabController;
 
   List<Map<String, dynamic>> _feedSubmissions = [];
   List<Map<String, dynamic>> _mySubmissions = [];
   bool _loading = false;
-  String? _error;
 
   @override
   void initState() {
@@ -43,16 +44,22 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> with 
 
       if (!mounted) return;
       setState(() {
-        _feedSubmissions = (res[0].data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
-        _mySubmissions = (res[1].data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        _feedSubmissions = (res[0].data as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+        _mySubmissions = (res[1].data as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
         _loading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Erro ao carregar comunidade.';
         _loading = false;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao carregar comunidade: $e')),
+      );
     }
   }
 
@@ -67,24 +74,38 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> with 
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Text('Enviar Exercício para Revisão Comunitária'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: language,
-                  decoration: const InputDecoration(labelText: 'Idioma', border: OutlineInputBorder()),
-                  items: ['Inglês', 'Espanhol', 'Francês'].map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
-                  onChanged: (v) => setDialogState(() => language = v ?? 'Inglês'),
+                  initialValue: language,
+                  decoration: const InputDecoration(
+                    labelText: 'Idioma',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: ['Inglês', 'Espanhol', 'Francês']
+                      .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+                      .toList(),
+                  onChanged: (v) =>
+                      setDialogState(() => language = v ?? 'Inglês'),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: targetLevel,
-                  decoration: const InputDecoration(labelText: 'Nível Pretendido', border: OutlineInputBorder()),
-                  items: ['A1', 'A2', 'B1', 'B2', 'C1'].map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
-                  onChanged: (v) => setDialogState(() => targetLevel = v ?? 'A2'),
+                  initialValue: targetLevel,
+                  decoration: const InputDecoration(
+                    labelText: 'Nível Pretendido',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: ['A1', 'A2', 'B1', 'B2', 'C1']
+                      .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+                      .toList(),
+                  onChanged: (v) =>
+                      setDialogState(() => targetLevel = v ?? 'A2'),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -101,7 +122,8 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> with 
                   maxLines: 4,
                   decoration: const InputDecoration(
                     labelText: 'Seu Texto no Idioma Estudado *',
-                    hintText: 'Escreva sua resposta para outros estudantes revisarem...',
+                    hintText:
+                        'Escreva sua resposta para outros estudantes revisarem...',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -109,31 +131,55 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> with 
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar'),
+            ),
             FilledButton(
-              onPressed: saving ? null : () async {
-                if (titleCtrl.text.trim().isEmpty || contentCtrl.text.trim().isEmpty) return;
-                setDialogState(() => saving = true);
-                try {
-                  await _dio.post('/api/community/submissions', data: {
-                    'language': language,
-                    'promptTitle': titleCtrl.text.trim(),
-                    'content': contentCtrl.text.trim(),
-                    'targetLevel': targetLevel,
-                    'isPublic': true,
-                  });
-                  if (ctx.mounted) Navigator.of(ctx).pop();
-                  _loadAll();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Exercício enviado com sucesso para a comunidade!')),
-                    );
-                  }
-                } catch (e) {
-                  setDialogState(() => saving = false);
-                }
-              },
-              child: saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Publicar'),
+              onPressed: saving
+                  ? null
+                  : () async {
+                      if (titleCtrl.text.trim().isEmpty ||
+                          contentCtrl.text.trim().isEmpty) {
+                        return;
+                      }
+                      setDialogState(() => saving = true);
+                      try {
+                        await _dio.post(
+                          '/api/community/submissions',
+                          data: {
+                            'language': language,
+                            'promptTitle': titleCtrl.text.trim(),
+                            'content': contentCtrl.text.trim(),
+                            'targetLevel': targetLevel,
+                            'isPublic': true,
+                          },
+                        );
+                        if (ctx.mounted) Navigator.of(ctx).pop();
+                        _loadAll();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Exercício enviado com sucesso para a comunidade!',
+                              ),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => saving = false);
+                      }
+                    },
+              child: saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Publicar'),
             ),
           ],
         ),
@@ -143,7 +189,9 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> with 
 
   void _showReviewDialog(Map<String, dynamic> submission) {
     final feedbackCtrl = TextEditingController();
-    final correctionCtrl = TextEditingController(text: submission['content'] ?? '');
+    final correctionCtrl = TextEditingController(
+      text: submission['content'] ?? '',
+    );
     final nativeTipsCtrl = TextEditingController();
     int rating = 5;
     bool saving = false;
@@ -152,8 +200,12 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> with 
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('Avaliar Texto de ${submission['authorName'] ?? 'Estudante'}'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Avaliar Texto de ${submission['authorName'] ?? 'Estudante'}',
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -162,15 +214,27 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> with 
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: Colors.grey.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Tema: ${submission['promptTitle'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      Text(
+                        'Tema: ${submission['promptTitle'] ?? ''}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text('"${submission['content'] ?? ''}"', style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 13)),
+                      Text(
+                        '"${submission['content'] ?? ''}"',
+                        style: const TextStyle(
+                          fontStyle: FontStyle.italic,
+                          fontSize: 13,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -206,11 +270,19 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> with 
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    const Text('Nota: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Nota: ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     ...List.generate(5, (index) {
                       final star = index + 1;
                       return IconButton(
-                        icon: Icon(star <= rating ? Icons.star_rounded : Icons.star_border_rounded, color: Colors.amber),
+                        icon: Icon(
+                          star <= rating
+                              ? Icons.star_rounded
+                              : Icons.star_border_rounded,
+                          color: Colors.amber,
+                        ),
                         onPressed: () => setDialogState(() => rating = star),
                       );
                     }),
@@ -220,36 +292,64 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> with 
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar'),
+            ),
             FilledButton(
-              onPressed: saving ? null : () async {
-                if (feedbackCtrl.text.trim().isEmpty || correctionCtrl.text.trim().isEmpty) return;
-                setDialogState(() => saving = true);
-                try {
-                  await _dio.post('/api/community/reviews', data: {
-                    'submissionId': submission['id'],
-                    'overallFeedback': feedbackCtrl.text.trim(),
-                    'correctedContent': correctionCtrl.text.trim(),
-                    'nativeSpeakerTips': nativeTipsCtrl.text.trim(),
-                    'rating': rating,
-                  });
-                  if (ctx.mounted) Navigator.of(ctx).pop();
-                  _loadAll();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Avaliação enviada! Você ganhou +25 XP.')),
-                    );
-                  }
-                } catch (e) {
-                  setDialogState(() => saving = false);
-                  if (ctx.mounted) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(
-                      const SnackBar(content: Text('Você não tem permissão para avaliar este exercício.')),
-                    );
-                  }
-                }
-              },
-              child: saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Enviar Avaliação (+25 XP)'),
+              onPressed: saving
+                  ? null
+                  : () async {
+                      if (feedbackCtrl.text.trim().isEmpty ||
+                          correctionCtrl.text.trim().isEmpty) {
+                        return;
+                      }
+                      setDialogState(() => saving = true);
+                      try {
+                        await _dio.post(
+                          '/api/community/reviews',
+                          data: {
+                            'submissionId': submission['id'],
+                            'overallFeedback': feedbackCtrl.text.trim(),
+                            'correctedContent': correctionCtrl.text.trim(),
+                            'nativeSpeakerTips': nativeTipsCtrl.text.trim(),
+                            'rating': rating,
+                          },
+                        );
+                        if (ctx.mounted) Navigator.of(ctx).pop();
+                        _loadAll();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Avaliação enviada! Você ganhou +25 XP.',
+                              ),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => saving = false);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Você não tem permissão para avaliar este exercício.',
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    },
+              child: saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Enviar Avaliação (+25 XP)'),
             ),
           ],
         ),
@@ -269,16 +369,28 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> with 
           // Header
           Row(
             children: [
-              IconButton(icon: const Icon(Icons.arrow_back_rounded), onPressed: widget.onBack),
+              IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: widget.onBack,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Correção Colaborativa & Comunidade', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Correção Colaborativa & Comunidade',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     Text(
                       'Pratique escrita, envie para falantes fluentes avaliarem e ganhe XP corrigindo outros alunos.',
-                      style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
+                      style: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -303,7 +415,12 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> with 
           const SizedBox(height: 16),
 
           if (_loading)
-            const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()))
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(40),
+                child: CircularProgressIndicator(),
+              ),
+            )
           else
             SizedBox(
               height: 600,
@@ -328,8 +445,14 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> with 
           children: [
             const Icon(Icons.done_all_rounded, size: 48, color: Colors.green),
             const SizedBox(height: 12),
-            const Text('Nenhum exercício pendente no momento.', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            Text('Volte mais tarde ou publique seu próprio texto!', style: TextStyle(color: colors.onSurfaceVariant)),
+            const Text(
+              'Nenhum exercício pendente no momento.',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            Text(
+              'Volte mais tarde ou publique seu próprio texto!',
+              style: TextStyle(color: colors.onSurfaceVariant),
+            ),
           ],
         ),
       );
@@ -349,20 +472,48 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> with 
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(sub['authorName'] ?? 'Estudante', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    Text(
+                      sub['authorName'] ?? 'Estudante',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: colors.primaryContainer, borderRadius: BorderRadius.circular(6)),
-                      child: Text('${sub['language']} • ${sub['targetLevel']}', style: TextStyle(fontSize: 11, color: colors.onPrimaryContainer, fontWeight: FontWeight.bold)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.primaryContainer,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${sub['language']} • ${sub['targetLevel']}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colors.onPrimaryContainer,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(sub['promptTitle'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                Text(
+                  sub['promptTitle'] ?? '',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 Text(
                   '"${sub['content'] ?? ''}"',
-                  style: TextStyle(fontStyle: FontStyle.italic, color: colors.onSurfaceVariant),
+                  style: TextStyle(
+                    fontStyle: FontStyle.italic,
+                    color: colors.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -389,9 +540,16 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> with 
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.post_add_rounded, size: 48, color: Colors.blueGrey),
+            const Icon(
+              Icons.post_add_rounded,
+              size: 48,
+              color: Colors.blueGrey,
+            ),
             const SizedBox(height: 12),
-            const Text('Você ainda não enviou nenhum exercício.', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const Text(
+              'Você ainda não enviou nenhum exercício.',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: _showNewSubmissionDialog,
@@ -421,46 +579,105 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> with 
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(sub['promptTitle'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text('${reviews.length} avaliações', style: TextStyle(color: colors.primary, fontWeight: FontWeight.w600)),
+                    Text(
+                      sub['promptTitle'] ?? '',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      '${reviews.length} avaliações',
+                      style: TextStyle(
+                        color: colors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text('Seu texto original: "${sub['content'] ?? ''}"', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13)),
+                Text(
+                  'Seu texto original: "${sub['content'] ?? ''}"',
+                  style: TextStyle(
+                    color: colors.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                ),
                 const SizedBox(height: 16),
 
                 if (reviews.isNotEmpty) ...[
                   const Divider(),
-                  const Text('Correções Recebidas:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const Text(
+                    'Correções Recebidas:',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
                   const SizedBox(height: 8),
-                  ...reviews.map((r) => Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: colors.surfaceContainerHighest.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('${r['reviewerName']} (${r['reviewerFluencyLevel']})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                            Row(children: List.generate((r['rating'] as num?)?.toInt() ?? 5, (_) => const Icon(Icons.star_rounded, size: 14, color: Colors.amber))),
-                          ],
+                  ...reviews.map(
+                    (r) => Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceContainerHighest.withValues(
+                          alpha: 0.3,
                         ),
-                        const SizedBox(height: 4),
-                        Text('Texto Corrigido: "${r['correctedContent']}"', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600, fontSize: 13)),
-                        const SizedBox(height: 4),
-                        Text(r['overallFeedback'] ?? '', style: const TextStyle(fontSize: 12)),
-                        if (r['nativeSpeakerTips'] != null && (r['nativeSpeakerTips'] as String).isNotEmpty) ...[
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${r['reviewerName']} (${r['reviewerFluencyLevel']})',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              Row(
+                                children: List.generate(
+                                  (r['rating'] as num?)?.toInt() ?? 5,
+                                  (_) => const Icon(
+                                    Icons.star_rounded,
+                                    size: 14,
+                                    color: Colors.amber,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 4),
-                          Text('Dica de Nativo: "${r['nativeSpeakerTips']}"', style: const TextStyle(color: Colors.teal, fontStyle: FontStyle.italic, fontSize: 12)),
+                          Text(
+                            'Texto Corrigido: "${r['correctedContent']}"',
+                            style: const TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            r['overallFeedback'] ?? '',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          if (r['nativeSpeakerTips'] != null &&
+                              (r['nativeSpeakerTips'] as String)
+                                  .isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Dica de Nativo: "${r['nativeSpeakerTips']}"',
+                              style: const TextStyle(
+                                color: Colors.teal,
+                                fontStyle: FontStyle.italic,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  )),
+                  ),
                 ],
               ],
             ),

@@ -56,8 +56,9 @@ class AppConfig {
         Uri.base.host.isNotEmpty &&
         Uri.base.host != 'localhost' &&
         Uri.base.host != '127.0.0.1') {
-      final baseUrlToUse =
-          configured.isNotEmpty ? configured : 'http://localhost:8080';
+      final baseUrlToUse = configured.isNotEmpty
+          ? configured
+          : 'http://localhost:8080';
       final parsed = Uri.tryParse(baseUrlToUse);
       if (parsed != null &&
           (parsed.host == 'localhost' || parsed.host == '127.0.0.1')) {
@@ -82,7 +83,8 @@ class AppConfig {
 
   static String get googleWebClientId => _envValue('GOOGLE_WEB_CLIENT_ID');
   static String get googleIosClientId => _envValue('GOOGLE_IOS_CLIENT_ID');
-  static String get googleServerClientId => _envValue('GOOGLE_SERVER_CLIENT_ID');
+  static String get googleServerClientId =>
+      _envValue('GOOGLE_SERVER_CLIENT_ID');
   static String get googleAndroidClientId =>
       _envValue('GOOGLE_ANDROID_CLIENT_ID');
 

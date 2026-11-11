@@ -77,9 +77,9 @@ class DashboardRemoteDataSource {
     int studentId,
   ) async {
     final response = await _dio.get<List<dynamic>>(
-      Uri.parse(AppConfig.apiBaseUrl)
-          .resolve('/api/students/$studentId/enrollments')
-          .toString(),
+      Uri.parse(
+        AppConfig.apiBaseUrl,
+      ).resolve('/api/students/$studentId/enrollments').toString(),
     );
     return (response.data ?? const [])
         .whereType<Map<String, dynamic>>()
@@ -184,9 +184,9 @@ class DashboardRemoteDataSource {
 
   Future<Map<String, dynamic>> requestPasswordReset(String email) async {
     final response = await _dio.post<Map<String, dynamic>>(
-      Uri.parse(AppConfig.apiBaseUrl)
-          .resolve('/api/auth/forgot-password')
-          .toString(),
+      Uri.parse(
+        AppConfig.apiBaseUrl,
+      ).resolve('/api/auth/forgot-password').toString(),
       data: {'email': email.trim().toLowerCase()},
     );
     return response.data ?? const {};
@@ -198,9 +198,9 @@ class DashboardRemoteDataSource {
     required String newPassword,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
-      Uri.parse(AppConfig.apiBaseUrl)
-          .resolve('/api/auth/reset-password')
-          .toString(),
+      Uri.parse(
+        AppConfig.apiBaseUrl,
+      ).resolve('/api/auth/reset-password').toString(),
       data: {
         'email': email.trim().toLowerCase(),
         'token': token.trim(),
@@ -212,9 +212,9 @@ class DashboardRemoteDataSource {
 
   Future<Map<String, dynamic>> getMyPreferences() async {
     final response = await _dio.get<Map<String, dynamic>>(
-      Uri.parse(AppConfig.apiBaseUrl)
-          .resolve('/api/auth/me/preferences')
-          .toString(),
+      Uri.parse(
+        AppConfig.apiBaseUrl,
+      ).resolve('/api/auth/me/preferences').toString(),
     );
     return response.data ?? const {};
   }
@@ -244,9 +244,9 @@ class DashboardRemoteDataSource {
     }
 
     final response = await _dio.put<Map<String, dynamic>>(
-      Uri.parse(AppConfig.apiBaseUrl)
-          .resolve('/api/auth/me/preferences')
-          .toString(),
+      Uri.parse(
+        AppConfig.apiBaseUrl,
+      ).resolve('/api/auth/me/preferences').toString(),
       data: body,
     );
     return response.data ?? const {};
@@ -268,8 +268,9 @@ class DashboardRemoteDataSource {
   }
 
   Future<Map<String, dynamic>> getMyProgressSummary({String? timezone}) async {
-    final baseUri = Uri.parse(AppConfig.apiBaseUrl)
-        .resolve('/api/exercises/progress/me');
+    final baseUri = Uri.parse(
+      AppConfig.apiBaseUrl,
+    ).resolve('/api/exercises/progress/me');
     final uri = (timezone != null && timezone.trim().isNotEmpty)
         ? baseUri.replace(queryParameters: {'timezone': timezone.trim()})
         : baseUri;
@@ -287,9 +288,9 @@ class DashboardRemoteDataSource {
     String? additionalInstructions,
   }) async {
     final response = await _dio.post<List<dynamic>>(
-      Uri.parse(AppConfig.apiBaseUrl)
-          .resolve('/api/exercises/generate-ai')
-          .toString(),
+      Uri.parse(
+        AppConfig.apiBaseUrl,
+      ).resolve('/api/exercises/generate-ai').toString(),
       data: {
         'languageName': languageName,
         'proficiencyLevel': proficiencyLevel,

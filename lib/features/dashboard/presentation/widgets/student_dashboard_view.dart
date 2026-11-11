@@ -360,7 +360,28 @@ class StudentDashboardView extends StatelessWidget {
                                   icon: Icons.school_rounded,
                                   label: 'Praticar lição',
                                   primary: true,
-                                  onPressed: () => onSectionSelected?.call('lesson'),
+                                  onPressed: () =>
+                                      onSectionSelected?.call('lesson'),
+                                ),
+                              ),
+                              SizedBox(
+                                width: width,
+                                child: _studentQuickAction(
+                                  context,
+                                  icon: Icons.rule_folder_rounded,
+                                  label: 'Caderno de Erros',
+                                  onPressed: () =>
+                                      onSectionSelected?.call('mistakes'),
+                                ),
+                              ),
+                              SizedBox(
+                                width: width,
+                                child: _studentQuickAction(
+                                  context,
+                                  icon: Icons.auto_stories_rounded,
+                                  label: 'Meu Vocabulário',
+                                  onPressed: () =>
+                                      onSectionSelected?.call('vocabulary'),
                                 ),
                               ),
                               SizedBox(
@@ -369,7 +390,8 @@ class StudentDashboardView extends StatelessWidget {
                                   context,
                                   icon: Icons.language_rounded,
                                   label: 'Meus idiomas',
-                                  onPressed: () => onSectionSelected?.call('languages'),
+                                  onPressed: () =>
+                                      onSectionSelected?.call('languages'),
                                 ),
                               ),
                               SizedBox(
@@ -378,7 +400,8 @@ class StudentDashboardView extends StatelessWidget {
                                   context,
                                   icon: Icons.groups_rounded,
                                   label: 'Minhas turmas',
-                                  onPressed: () => onSectionSelected?.call('classes'),
+                                  onPressed: () =>
+                                      onSectionSelected?.call('classes'),
                                 ),
                               ),
                               SizedBox(
@@ -387,7 +410,8 @@ class StudentDashboardView extends StatelessWidget {
                                   context,
                                   icon: Icons.people_alt_rounded,
                                   label: 'Membros da instituição',
-                                  onPressed: () => onSectionSelected?.call('members'),
+                                  onPressed: () =>
+                                      onSectionSelected?.call('members'),
                                 ),
                               ),
                               SizedBox(
@@ -406,7 +430,8 @@ class StudentDashboardView extends StatelessWidget {
                                   context,
                                   icon: Icons.leaderboard_rounded,
                                   label: 'Ver ranking',
-                                  onPressed: () => onSectionSelected?.call('ranking'),
+                                  onPressed: () =>
+                                      onSectionSelected?.call('ranking'),
                                 ),
                               ),
                             ],
@@ -419,7 +444,9 @@ class StudentDashboardView extends StatelessWidget {
                   _ProfileCard(
                     icon: Icons.groups_rounded,
                     title: 'Histórico de Matrículas e Turmas',
-                    children: [_enrollmentContent(data.studentEnrollments, context)],
+                    children: [
+                      _enrollmentContent(data.studentEnrollments, context),
+                    ],
                   ),
                 ],
               );
@@ -435,13 +462,20 @@ class StudentDashboardView extends StatelessWidget {
                         Text(
                           'Nenhum idioma vinculado ao perfil no momento.',
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         )
                       else
                         Column(
                           children: languages.map((lang) {
-                            final score = student?.languageScores[lang.split(':').first.trim()] ?? 0;
+                            final score =
+                                student?.languageScores[lang
+                                    .split(':')
+                                    .first
+                                    .trim()] ??
+                                0;
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 12),
                               child: InkWell(
@@ -453,14 +487,19 @@ class StudentDashboardView extends StatelessWidget {
                                     horizontal: 10,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.surfaceContainerLow,
                                     borderRadius: BorderRadius.circular(10),
                                     border: Border.all(
-                                      color: Theme.of(context).colorScheme.outlineVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.outlineVariant,
                                     ),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Row(
                                         children: [
@@ -474,7 +513,9 @@ class StudentDashboardView extends StatelessWidget {
                                             lang,
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
-                                              color: Theme.of(context).colorScheme.onSurface,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurface,
                                               fontSize: 14,
                                             ),
                                           ),
@@ -486,8 +527,12 @@ class StudentDashboardView extends StatelessWidget {
                                           vertical: 3,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF32946B).withValues(alpha: 0.14),
-                                          borderRadius: BorderRadius.circular(8),
+                                          color: const Color(
+                                            0xFF32946B,
+                                          ).withValues(alpha: 0.14),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
                                         child: Text(
                                           '$score XP',
@@ -517,7 +562,8 @@ class StudentDashboardView extends StatelessWidget {
                         runSpacing: 12,
                         children: [
                           InkWell(
-                            onTap: () => onSectionSelected?.call('achievements'),
+                            onTap: () =>
+                                onSectionSelected?.call('achievements'),
                             borderRadius: BorderRadius.circular(16),
                             child: const _AchievementItem(
                               icon: Icons.school_rounded,
@@ -601,42 +647,77 @@ class StudentDashboardView extends StatelessWidget {
     required VoidCallback onPressed,
     bool primary = false,
   }) {
-    final style = primary
-        ? FilledButton.styleFrom(
-            backgroundColor: _blue,
-            foregroundColor: Colors.white,
-            alignment: Alignment.centerLeft,
-            minimumSize: const Size.fromHeight(50),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return AppHoverCard(
+      onTap: onPressed,
+      borderRadius: 14,
+      scale: 1.025,
+      accentColor: primary ? _blue : theme.colorScheme.primary,
+      child: Container(
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: primary
+              ? _blue
+              : (isDark ? const Color(0xFF1E2530) : theme.colorScheme.surface),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: primary
+                ? _blue
+                : theme.colorScheme.outlineVariant.withValues(alpha: 0.8),
+            width: primary ? 1.5 : 1.0,
+          ),
+          boxShadow: [
+            if (primary)
+              BoxShadow(
+                color: _blue.withValues(alpha: isDark ? 0.4 : 0.25),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: primary
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : _blue.withValues(alpha: isDark ? 0.22 : 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                size: 18,
+                color: primary ? Colors.white : _blue,
+              ),
             ),
-          )
-        : OutlinedButton.styleFrom(
-            foregroundColor: Theme.of(context).colorScheme.onSurface,
-            alignment: Alignment.centerLeft,
-            minimumSize: const Size.fromHeight(50),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            side: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: primary ? Colors.white : theme.colorScheme.onSurface,
+                  fontWeight: primary ? FontWeight.w700 : FontWeight.w600,
+                  fontSize: 13.5,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 13,
+              color: primary
+                  ? Colors.white.withValues(alpha: 0.7)
+                  : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
-          );
-    return primary
-        ? FilledButton.icon(
-            onPressed: onPressed,
-            style: style,
-            icon: Icon(icon),
-            label: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis),
-          )
-        : OutlinedButton.icon(
-            onPressed: onPressed,
-            style: style,
-            icon: Icon(icon),
-            label: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis),
-          );
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _page({
@@ -690,9 +771,7 @@ class StudentDashboardView extends StatelessWidget {
             color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEAF2FF),
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: isDark
-                  ? const Color(0xFF3B82F6)
-                  : const Color(0xFFD4E3FC),
+              color: isDark ? const Color(0xFF3B82F6) : const Color(0xFFD4E3FC),
             ),
           ),
           child: Row(
@@ -863,7 +942,8 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final card = Card(
       elevation: 0,
       color: Theme.of(context).colorScheme.surface,
@@ -885,15 +965,22 @@ class _ProfileCard extends StatelessWidget {
                     color: StudentDashboardView._blue.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(icon, color: StudentDashboardView._blue, size: 18),
+                  child: Icon(
+                    icon,
+                    color: StudentDashboardView._blue,
+                    size: 18,
+                  ),
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                    color: Theme.of(context).colorScheme.onSurface,
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -1279,9 +1366,7 @@ class _StudentInstitutionMembersViewState
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Row(
         children: [
@@ -1618,7 +1703,9 @@ class _StudentProfileBannerState extends State<_StudentProfileBanner> {
   Future<void> _fetchProgress() async {
     try {
       final response = await ApiClient().dio.get<Map<String, dynamic>>(
-        Uri.parse(AppConfig.apiBaseUrl).resolve('/api/exercises/progress/me').toString(),
+        Uri.parse(
+          AppConfig.apiBaseUrl,
+        ).resolve('/api/exercises/progress/me').toString(),
       );
       final d = response.data ?? {};
       if (!mounted) return;
@@ -1648,7 +1735,9 @@ class _StudentProfileBannerState extends State<_StudentProfileBanner> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = _dailyGoalXp > 0 ? (_dailyXp / _dailyGoalXp).clamp(0.08, 1.0) : 0.08;
+    final progress = _dailyGoalXp > 0
+        ? (_dailyXp / _dailyGoalXp).clamp(0.08, 1.0)
+        : 0.08;
 
     return Container(
       padding: responsiveBannerPadding(context),
@@ -1708,7 +1797,9 @@ class _StudentProfileBannerState extends State<_StudentProfileBanner> {
                             value: progress,
                             strokeWidth: 4.5,
                             strokeCap: StrokeCap.round,
-                            valueColor: const AlwaysStoppedAnimation(Color(0xFFFFD000)),
+                            valueColor: const AlwaysStoppedAnimation(
+                              Color(0xFFFFD000),
+                            ),
                           ),
                         ),
                         AppUserAvatar(
@@ -1729,7 +1820,10 @@ class _StudentProfileBannerState extends State<_StudentProfileBanner> {
                       child: GestureDetector(
                         onTap: _openStreakModal,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
                               colors: [Color(0xFFFF8A00), Color(0xFFE52E71)],
@@ -1739,12 +1833,17 @@ class _StudentProfileBannerState extends State<_StudentProfileBanner> {
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFFFF6D00).withValues(alpha: 0.45),
+                                color: const Color(
+                                  0xFFFF6D00,
+                                ).withValues(alpha: 0.45),
                                 blurRadius: 10,
                                 offset: const Offset(0, 3),
                               ),
                             ],
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              width: 1.5,
+                            ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -1753,9 +1852,12 @@ class _StudentProfileBannerState extends State<_StudentProfileBanner> {
                                 Icons.local_fire_department_rounded,
                                 color: Colors.white,
                                 size: 15,
-                              )
-                                  .animate(onPlay: (c) => c.repeat(reverse: true))
-                                  .scale(begin: const Offset(0.9, 0.9), end: const Offset(1.18, 1.18), duration: 600.ms),
+                              ).animate().scale(
+                                begin: const Offset(0.9, 0.9),
+                                end: const Offset(1.0, 1.0),
+                                duration: 400.ms,
+                                curve: Curves.easeOutBack,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 '$_currentStreak dias',
@@ -1775,7 +1877,9 @@ class _StudentProfileBannerState extends State<_StudentProfileBanner> {
               );
 
               final details = Column(
-                crossAxisAlignment: isMobile ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+                crossAxisAlignment: isMobile
+                    ? CrossAxisAlignment.center
+                    : CrossAxisAlignment.start,
                 children: [
                   Text(
                     widget.name,
@@ -1798,7 +1902,9 @@ class _StudentProfileBannerState extends State<_StudentProfileBanner> {
                   ),
                   const SizedBox(height: 12),
                   Wrap(
-                    alignment: isMobile ? WrapAlignment.center : WrapAlignment.start,
+                    alignment: isMobile
+                        ? WrapAlignment.center
+                        : WrapAlignment.start,
                     spacing: 8,
                     runSpacing: 6,
                     children: [
@@ -1915,7 +2021,9 @@ class _StudentStreakDialogState extends State<_StudentStreakDialog>
     final colors = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final best = widget.bestStreak > 0 ? widget.bestStreak : widget.currentStreak;
+    final best = widget.bestStreak > 0
+        ? widget.bestStreak
+        : widget.currentStreak;
     final top5 = [
       best,
       (best * 0.82).round().clamp(1, best),
@@ -1941,7 +2049,11 @@ class _StudentStreakDialogState extends State<_StudentStreakDialog>
               padding: const EdgeInsets.all(24),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFFFF5722), Color(0xFFFF9800), Color(0xFFFFB300)],
+                  colors: [
+                    Color(0xFFFF5722),
+                    Color(0xFFFF9800),
+                    Color(0xFFFFB300),
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -1962,13 +2074,17 @@ class _StudentStreakDialogState extends State<_StudentStreakDialog>
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.local_fire_department_rounded,
-                      color: Colors.white,
-                      size: 40,
-                    )
-                        .animate(onPlay: (c) => c.repeat(reverse: true))
-                        .scale(begin: const Offset(0.92, 0.92), end: const Offset(1.15, 1.15), duration: 700.ms),
+                    child:
+                        const Icon(
+                          Icons.local_fire_department_rounded,
+                          color: Colors.white,
+                          size: 40,
+                        ).animate().scale(
+                          begin: const Offset(0.92, 0.92),
+                          end: const Offset(1.0, 1.0),
+                          duration: 400.ms,
+                          curve: Curves.easeOutBack,
+                        ),
                   ),
                   const SizedBox(width: 18),
                   Expanded(
@@ -2036,27 +2152,40 @@ class _StudentStreakDialogState extends State<_StudentStreakDialog>
                     children: [
                       const Text(
                         'Seus Melhores Recordes de Ofensiva',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'As 5 maiores sequências de estudo que você já alcançou no Duolinfo.',
-                        style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.onSurfaceVariant,
+                        ),
                       ),
                       const SizedBox(height: 14),
                       for (int i = 0; i < top5.length; i++) ...[
                         Container(
                           margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           decoration: BoxDecoration(
-                            color: colors.surfaceContainerHighest.withValues(alpha: isDark ? 0.35 : 0.6),
+                            color: colors.surfaceContainerHighest.withValues(
+                              alpha: isDark ? 0.35 : 0.6,
+                            ),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: i == 0
                                   ? const Color(0xFFFFB800)
                                   : (i == 1
-                                      ? const Color(0xFF94A3B8)
-                                      : (i == 2 ? const Color(0xFFB45309) : colors.outlineVariant)),
+                                        ? const Color(0xFF94A3B8)
+                                        : (i == 2
+                                              ? const Color(0xFFB45309)
+                                              : colors.outlineVariant)),
                               width: i < 3 ? 1.8 : 1.0,
                             ),
                           ),
@@ -2069,8 +2198,10 @@ class _StudentStreakDialogState extends State<_StudentStreakDialog>
                                   color: i == 0
                                       ? const Color(0xFFFFB800)
                                       : (i == 1
-                                          ? const Color(0xFF94A3B8)
-                                          : (i == 2 ? const Color(0xFFD97706) : colors.surface)),
+                                            ? const Color(0xFF94A3B8)
+                                            : (i == 2
+                                                  ? const Color(0xFFD97706)
+                                                  : colors.surface)),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Center(
@@ -2078,7 +2209,9 @@ class _StudentStreakDialogState extends State<_StudentStreakDialog>
                                     '${i + 1}º',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w900,
-                                      color: i < 3 ? Colors.white : colors.onSurface,
+                                      color: i < 3
+                                          ? Colors.white
+                                          : colors.onSurface,
                                       fontSize: 13,
                                     ),
                                   ),
@@ -2093,29 +2226,49 @@ class _StudentStreakDialogState extends State<_StudentStreakDialog>
                                       i == 0
                                           ? 'Recorde Histórico Absoluto'
                                           : (i == 1
-                                              ? 'Segunda Maior Sequência'
-                                              : (i == 2 ? 'Terceira Maior Sequência' : '${i + 1}ª Maior Sequência')),
-                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                                ? 'Segunda Maior Sequência'
+                                                : (i == 2
+                                                      ? 'Terceira Maior Sequência'
+                                                      : '${i + 1}ª Maior Sequência')),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                     Text(
-                                      i == 0 ? 'Conquistado com disciplina e dedicação diária' : 'Ofensiva consistente',
-                                      style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant),
+                                      i == 0
+                                          ? 'Conquistado com disciplina e dedicação diária'
+                                          : 'Ofensiva consistente',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: colors.onSurfaceVariant,
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
                                 decoration: BoxDecoration(
                                   gradient: const LinearGradient(
-                                    colors: [Color(0xFFFF8A00), Color(0xFFE52E71)],
+                                    colors: [
+                                      Color(0xFFFF8A00),
+                                      Color(0xFFE52E71),
+                                    ],
                                   ),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(Icons.local_fire_department_rounded, color: Colors.white, size: 14),
+                                    const Icon(
+                                      Icons.local_fire_department_rounded,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
                                     const SizedBox(width: 4),
                                     Text(
                                       '${top5[i]} dias',
@@ -2141,137 +2294,210 @@ class _StudentStreakDialogState extends State<_StudentStreakDialog>
                           children: [
                             const Text(
                               'Ofensiva dos Alunos da Turma',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               'Veja quem são os estudantes mais consistentes da sua turma.',
-                              style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: colors.onSurfaceVariant,
+                              ),
                             ),
                             const SizedBox(height: 14),
                             if (_classmates.isEmpty)
                               const Padding(
                                 padding: EdgeInsets.all(24),
                                 child: Center(
-                                  child: Text('Nenhum colega de turma encontrado.'),
+                                  child: Text(
+                                    'Nenhum colega de turma encontrado.',
+                                  ),
                                 ),
                               )
                             else
                               for (int i = 0; i < _classmates.length; i++) ...[
-                                Builder(builder: (ctx) {
-                                  final student = _classmates[i];
-                                  final studentId = (student['studentId'] ?? student['id'] as num?)?.toInt();
-                                  final isMe = studentId == widget.data.studentProfile?.id ||
-                                      student['name']?.toString() == widget.data.user.name;
-                                  final studentStreak = (student['currentStreakDays'] ??
-                                      student['streak'] ??
-                                      (isMe ? widget.currentStreak : (10 - i).clamp(1, 20))) as num;
+                                Builder(
+                                  builder: (ctx) {
+                                    final student = _classmates[i];
+                                    final studentId =
+                                        (student['studentId'] ??
+                                                student['id'] as num?)
+                                            ?.toInt();
+                                    final isMe =
+                                        studentId ==
+                                            widget.data.studentProfile?.id ||
+                                        student['name']?.toString() ==
+                                            widget.data.user.name;
+                                    final studentStreak =
+                                        (student['currentStreakDays'] ??
+                                                student['streak'] ??
+                                                (isMe
+                                                    ? widget.currentStreak
+                                                    : (10 - i).clamp(1, 20)))
+                                            as num;
 
-                                  return Container(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                    decoration: BoxDecoration(
-                                      color: isMe
-                                          ? const Color(0xFFFF8A00).withValues(alpha: 0.12)
-                                          : colors.surfaceContainerHighest.withValues(alpha: isDark ? 0.35 : 0.6),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: isMe
-                                            ? const Color(0xFFFF8A00)
-                                            : (i < 3
-                                                ? (i == 0
-                                                    ? const Color(0xFFFFB800)
-                                                    : (i == 1 ? const Color(0xFF94A3B8) : const Color(0xFFB45309)))
-                                                : colors.outlineVariant),
-                                        width: isMe ? 2.0 : (i < 3 ? 1.5 : 1.0),
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 10,
                                       ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Text(
-                                          i == 0 ? '🥇' : (i == 1 ? '🥈' : (i == 2 ? '🥉' : '${i + 1}º')),
-                                          style: const TextStyle(fontSize: 18),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        AppUserAvatar(
-                                          name: '${student['name'] ?? 'Aluno'}',
-                                          pictureUrl: student['picture']?.toString(),
-                                          radius: 18,
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Flexible(
-                                                    child: Text(
-                                                      '${student['name'] ?? 'Aluno'}',
-                                                      style: TextStyle(
-                                                        fontWeight: isMe ? FontWeight.w900 : FontWeight.w700,
-                                                        fontSize: 13,
-                                                      ),
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
+                                      decoration: BoxDecoration(
+                                        color: isMe
+                                            ? const Color(
+                                                0xFFFF8A00,
+                                              ).withValues(alpha: 0.12)
+                                            : colors.surfaceContainerHighest
+                                                  .withValues(
+                                                    alpha: isDark ? 0.35 : 0.6,
                                                   ),
-                                                  if (isMe) ...[
-                                                    const SizedBox(width: 6),
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                                      decoration: BoxDecoration(
-                                                        color: const Color(0xFFFF8A00),
-                                                        borderRadius: BorderRadius.circular(8),
-                                                      ),
-                                                      child: const Text(
-                                                        'Você',
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: isMe
+                                              ? const Color(0xFFFF8A00)
+                                              : (i < 3
+                                                    ? (i == 0
+                                                          ? const Color(
+                                                              0xFFFFB800,
+                                                            )
+                                                          : (i == 1
+                                                                ? const Color(
+                                                                    0xFF94A3B8,
+                                                                  )
+                                                                : const Color(
+                                                                    0xFFB45309,
+                                                                  )))
+                                                    : colors.outlineVariant),
+                                          width: isMe
+                                              ? 2.0
+                                              : (i < 3 ? 1.5 : 1.0),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            i == 0
+                                                ? '🥇'
+                                                : (i == 1
+                                                      ? '🥈'
+                                                      : (i == 2
+                                                            ? '🥉'
+                                                            : '${i + 1}º')),
+                                            style: const TextStyle(
+                                              fontSize: 18,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          AppUserAvatar(
+                                            name:
+                                                '${student['name'] ?? 'Aluno'}',
+                                            pictureUrl: student['picture']
+                                                ?.toString(),
+                                            radius: 18,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    Flexible(
+                                                      child: Text(
+                                                        '${student['name'] ?? 'Aluno'}',
                                                         style: TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 10,
-                                                          fontWeight: FontWeight.w800,
+                                                          fontWeight: isMe
+                                                              ? FontWeight.w900
+                                                              : FontWeight.w700,
+                                                          fontSize: 13,
+                                                        ),
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                    ),
+                                                    if (isMe) ...[
+                                                      const SizedBox(width: 6),
+                                                      Container(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 6,
+                                                              vertical: 1,
+                                                            ),
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(
+                                                            0xFFFF8A00,
+                                                          ),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                8,
+                                                              ),
+                                                        ),
+                                                        child: const Text(
+                                                          'Você',
+                                                          style: TextStyle(
+                                                            color: Colors.white,
+                                                            fontSize: 10,
+                                                            fontWeight:
+                                                                FontWeight.w800,
+                                                          ),
                                                         ),
                                                       ),
-                                                    ),
+                                                    ],
                                                   ],
-                                                ],
-                                              ),
-                                              Text(
-                                                '${student['totalXp'] ?? 0} XP acumulados',
-                                                style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFFF8A00).withValues(alpha: 0.15),
-                                            borderRadius: BorderRadius.circular(10),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(
-                                                Icons.local_fire_department_rounded,
-                                                color: Color(0xFFFF6D00),
-                                                size: 14,
-                                              ),
-                                              const SizedBox(width: 3),
-                                              Text(
-                                                '$studentStreak dias',
-                                                style: const TextStyle(
-                                                  color: Color(0xFFFF6D00),
-                                                  fontWeight: FontWeight.w800,
-                                                  fontSize: 11.5,
                                                 ),
-                                              ),
-                                            ],
+                                                Text(
+                                                  '${student['totalXp'] ?? 0} XP acumulados',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        colors.onSurfaceVariant,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(
+                                                0xFFFF8A00,
+                                              ).withValues(alpha: 0.15),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(
+                                                  Icons
+                                                      .local_fire_department_rounded,
+                                                  color: Color(0xFFFF6D00),
+                                                  size: 14,
+                                                ),
+                                                const SizedBox(width: 3),
+                                                Text(
+                                                  '$studentStreak dias',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFFFF6D00),
+                                                    fontWeight: FontWeight.w800,
+                                                    fontSize: 11.5,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
                               ],
                           ],
                         ),

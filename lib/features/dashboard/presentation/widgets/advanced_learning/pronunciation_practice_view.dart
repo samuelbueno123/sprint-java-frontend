@@ -9,7 +9,8 @@ class PronunciationPracticeView extends StatefulWidget {
   final VoidCallback onBack;
 
   @override
-  State<PronunciationPracticeView> createState() => _PronunciationPracticeViewState();
+  State<PronunciationPracticeView> createState() =>
+      _PronunciationPracticeViewState();
 }
 
 class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
@@ -36,7 +37,9 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
       final res = await _dio.get('/api/pronunciation/challenges');
       if (!mounted) return;
       setState(() {
-        _challenges = (res.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        _challenges = (res.data as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
         if (_challenges.isNotEmpty) {
           _selectedChallenge = _challenges.first;
         }
@@ -57,13 +60,17 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
     });
 
     try {
-      final recognized = await AudioSpeechHelper.recognizeSpeech(languageName: 'Inglês');
+      final recognized = await AudioSpeechHelper.recognizeSpeech(
+        languageName: 'Inglês',
+      );
       setState(() {
         _isListening = false;
         _spokenText = recognized ?? '';
       });
 
-      if (recognized != null && recognized.trim().isNotEmpty && _selectedChallenge != null) {
+      if (recognized != null &&
+          recognized.trim().isNotEmpty &&
+          _selectedChallenge != null) {
         _evaluateSpeech(recognized.trim());
       }
     } catch (e) {
@@ -77,10 +84,10 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
     setState(() => _evaluating = true);
 
     try {
-      final res = await _dio.post('/api/pronunciation/evaluate', data: {
-        'challengeId': _selectedChallenge!['id'],
-        'spokenText': spoken,
-      });
+      final res = await _dio.post(
+        '/api/pronunciation/evaluate',
+        data: {'challengeId': _selectedChallenge!['id'], 'spokenText': spoken},
+      );
 
       setState(() {
         _evaluationResult = Map<String, dynamic>.from(res.data as Map);
@@ -90,7 +97,9 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
       setState(() => _evaluating = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Falha ao avaliar pronúncia. Tente novamente.')),
+          const SnackBar(
+            content: Text('Falha ao avaliar pronúncia. Tente novamente.'),
+          ),
         );
       }
     }
@@ -116,7 +125,10 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
                 const SizedBox(height: 16),
                 Text(_error!, style: TextStyle(color: colors.error)),
                 const SizedBox(height: 16),
-                FilledButton.tonal(onPressed: _loadChallenges, child: const Text('Tentar novamente')),
+                FilledButton.tonal(
+                  onPressed: _loadChallenges,
+                  child: const Text('Tentar novamente'),
+                ),
               ],
             ),
           );
@@ -130,7 +142,10 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
               // Header
               Row(
                 children: [
-                  IconButton(icon: const Icon(Icons.arrow_back_rounded), onPressed: widget.onBack),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    onPressed: widget.onBack,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -138,11 +153,17 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
                       children: [
                         const Text(
                           'Prática Oral & Avaliação de Pronúncia',
-                          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         Text(
                           'Reconhecimento de fala com análise fonética detalhada palavra por palavra e dicas de articulação.',
-                          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),
@@ -157,7 +178,7 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: _challenges.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
                   itemBuilder: (context, index) {
                     final c = _challenges[index];
                     final isSelected = _selectedChallenge?['id'] == c['id'];
@@ -179,7 +200,8 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
               ),
               const SizedBox(height: 24),
 
-              if (_selectedChallenge != null) _buildChallengeCard(colors, _selectedChallenge!),
+              if (_selectedChallenge != null)
+                _buildChallengeCard(colors, _selectedChallenge!),
             ],
           ),
         );
@@ -203,7 +225,7 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
               width: double.infinity,
               padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
-                color: colors.surfaceContainerHighest.withOpacity(0.4),
+                color: colors.surfaceContainerHighest.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: colors.outlineVariant),
               ),
@@ -213,17 +235,33 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: colors.primaryContainer,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(c['cefrLevel'] ?? 'A1', style: TextStyle(color: colors.onPrimaryContainer, fontWeight: FontWeight.bold, fontSize: 12)),
+                        child: Text(
+                          c['cefrLevel'] ?? 'A1',
+                          style: TextStyle(
+                            color: colors.onPrimaryContainer,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.volume_up_rounded, color: Color(0xFF3579E8)),
+                        icon: const Icon(
+                          Icons.volume_up_rounded,
+                          color: Color(0xFF3579E8),
+                        ),
                         tooltip: 'Ouvir pronúncia nativa (TTS)',
-                        onPressed: () => AudioSpeechHelper.speak(phrase, languageName: 'Inglês'),
+                        onPressed: () => AudioSpeechHelper.speak(
+                          phrase,
+                          languageName: 'Inglês',
+                        ),
                       ),
                     ],
                   ),
@@ -231,21 +269,32 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
                   Text(
                     phrase,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, height: 1.3),
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      height: 1.3,
+                    ),
                   ),
                   if (phonetic.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
                       phonetic,
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontFamily: 'monospace', color: colors.primary, fontSize: 14),
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        color: colors.primary,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 12),
                   Text(
                     translation,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: colors.onSurfaceVariant, fontSize: 15),
+                    style: TextStyle(
+                      color: colors.onSurfaceVariant,
+                      fontSize: 15,
+                    ),
                   ),
                   if (tips.isNotEmpty) ...[
                     const SizedBox(height: 16),
@@ -258,10 +307,20 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.lightbulb_outline_rounded, size: 18, color: Colors.amber),
+                          const Icon(
+                            Icons.lightbulb_outline_rounded,
+                            size: 18,
+                            color: Colors.amber,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text(tips, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+                            child: Text(
+                              tips,
+                              style: TextStyle(
+                                color: colors.onSurfaceVariant,
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -284,7 +343,9 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
                   color: _isListening ? Colors.red : const Color(0xFF3579E8),
                   boxShadow: [
                     BoxShadow(
-                      color: (_isListening ? Colors.red : const Color(0xFF3579E8)).withOpacity(0.3),
+                      color:
+                          (_isListening ? Colors.red : const Color(0xFF3579E8))
+                              .withValues(alpha: 0.3),
                       blurRadius: 20,
                       spreadRadius: _isListening ? 6 : 2,
                     ),
@@ -299,12 +360,36 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
             ),
             const SizedBox(height: 12),
             Text(
-              _isListening ? 'Ouvindo... Fale a frase agora' : 'Toque no microfone para falar',
+              _isListening
+                  ? 'Ouvindo... Fale a frase agora'
+                  : 'Toque no microfone para falar',
               style: TextStyle(
                 color: _isListening ? Colors.red : colors.onSurfaceVariant,
                 fontWeight: _isListening ? FontWeight.bold : FontWeight.normal,
               ),
             ),
+            if (_spokenText.isNotEmpty && !_isListening) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: colors.outlineVariant),
+                ),
+                child: Text(
+                  'Áudio capturado: "$_spokenText"',
+                  style: TextStyle(
+                    fontStyle: FontStyle.italic,
+                    color: colors.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
 
             // Evaluation Results
@@ -320,7 +405,8 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
                 ),
               ),
 
-            if (_evaluationResult != null) _buildResultSection(colors, _evaluationResult!),
+            if (_evaluationResult != null)
+              _buildResultSection(colors, _evaluationResult!),
           ],
         ),
       ),
@@ -330,22 +416,25 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
   Widget _buildResultSection(ColorScheme colors, Map<String, dynamic> result) {
     final finalScore = (result['finalScore'] as num?)?.toDouble() ?? 0.0;
     final accuracy = (result['accuracyScore'] as num?)?.toDouble() ?? 0.0;
-    final completeness = (result['completenessScore'] as num?)?.toDouble() ?? 0.0;
+    final completeness =
+        (result['completenessScore'] as num?)?.toDouble() ?? 0.0;
     final xp = (result['xpEarned'] as num?)?.toInt() ?? 0;
     final summary = result['feedbackSummary'] ?? '';
     final words = ((result['wordBreakdown'] as List?) ?? [])
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
 
-    Color scoreColor = finalScore >= 80 ? Colors.green : (finalScore >= 55 ? Colors.orange : Colors.red);
+    Color scoreColor = finalScore >= 80
+        ? Colors.green
+        : (finalScore >= 55 ? Colors.orange : Colors.red);
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: scoreColor.withOpacity(0.06),
+        color: scoreColor.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: scoreColor.withOpacity(0.3)),
+        border: Border.all(color: scoreColor.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,22 +444,53 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
             children: [
               Row(
                 children: [
-                  Text('${finalScore.toStringAsFixed(0)}%', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: scoreColor)),
+                  Text(
+                    '${finalScore.toStringAsFixed(0)}%',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: scoreColor,
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Pontuação Geral', style: TextStyle(fontWeight: FontWeight.bold, color: scoreColor)),
-                      Text('Precisão: ${accuracy.toStringAsFixed(0)}% • Completude: ${completeness.toStringAsFixed(0)}%', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                      Text(
+                        'Pontuação Geral',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: scoreColor,
+                        ),
+                      ),
+                      Text(
+                        'Precisão: ${accuracy.toStringAsFixed(0)}% • Completude: ${completeness.toStringAsFixed(0)}%',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ],
                   ),
                 ],
               ),
               if (xp > 0)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(color: Colors.amber[700], borderRadius: BorderRadius.circular(12)),
-                  child: Text('+$xp XP', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.amber[700],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '+$xp XP',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -378,7 +498,10 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
           Text(summary, style: const TextStyle(fontSize: 14)),
           const SizedBox(height: 20),
 
-          const Text('Análise palavra por palavra:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const Text(
+            'Análise palavra por palavra:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -409,11 +532,14 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
               return Tooltip(
                 message: '${w['phoneticTip'] ?? ''} (Falado: "$spoken")',
                 child: Chip(
-                  backgroundColor: chipColor.withOpacity(0.15),
-                  side: BorderSide(color: chipColor.withOpacity(0.5)),
+                  backgroundColor: chipColor.withValues(alpha: 0.15),
+                  side: BorderSide(color: chipColor.withValues(alpha: 0.5)),
                   label: Text(
                     expected,
-                    style: TextStyle(color: chipColor, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: chipColor,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               );

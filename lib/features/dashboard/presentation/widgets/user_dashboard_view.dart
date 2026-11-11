@@ -281,7 +281,7 @@ class UserDashboardView extends StatelessWidget {
                             Icons.settings_rounded,
                             color: Colors.white,
                           ),
-                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -483,7 +483,9 @@ class _PendingProfileCardState extends State<_PendingProfileCard> {
         curve: Curves.easeOut,
         transform: Matrix4.translationValues(0, _isHovered ? -2 : 0, 0),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: isDark ? (_isHovered ? .22 : .14) : (_isHovered ? .12 : .06)),
+          color: color.withValues(
+            alpha: isDark ? (_isHovered ? .22 : .14) : (_isHovered ? .12 : .06),
+          ),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: color.withValues(alpha: _isHovered ? .7 : .3),

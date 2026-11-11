@@ -24,6 +24,19 @@ class SessionStore {
   static String? get accessToken => _accessToken;
   static bool get hasSession => _hasSession;
 
+  /// Notificador reativo disparado quando a sessão expira e não pode ser renovada
+  static final ValueNotifier<bool> sessionExpiredNotifier = ValueNotifier<bool>(
+    false,
+  );
+
+  static void notifySessionExpired() {
+    sessionExpiredNotifier.value = true;
+  }
+
+  static void resetSessionExpiredNotification() {
+    sessionExpiredNotifier.value = false;
+  }
+
   static Future<void> initialize() async {
     final preferences = await SharedPreferences.getInstance();
     _hasSession =

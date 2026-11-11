@@ -8,6 +8,10 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/realtime_sync_service.dart';
 import '../../domain/entities/dashboard_data.dart';
+import 'admin/admin_audit_logs_view.dart';
+import 'admin/admin_catalog_management_view.dart';
+import 'admin/admin_system_health_view.dart';
+import 'admin/admin_teacher_documents_view.dart';
 import 'app_user_avatar.dart';
 import 'info_stat_card.dart';
 import 'responsive_layout.dart';
@@ -377,25 +381,89 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
   String _friendlyTableName(String rawName) {
     final lower = rawName.toLowerCase();
-    if (lower.contains('usuario') || lower == 'users' || lower == 'tb_users') return 'Tabela de Usuários';
-    if (lower.contains('estudante') || lower.contains('aluno') || lower == 'students' || lower == 'tb_students') return 'Tabela de Estudantes';
-    if (lower.contains('professor') || lower == 'teachers' || lower == 'tb_teachers') return 'Tabela de Professores';
-    if (lower.contains('instituicao') || lower == 'institutions' || lower == 'tb_institutions') return 'Tabela de Instituições';
-    if (lower.contains('escola') || lower == 'schools' || lower == 'tb_schools') return 'Tabela de Escolas';
-    if (lower.contains('turma') || lower == 'classes' || lower == 'school_classes' || lower == 'tb_school_classes') return 'Tabela de Turmas';
-    if (lower.contains('matricula') || lower == 'enrollments' || lower == 'tb_enrollments') return 'Tabela de Matrículas';
-    if (lower.contains('atribuicao') || lower == 'class_teacher_assignments' || lower.contains('assignment')) return 'Tabela de Atribuições Docentes';
-    if (lower.contains('idioma_estudante') || lower.contains('student_language')) return 'Tabela de Idiomas dos Estudantes';
-    if (lower.contains('idioma') || lower == 'languages' || lower == 'tb_languages') return 'Tabela de Idiomas Disponíveis';
-    if (lower.contains('submissao') || lower == 'exercise_submissions' || lower.contains('submission')) return 'Tabela de Entregas de Atividades';
-    if (lower.contains('exercicio') || lower == 'learning_exercises' || lower.contains('exercise')) return 'Tabela de Atividades Pedagógicas';
-    if (lower.contains('conquista_estudante') || lower.contains('student_achievements')) return 'Tabela de Conquistas dos Estudantes';
-    if (lower.contains('conquista') || lower == 'achievements' || lower == 'tb_achievements') return 'Tabela de Conquistas e Medalhas';
-    if (lower.contains('solicitacao') || lower.contains('institution_requests')) return 'Tabela de Solicitações de Cadastro';
-    if (lower.contains('redefinicao') || lower.contains('password_reset')) return 'Tabela de Redefinições de Senha';
+    if (lower.contains('usuario') || lower == 'users' || lower == 'tb_users') {
+      return 'Tabela de Usuários';
+    }
+    if (lower.contains('estudante') ||
+        lower.contains('aluno') ||
+        lower == 'students' ||
+        lower == 'tb_students') {
+      return 'Tabela de Estudantes';
+    }
+    if (lower.contains('professor') ||
+        lower == 'teachers' ||
+        lower == 'tb_teachers') {
+      return 'Tabela de Professores';
+    }
+    if (lower.contains('instituicao') ||
+        lower == 'institutions' ||
+        lower == 'tb_institutions') {
+      return 'Tabela de Instituições';
+    }
+    if (lower.contains('escola') ||
+        lower == 'schools' ||
+        lower == 'tb_schools') {
+      return 'Tabela de Escolas';
+    }
+    if (lower.contains('turma') ||
+        lower == 'classes' ||
+        lower == 'school_classes' ||
+        lower == 'tb_school_classes') {
+      return 'Tabela de Turmas';
+    }
+    if (lower.contains('matricula') ||
+        lower == 'enrollments' ||
+        lower == 'tb_enrollments') {
+      return 'Tabela de Matrículas';
+    }
+    if (lower.contains('atribuicao') ||
+        lower == 'class_teacher_assignments' ||
+        lower.contains('assignment')) {
+      return 'Tabela de Atribuições Docentes';
+    }
+    if (lower.contains('idioma_estudante') ||
+        lower.contains('student_language')) {
+      return 'Tabela de Idiomas dos Estudantes';
+    }
+    if (lower.contains('idioma') ||
+        lower == 'languages' ||
+        lower == 'tb_languages') {
+      return 'Tabela de Idiomas Disponíveis';
+    }
+    if (lower.contains('submissao') ||
+        lower == 'exercise_submissions' ||
+        lower.contains('submission')) {
+      return 'Tabela de Entregas de Atividades';
+    }
+    if (lower.contains('exercicio') ||
+        lower == 'learning_exercises' ||
+        lower.contains('exercise')) {
+      return 'Tabela de Atividades Pedagógicas';
+    }
+    if (lower.contains('conquista_estudante') ||
+        lower.contains('student_achievements')) {
+      return 'Tabela de Conquistas dos Estudantes';
+    }
+    if (lower.contains('conquista') ||
+        lower == 'achievements' ||
+        lower == 'tb_achievements') {
+      return 'Tabela de Conquistas e Medalhas';
+    }
+    if (lower.contains('solicitacao') ||
+        lower.contains('institution_requests')) {
+      return 'Tabela de Solicitações de Cadastro';
+    }
+    if (lower.contains('redefinicao') || lower.contains('password_reset')) {
+      return 'Tabela de Redefinições de Senha';
+    }
 
-    final clean = rawName.replaceFirst(RegExp(r'^tb_', caseSensitive: false), '').replaceAll('_', ' ');
-    final title = clean.split(' ').map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}').join(' ');
+    final clean = rawName
+        .replaceFirst(RegExp(r'^tb_', caseSensitive: false), '')
+        .replaceAll('_', ' ');
+    final title = clean
+        .split(' ')
+        .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
     return 'Tabela de $title';
   }
 
@@ -477,30 +545,62 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       return dictionary[lower]!;
     }
     final cleaned = lower.replaceAll('_', ' ');
-    return cleaned.split(' ').map((w) {
-      if (w.isEmpty) return '';
-      if (w == 'id') return 'ID';
-      if (w == 'xp') return 'XP';
-      if (w == 'da' || w == 'de' || w == 'do' || w == 'e') return w;
-      return '${w[0].toUpperCase()}${w.substring(1)}';
-    }).join(' ');
+    return cleaned
+        .split(' ')
+        .map((w) {
+          if (w.isEmpty) return '';
+          if (w == 'id') return 'ID';
+          if (w == 'xp') return 'XP';
+          if (w == 'da' || w == 'de' || w == 'do' || w == 'e') return w;
+          return '${w[0].toUpperCase()}${w.substring(1)}';
+        })
+        .join(' ');
   }
 
   IconData _iconForTable(String rawName) {
     final lower = rawName.toLowerCase();
-    if (lower.contains('usuario') || lower.contains('user')) return Icons.people_alt_rounded;
-    if (lower.contains('estudante') || lower.contains('aluno') || lower.contains('student')) return Icons.school_rounded;
-    if (lower.contains('professor') || lower.contains('teacher')) return Icons.psychology_rounded;
-    if (lower.contains('instituicao') || lower.contains('institution')) return Icons.account_balance_rounded;
-    if (lower.contains('escola') || (lower.contains('school') && !lower.contains('class'))) return Icons.location_city_rounded;
-    if (lower.contains('turma') || lower.contains('class')) return Icons.groups_rounded;
-    if (lower.contains('matricula') || lower.contains('enrollment')) return Icons.how_to_reg_rounded;
-    if (lower.contains('atribuicao') || lower.contains('assignment')) return Icons.assignment_ind_rounded;
-    if (lower.contains('idioma') || lower.contains('language')) return Icons.language_rounded;
-    if (lower.contains('submissao') || lower.contains('submission')) return Icons.task_alt_rounded;
-    if (lower.contains('exercicio') || lower.contains('exercise')) return Icons.menu_book_rounded;
-    if (lower.contains('conquista') || lower.contains('achievement')) return Icons.emoji_events_rounded;
-    if (lower.contains('solicitacao') || lower.contains('request')) return Icons.mark_email_unread_rounded;
+    if (lower.contains('usuario') || lower.contains('user')) {
+      return Icons.people_alt_rounded;
+    }
+    if (lower.contains('estudante') ||
+        lower.contains('aluno') ||
+        lower.contains('student')) {
+      return Icons.school_rounded;
+    }
+    if (lower.contains('professor') || lower.contains('teacher')) {
+      return Icons.psychology_rounded;
+    }
+    if (lower.contains('instituicao') || lower.contains('institution')) {
+      return Icons.account_balance_rounded;
+    }
+    if (lower.contains('escola') ||
+        (lower.contains('school') && !lower.contains('class'))) {
+      return Icons.location_city_rounded;
+    }
+    if (lower.contains('turma') || lower.contains('class')) {
+      return Icons.groups_rounded;
+    }
+    if (lower.contains('matricula') || lower.contains('enrollment')) {
+      return Icons.how_to_reg_rounded;
+    }
+    if (lower.contains('atribuicao') || lower.contains('assignment')) {
+      return Icons.assignment_ind_rounded;
+    }
+    if (lower.contains('idioma') || lower.contains('language')) {
+      return Icons.language_rounded;
+    }
+    if (lower.contains('submissao') || lower.contains('submission')) {
+      return Icons.task_alt_rounded;
+    }
+    if (lower.contains('exercicio') || lower.contains('exercise')) {
+      return Icons.menu_book_rounded;
+    }
+    if (lower.contains('conquista') || lower.contains('achievement')) {
+      return Icons.emoji_events_rounded;
+    }
+    if (lower.contains('solicitacao') || lower.contains('request')) {
+      return Icons.mark_email_unread_rounded;
+    }
     return Icons.table_chart_rounded;
   }
 
@@ -534,6 +634,14 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         return _buildInstitutionDashboardSection(context);
       case 'users':
         return _buildUsersAdminSection(context);
+      case 'auditLogs':
+        return const AdminAuditLogsView();
+      case 'systemHealth':
+        return const AdminSystemHealthView();
+      case 'catalogManagement':
+        return const AdminCatalogManagementView();
+      case 'teacherDocuments':
+        return const AdminTeacherDocumentsView();
       case 'notifications':
         return _buildNotificationsSection(context);
       case 'profile':
@@ -1327,10 +1435,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         foregroundColor: const Color(0xFF4338CA),
                         textStyle: const TextStyle(fontWeight: FontWeight.w700),
                       ),
-                      icon: const Icon(
-                        Icons.add_business_rounded,
-                        size: 18,
-                      ),
+                      icon: const Icon(Icons.add_business_rounded, size: 18),
                       label: const Text('Cadastros Rápidos'),
                     ),
                     OutlinedButton.icon(
@@ -1371,6 +1476,48 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       ),
                       label: const Text('Conquistas de Alunos'),
                     ),
+                    OutlinedButton.icon(
+                      onPressed: () => widget.onSectionSelected('auditLogs'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white, width: 1.4),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      icon: const Icon(Icons.security_rounded, size: 18),
+                      label: const Text('Logs & Auditoria'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => widget.onSectionSelected('systemHealth'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white, width: 1.4),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      icon: const Icon(Icons.monitor_heart_rounded, size: 18),
+                      label: const Text('Saúde & Diagnóstico'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          widget.onSectionSelected('catalogManagement'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white, width: 1.4),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      icon: const Icon(Icons.category_rounded, size: 18),
+                      label: const Text('Catálogo & Idiomas'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          widget.onSectionSelected('teacherDocuments'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white, width: 1.4),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      icon: const Icon(Icons.folder_shared_rounded, size: 18),
+                      label: const Text('Documentos Docentes'),
+                    ),
                     IconButton(
                       onPressed: () => _loadAdminOverview(),
                       tooltip: 'Atualizar indicadores',
@@ -1390,67 +1537,70 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             const SizedBox(height: 16),
           ],
           LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 900
-                  ? 4
-                  : constraints.maxWidth >= 560
-                  ? 2
-                  : 1;
-              final itemWidth =
-                  (constraints.maxWidth - (14 * (columns - 1))) / columns;
+                builder: (context, constraints) {
+                  final columns = constraints.maxWidth >= 900
+                      ? 4
+                      : constraints.maxWidth >= 560
+                      ? 2
+                      : 1;
+                  final itemWidth =
+                      (constraints.maxWidth - (14 * (columns - 1))) / columns;
 
-              return Wrap(
-                spacing: 14,
-                runSpacing: 14,
-                children: [
-                  SizedBox(
-                    width: itemWidth,
-                    child: InfoStatCard(
-                      title: 'Tabelas no PostgreSQL',
-                      value: '${_tables.length}',
-                      subtitle: 'Schema public ativo',
-                      icon: Icons.table_view_rounded,
-                      accentColor: const Color(0xFF6366F1),
-                      onTap: () => widget.onSectionSelected('database'),
-                    ),
-                  ),
-                  SizedBox(
-                    width: itemWidth,
-                    child: InfoStatCard(
-                      title: 'Registros Persistidos',
-                      value: '$totalRows',
-                      subtitle: 'Soma em todas as tabelas',
-                      icon: Icons.dataset_rounded,
-                      accentColor: const Color(0xFF2563EB),
-                      onTap: () => widget.onSectionSelected('database'),
-                    ),
-                  ),
-                  SizedBox(
-                    width: itemWidth,
-                    child: InfoStatCard(
-                      title: 'Usuários Cadastrados',
-                      value: '${_users.length}',
-                      subtitle: 'Contas cadastradas no sistema',
-                      icon: Icons.people_alt_rounded,
-                      accentColor: const Color(0xFF8B5CF6),
-                      onTap: () => _openUsersWithFilter('ALL'),
-                    ),
-                  ),
-                  SizedBox(
-                    width: itemWidth,
-                    child: InfoStatCard(
-                      title: 'Administradores Ativos',
-                      value: '$adminCount',
-                      subtitle: 'Contas com permissão de gestão',
-                      icon: Icons.shield_rounded,
-                      accentColor: const Color(0xFF059669),
-                      onTap: () => _openUsersWithFilter('ADMIN'),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideY(begin: 0.05, end: 0),
+                  return Wrap(
+                    spacing: 14,
+                    runSpacing: 14,
+                    children: [
+                      SizedBox(
+                        width: itemWidth,
+                        child: InfoStatCard(
+                          title: 'Tabelas no PostgreSQL',
+                          value: '${_tables.length}',
+                          subtitle: 'Schema public ativo',
+                          icon: Icons.table_view_rounded,
+                          accentColor: const Color(0xFF6366F1),
+                          onTap: () => widget.onSectionSelected('database'),
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: InfoStatCard(
+                          title: 'Registros Persistidos',
+                          value: '$totalRows',
+                          subtitle: 'Soma em todas as tabelas',
+                          icon: Icons.dataset_rounded,
+                          accentColor: const Color(0xFF2563EB),
+                          onTap: () => widget.onSectionSelected('database'),
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: InfoStatCard(
+                          title: 'Usuários Cadastrados',
+                          value: '${_users.length}',
+                          subtitle: 'Contas cadastradas no sistema',
+                          icon: Icons.people_alt_rounded,
+                          accentColor: const Color(0xFF8B5CF6),
+                          onTap: () => _openUsersWithFilter('ALL'),
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: InfoStatCard(
+                          title: 'Administradores Ativos',
+                          value: '$adminCount',
+                          subtitle: 'Contas com permissão de gestão',
+                          icon: Icons.shield_rounded,
+                          accentColor: const Color(0xFF059669),
+                          onTap: () => _openUsersWithFilter('ADMIN'),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              )
+              .animate()
+              .fadeIn(duration: 400.ms, delay: 100.ms)
+              .slideY(begin: 0.05, end: 0),
           const SizedBox(height: 28),
           Row(
             children: [
@@ -1484,92 +1634,108 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             )
           else
             LayoutBuilder(
-              builder: (context, constraints) {
-                final cols = constraints.maxWidth >= 1000
-                    ? 4
-                    : constraints.maxWidth >= 720
-                    ? 3
-                    : constraints.maxWidth >= 480
-                    ? 2
-                    : 1;
-                final cardWidth =
-                    (constraints.maxWidth - (10 * (cols - 1))) / cols;
+                  builder: (context, constraints) {
+                    final cols = constraints.maxWidth >= 1000
+                        ? 4
+                        : constraints.maxWidth >= 720
+                        ? 3
+                        : constraints.maxWidth >= 480
+                        ? 2
+                        : 1;
+                    final cardWidth =
+                        (constraints.maxWidth - (10 * (cols - 1))) / cols;
 
-                return Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: _tables.map((table) {
-                    final friendly = _friendlyTableName(table.tableName);
-                    return SizedBox(
-                      width: cardWidth,
-                      child: AppHoverCard(
-                        onTap: () => _openTableInEditor(table.tableName),
-                        borderRadius: 14,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF6366F1).withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                _iconForTable(table.tableName),
-                                color: const Color(0xFF6366F1),
-                                size: 20,
-                              ),
+                    return Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: _tables.map((table) {
+                        final friendly = _friendlyTableName(table.tableName);
+                        return SizedBox(
+                          width: cardWidth,
+                          child: AppHoverCard(
+                            onTap: () => _openTableInEditor(table.tableName),
+                            borderRadius: 14,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    friendly,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(
+                                      0xFF6366F1,
+                                    ).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
-                                  Text(
-                                    table.tableName,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                  child: Icon(
+                                    _iconForTable(table.tableName),
+                                    color: const Color(0xFF6366F1),
+                                    size: 20,
                                   ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB).withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                '${table.rowCount}',
-                                style: const TextStyle(
-                                  color: Color(0xFF2563EB),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 11,
                                 ),
-                              ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        friendly,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        table.tableName,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(
+                                      0xFF2563EB,
+                                    ).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '${table.rowCount}',
+                                    style: const TextStyle(
+                                      color: Color(0xFF2563EB),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
+                          ),
+                        );
+                      }).toList(),
                     );
-                  }).toList(),
-                );
-              },
-            ).animate().fadeIn(duration: 400.ms, delay: 180.ms).slideY(begin: 0.05, end: 0),
+                  },
+                )
+                .animate()
+                .fadeIn(duration: 400.ms, delay: 180.ms)
+                .slideY(begin: 0.05, end: 0),
         ],
       ),
     );
@@ -1999,7 +2165,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                                   context,
                                                   tableData: tableData,
                                                   existingRow: row,
-                                          ),
+                                                ),
                                         ),
                                         IconButton(
                                           tooltip: 'Excluir linha',
@@ -2014,7 +2180,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                                   context,
                                                   tableData: tableData,
                                                   row: row,
-                                          ),
+                                                ),
                                         ),
                                       ],
                                     ),
@@ -2235,7 +2401,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                     '(${col.name})',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                   const SizedBox(width: 6),
@@ -2548,7 +2716,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     }).toList();
 
     int rolePriority(_AdminUserItem u) {
-      if (u.institutionAdmin || u.primaryInstitutionAdmin || u.isAdmin) return 0;
+      if (u.institutionAdmin || u.primaryInstitutionAdmin || u.isAdmin) {
+        return 0;
+      }
       if (u.baseProfileType == 'TEACHER') return 1;
       if (u.baseProfileType == 'STUDENT') return 2;
       return 3;
@@ -2908,6 +3078,47 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             ),
                           ),
                         ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: user.active
+                                ? const Color(
+                                    0xFF059669,
+                                  ).withValues(alpha: 0.12)
+                                : const Color(
+                                    0xFFB42318,
+                                  ).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                user.active
+                                    ? Icons.check_circle_rounded
+                                    : Icons.block_rounded,
+                                size: 12,
+                                color: user.active
+                                    ? const Color(0xFF059669)
+                                    : const Color(0xFFB42318),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                user.active ? 'Ativo' : 'Suspenso',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: user.active
+                                      ? const Color(0xFF059669)
+                                      : const Color(0xFFB42318),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                         if (user.institutionName != null &&
                             user.institutionName!.isNotEmpty)
                           Container(
@@ -2983,6 +3194,19 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       ? (val) => _toggleUserAdmin(user, val)
                       : null,
                 ),
+                if (_isSuperAdmin && !isSuper && !isCurrentUser)
+                  IconButton(
+                    tooltip: user.active ? 'Suspender conta' : 'Reativar conta',
+                    onPressed: () => _toggleUserActive(user),
+                    icon: Icon(
+                      user.active
+                          ? Icons.pause_circle_outline_rounded
+                          : Icons.play_circle_outline_rounded,
+                      color: user.active
+                          ? const Color(0xFFD97706)
+                          : const Color(0xFF059669),
+                    ),
+                  ),
                 if (_isSuperAdmin && !isSuper)
                   IconButton(
                     tooltip: 'Editar usuário',
@@ -3033,6 +3257,28 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         _extractErrorMessage(
           e,
           'Não foi possível alterar a permissão de administrador.',
+        ),
+        isError: true,
+      );
+    }
+  }
+
+  Future<void> _toggleUserActive(_AdminUserItem user) async {
+    try {
+      final resp = await _dio.patch<Map<String, dynamic>>(
+        _adminUri('/api/admin/users/${user.id}/toggle-active').toString(),
+      );
+      final newStatus = resp.data?['active'] == true;
+      _showSnack(
+        'Conta de "${user.name}" ${newStatus ? 'reativada' : 'suspensa'} com sucesso!',
+        isError: !newStatus,
+      );
+      await _loadAdminOverview();
+    } catch (e) {
+      _showSnack(
+        _extractErrorMessage(
+          e,
+          'Não foi possível alterar o status de ativação do usuário.',
         ),
         isError: true,
       );
@@ -3341,8 +3587,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   }
 
   Widget _buildFriendlyToolsSection(BuildContext context) {
-    final myInstId = widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
-    final instName = widget.data.teacherProfile?.institution ??
+    final myInstId =
+        widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
+    final instName =
+        widget.data.teacherProfile?.institution ??
         _institutionsList.firstWhere(
           (i) => (i['id'] as num?)?.toInt() == myInstId,
           orElse: () => <String, dynamic>{'name': 'sua instituição'},
@@ -3724,7 +3972,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
     if (ok != true || name.isEmpty || code.isEmpty || email.isEmpty) {
       if (ok == true) {
-        _showSnack('Preencha os campos obrigatórios: Nome, Código e E-mail.', isError: true);
+        _showSnack(
+          'Preencha os campos obrigatórios: Nome, Código e E-mail.',
+          isError: true,
+        );
       }
       return;
     }
@@ -3763,8 +4014,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     int? institutionId = !_isSuperAdmin
         ? myInstId
         : (_institutionsList.isNotEmpty
-            ? (_institutionsList.first['id'] as num?)?.toInt()
-            : null);
+              ? (_institutionsList.first['id'] as num?)?.toInt()
+              : null);
 
     final ok = await showDialog<bool>(
       context: context,
@@ -3861,10 +4112,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     try {
       await _dio.post(
         _adminUri('/api/schools/institution/$institutionId').toString(),
-        data: {
-          'name': name,
-          'inepCode': inep.isEmpty ? null : inep,
-        },
+        data: {'name': name, 'inepCode': inep.isEmpty ? null : inep},
       );
       _showSnack('Escola "$name" criada com sucesso!');
       await _loadCatalogAuxData();
@@ -3884,8 +4132,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
     final availableSchools = (!_isSuperAdmin && myInstId != null)
         ? _schoolsList
-            .where((s) => (s['institutionId'] as num?)?.toInt() == myInstId)
-            .toList()
+              .where((s) => (s['institutionId'] as num?)?.toInt() == myInstId)
+              .toList()
         : _schoolsList;
 
     if (availableSchools.isEmpty) {
@@ -3897,8 +4145,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     }
 
     final nameCtrl = TextEditingController();
-    final yearCtrl =
-        TextEditingController(text: DateTime.now().year.toString());
+    final yearCtrl = TextEditingController(
+      text: DateTime.now().year.toString(),
+    );
     final gradeCtrl = TextEditingController(text: 'Geral');
     String shift = 'MANHÃ';
     int? schoolId = (availableSchools.first['id'] as num?)?.toInt();
@@ -4326,11 +4575,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           'institutionId': myInstId,
           if (lang.isNotEmpty)
             'languages': [
-              {
-                'language': lang,
-                'proficiencyLevel': 'Básico',
-                'active': true,
-              }
+              {'language': lang, 'proficiencyLevel': 'Básico', 'active': true},
             ],
         },
       );
@@ -4365,8 +4610,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
     final availableTeachers = (!_isSuperAdmin && myInstId != null)
         ? _teachersList
-            .where((t) => (t['institutionId'] as num?)?.toInt() == myInstId)
-            .toList()
+              .where((t) => (t['institutionId'] as num?)?.toInt() == myInstId)
+              .toList()
         : _teachersList;
 
     if (availableClasses.isEmpty || availableTeachers.isEmpty) {
@@ -4514,8 +4759,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
     final availableStudents = (!_isSuperAdmin && myInstId != null)
         ? _studentsList
-            .where((s) => (s['institutionId'] as num?)?.toInt() == myInstId)
-            .toList()
+              .where((s) => (s['institutionId'] as num?)?.toInt() == myInstId)
+              .toList()
         : _studentsList;
 
     if (availableClasses.isEmpty || availableStudents.isEmpty) {
@@ -4674,9 +4919,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               const SizedBox(height: 10),
               TextField(
                 controller: descCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Descrição *',
-                ),
+                decoration: const InputDecoration(labelText: 'Descrição *'),
               ),
               const SizedBox(height: 10),
               TextField(
@@ -4779,8 +5022,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   }) async {
     try {
       await _dio.patch(
-        _adminUri('/api/admin/teachers/$teacherId/institution-admin')
-            .toString(),
+        _adminUri(
+          '/api/admin/teachers/$teacherId/institution-admin',
+        ).toString(),
         data: {
           'institutionAdmin': institutionAdmin,
           'primaryInstitutionAdmin': ?primaryInstitutionAdmin,
@@ -4933,9 +5177,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             const Card(
               child: Padding(
                 padding: EdgeInsets.all(28),
-                child: Center(
-                  child: Text('Nenhum professor encontrado.'),
-                ),
+                child: Center(child: Text('Nenhum professor encontrado.')),
               ),
             ),
           ...filtered.map((t) {
@@ -5264,7 +5506,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           : 'Todos aprovados',
                       icon: Icons.co_present_rounded,
                       accentColor: const Color(0xFF7C3AED),
-                      onTap: () => widget.onSectionSelected('institutionTeachers'),
+                      onTap: () =>
+                          widget.onSectionSelected('institutionTeachers'),
                     ),
                   ),
                   SizedBox(
@@ -5318,8 +5561,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           else
             ...teachers.map((t) {
               final gender = '${t['gender'] ?? ''}'.toUpperCase();
-              final roleLabel =
-                  gender == 'FEMININO' ? 'Professora' : 'Professor';
+              final roleLabel = gender == 'FEMININO'
+                  ? 'Professora'
+                  : 'Professor';
               final status = '${t['approvalStatus'] ?? 'APPROVED'}';
               final teacherId = (t['id'] as num?)?.toInt();
               return Card(
@@ -5431,7 +5675,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   Widget _buildInstitutionTeachersSection(BuildContext context) {
     final dash = _instDashboardData;
     final inst = dash?['institution'] as Map?;
-    final instName = inst?['name']?.toString() ??
+    final instName =
+        inst?['name']?.toString() ??
         widget.data.teacherProfile?.institution ??
         'Sua Instituição';
 
@@ -5517,7 +5762,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   IconButton(
                     onPressed: _loadInstitutionDashboard,
                     tooltip: 'Recarregar professores',
-                    icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                    icon: const Icon(
+                      Icons.refresh_rounded,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
@@ -5566,156 +5814,203 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               ),
             ] else if (filteredTeachers.isEmpty) ...[
               Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(32),
                   child: Column(
                     children: [
-                      const Icon(Icons.person_off_rounded, size: 48, color: Colors.grey),
+                      const Icon(
+                        Icons.person_off_rounded,
+                        size: 48,
+                        color: Colors.grey,
+                      ),
                       const SizedBox(height: 12),
                       Text(
                         teachers.isEmpty
                             ? 'Nenhum professor cadastrado nesta instituição ainda.'
                             : 'Nenhum professor encontrado para a pesquisa.',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                       const SizedBox(height: 6),
-                      const Text('Utilize o botão acima para cadastrar um professor na instituição.'),
+                      const Text(
+                        'Utilize o botão acima para cadastrar um professor na instituição.',
+                      ),
                     ],
                   ),
                 ),
               ),
             ] else ...[
               LayoutBuilder(
-                builder: (context, constraints) {
-                  final cols = constraints.maxWidth >= 960 ? 3 : constraints.maxWidth >= 600 ? 2 : 1;
-                  final w = (constraints.maxWidth - (14 * (cols - 1))) / cols;
-                  return Wrap(
-                    spacing: 14,
-                    runSpacing: 14,
-                    children: filteredTeachers.map((t) {
-                      final name = t['name']?.toString() ?? 'Professor';
-                      final email = t['email']?.toString() ?? '';
-                      final status = (t['approvalStatus'] ?? 'APPROVED').toString();
-                      final gender = (t['gender'] ?? '').toString().toUpperCase();
-                      final roleLabel = gender == 'FEMININO' ? 'Professora' : 'Professor';
-                      final teacherId = (t['id'] as num?)?.toInt();
-                      final languages = ((t['taughtLanguages'] as List<dynamic>?) ?? const [])
-                          .map((l) => l.toString())
-                          .toList();
+                    builder: (context, constraints) {
+                      final cols = constraints.maxWidth >= 960
+                          ? 3
+                          : constraints.maxWidth >= 600
+                          ? 2
+                          : 1;
+                      final w =
+                          (constraints.maxWidth - (14 * (cols - 1))) / cols;
+                      return Wrap(
+                        spacing: 14,
+                        runSpacing: 14,
+                        children: filteredTeachers.map((t) {
+                          final name = t['name']?.toString() ?? 'Professor';
+                          final email = t['email']?.toString() ?? '';
+                          final status = (t['approvalStatus'] ?? 'APPROVED')
+                              .toString();
+                          final gender = (t['gender'] ?? '')
+                              .toString()
+                              .toUpperCase();
+                          final roleLabel = gender == 'FEMININO'
+                              ? 'Professora'
+                              : 'Professor';
+                          final teacherId = (t['id'] as num?)?.toInt();
+                          final languages =
+                              ((t['taughtLanguages'] as List<dynamic>?) ??
+                                      const [])
+                                  .map((l) => l.toString())
+                                  .toList();
 
-                      return SizedBox(
-                        width: w,
-                        child: AppHoverCard(
-                          onTap: teacherId == null
-                              ? null
-                              : () {
-                                  setState(() => _selectedInstitutionTeacher = t);
-                                  _loadTeacherDetails(teacherId, email);
-                                },
-                          borderRadius: 16,
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                          return SizedBox(
+                            width: w,
+                            child: AppHoverCard(
+                              onTap: teacherId == null
+                                  ? null
+                                  : () {
+                                      setState(
+                                        () => _selectedInstitutionTeacher = t,
+                                      );
+                                      _loadTeacherDetails(teacherId, email);
+                                    },
+                              borderRadius: 16,
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  AppUserAvatar(
-                                    name: name,
-                                    radius: 24,
-                                    backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.15),
-                                    textColor: const Color(0xFF7C3AED),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        Text(
-                                          email,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  _buildStatusBadge(status),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              if (languages.isNotEmpty) ...[
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 4,
-                                  children: languages.take(3).map((lang) {
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF2563EB).withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(8),
+                                  Row(
+                                    children: [
+                                      AppUserAvatar(
+                                        name: name,
+                                        radius: 24,
+                                        backgroundColor: const Color(
+                                          0xFF7C3AED,
+                                        ).withValues(alpha: 0.15),
+                                        textColor: const Color(0xFF7C3AED),
                                       ),
-                                      child: Text(
-                                        lang,
-                                        style: const TextStyle(
-                                          color: Color(0xFF2563EB),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 15,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            Text(
+                                              email,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    );
-                                  }).toList(),
-                                ),
-                                const SizedBox(height: 12),
-                              ],
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    roleLabel,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                    ),
+                                      _buildStatusBadge(status),
+                                    ],
                                   ),
-                                  const Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                  const SizedBox(height: 12),
+                                  if (languages.isNotEmpty) ...[
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: languages.take(3).map((lang) {
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(
+                                              0xFF2563EB,
+                                            ).withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            lang,
+                                            style: const TextStyle(
+                                              color: Color(0xFF2563EB),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        'Ver Atividades & Turmas',
+                                        roleLabel,
                                         style: TextStyle(
-                                          color: Color(0xFF7C3AED),
-                                          fontWeight: FontWeight.bold,
                                           fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
                                         ),
                                       ),
-                                      SizedBox(width: 4),
-                                      Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF7C3AED)),
+                                      const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'Ver Atividades & Turmas',
+                                            style: TextStyle(
+                                              color: Color(0xFF7C3AED),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          SizedBox(width: 4),
+                                          Icon(
+                                            Icons.arrow_forward_rounded,
+                                            size: 14,
+                                            color: Color(0xFF7C3AED),
+                                          ),
+                                        ],
+                                      ),
                                     ],
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
+                            ),
+                          );
+                        }).toList(),
                       );
-                    }).toList(),
-                  );
-                },
-              ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideY(begin: 0.05, end: 0),
+                    },
+                  )
+                  .animate()
+                  .fadeIn(duration: 400.ms, delay: 100.ms)
+                  .slideY(begin: 0.05, end: 0),
             ],
           ],
         ],
@@ -5723,7 +6018,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     );
   }
 
-  Widget _buildTeacherDetailView(BuildContext context, Map<String, dynamic> teacher) {
+  Widget _buildTeacherDetailView(
+    BuildContext context,
+    Map<String, dynamic> teacher,
+  ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final name = teacher['name']?.toString() ?? 'Professor';
     final email = teacher['email']?.toString() ?? '';
@@ -5731,13 +6029,18 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final teacherId = (teacher['id'] as num?)?.toInt();
     final gender = (teacher['gender'] ?? '').toString().toUpperCase();
     final roleLabel = gender == 'FEMININO' ? 'Professora' : 'Professor';
-    final languages = ((teacher['taughtLanguages'] as List<dynamic>?) ?? const [])
-        .map((l) => l.toString())
-        .toList();
-    final specs = ((teacher['specializationAreas'] as List<dynamic>?) ?? const [])
-        .map((s) => s.toString())
-        .toList();
-    final bio = teacher['bibliography']?.toString() ?? teacher['biography']?.toString() ?? '';
+    final languages =
+        ((teacher['taughtLanguages'] as List<dynamic>?) ?? const [])
+            .map((l) => l.toString())
+            .toList();
+    final specs =
+        ((teacher['specializationAreas'] as List<dynamic>?) ?? const [])
+            .map((s) => s.toString())
+            .toList();
+    final bio =
+        teacher['bibliography']?.toString() ??
+        teacher['biography']?.toString() ??
+        '';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -5745,7 +6048,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         Row(
           children: [
             OutlinedButton.icon(
-              onPressed: () => setState(() => _selectedInstitutionTeacher = null),
+              onPressed: () =>
+                  setState(() => _selectedInstitutionTeacher = null),
               icon: const Icon(Icons.arrow_back_rounded, size: 18),
               label: const Text('Voltar para Todos os Professores'),
             ),
@@ -5841,35 +6145,45 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         spacing: 6,
                         runSpacing: 4,
                         children: [
-                          ...languages.map((l) => Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(8),
+                          ...languages.map(
+                            (l) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                l,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                child: Text(
-                                  l,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                              ),
+                            ),
+                          ),
+                          ...specs.map(
+                            (s) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                s,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontSize: 11,
                                 ),
-                              )),
-                          ...specs.map((s) => Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  s,
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              )),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -5890,7 +6204,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         ] else if (_teacherDetailsError != null) ...[
           _buildErrorBanner(
             _teacherDetailsError!,
-            onRetry: teacherId == null ? null : () => _loadTeacherDetails(teacherId, email),
+            onRetry: teacherId == null
+                ? null
+                : () => _loadTeacherDetails(teacherId, email),
           ),
         ] else ...[
           LayoutBuilder(
@@ -5914,7 +6230,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                                color: const Color(
+                                  0xFFD97706,
+                                ).withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Icon(
@@ -5940,25 +6258,38 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                               side: BorderSide(
-                                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                                color: isDark
+                                    ? const Color(0xFF334155)
+                                    : const Color(0xFFE2E8F0),
                               ),
                             ),
                             child: const Padding(
                               padding: EdgeInsets.all(24),
                               child: Center(
-                                child: Text('Nenhuma atividade recente encontrada para este professor.'),
+                                child: Text(
+                                  'Nenhuma atividade recente encontrada para este professor.',
+                                ),
                               ),
                             ),
                           )
                         else
                           ..._teacherRecentExercises.map((ex) {
-                            final title = ex['title']?.toString() ?? 'Atividade';
-                            final lang = ex['languageName']?.toString() ?? 'Idioma';
-                            final level = ex['proficiencyLevel']?.toString() ?? 'Básico';
-                            final due = ex['dueDate']?.toString() ?? 'Sem prazo';
-                            final className = ex['schoolClassName']?.toString() ?? 'Turma';
-                            final subCount = (ex['submissionsCount'] as num?)?.toInt() ?? 0;
-                            final accuracy = (ex['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0;
+                            final title =
+                                ex['title']?.toString() ?? 'Atividade';
+                            final lang =
+                                ex['languageName']?.toString() ?? 'Idioma';
+                            final level =
+                                ex['proficiencyLevel']?.toString() ?? 'Básico';
+                            final due =
+                                ex['dueDate']?.toString() ?? 'Sem prazo';
+                            final className =
+                                ex['schoolClassName']?.toString() ?? 'Turma';
+                            final subCount =
+                                (ex['submissionsCount'] as num?)?.toInt() ?? 0;
+                            final accuracy =
+                                (ex['averageAccuracyPercent'] as num?)
+                                    ?.toDouble() ??
+                                0.0;
 
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 10),
@@ -5980,10 +6311,17 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                           ),
                                         ),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 3,
+                                          ),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFFD97706).withValues(alpha: 0.12),
-                                            borderRadius: BorderRadius.circular(8),
+                                            color: const Color(
+                                              0xFFD97706,
+                                            ).withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                           ),
                                           child: Text(
                                             '$lang • $level',
@@ -6001,24 +6339,40 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                       'Turma: $className • Prazo: $due',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
                                       ),
                                     ),
                                     const SizedBox(height: 8),
                                     Row(
                                       children: [
-                                        const Icon(Icons.check_circle_outline_rounded, size: 14, color: Color(0xFF059669)),
+                                        const Icon(
+                                          Icons.check_circle_outline_rounded,
+                                          size: 14,
+                                          color: Color(0xFF059669),
+                                        ),
                                         const SizedBox(width: 4),
                                         Text(
                                           '$subCount entregas',
-                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                         const SizedBox(width: 14),
-                                        const Icon(Icons.track_changes_rounded, size: 14, color: Color(0xFF7C3AED)),
+                                        const Icon(
+                                          Icons.track_changes_rounded,
+                                          size: 14,
+                                          color: Color(0xFF7C3AED),
+                                        ),
                                         const SizedBox(width: 4),
                                         Text(
                                           '${accuracy.toStringAsFixed(0)}% taxa acertos',
-                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -6040,7 +6394,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF059669).withValues(alpha: 0.12),
+                                color: const Color(
+                                  0xFF059669,
+                                ).withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Icon(
@@ -6066,13 +6422,17 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                               side: BorderSide(
-                                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                                color: isDark
+                                    ? const Color(0xFF334155)
+                                    : const Color(0xFFE2E8F0),
                               ),
                             ),
                             child: const Padding(
                               padding: EdgeInsets.all(24),
                               child: Center(
-                                child: Text('Nenhuma turma vinculada a este professor.'),
+                                child: Text(
+                                  'Nenhuma turma vinculada a este professor.',
+                                ),
                               ),
                             ),
                           )
@@ -6087,7 +6447,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 10),
                               child: AppHoverCard(
-                                onTap: () => _showClassDashboardDialog(context, cId, cName),
+                                onTap: () => _showClassDashboardDialog(
+                                  context,
+                                  cId,
+                                  cName,
+                                ),
                                 borderRadius: 14,
                                 padding: const EdgeInsets.all(14),
                                 child: Row(
@@ -6095,7 +6459,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                     Container(
                                       padding: const EdgeInsets.all(10),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF059669).withValues(alpha: 0.12),
+                                        color: const Color(
+                                          0xFF059669,
+                                        ).withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: const Icon(
@@ -6107,7 +6473,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             cName,
@@ -6121,16 +6488,23 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                             'Ano: $year • Turno: $shift • Nível: $grade',
                                             style: TextStyle(
                                               fontSize: 12,
-                                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF059669).withValues(alpha: 0.12),
+                                        color: const Color(
+                                          0xFF059669,
+                                        ).withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                       child: const Row(
@@ -6179,7 +6553,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     });
     try {
       final assignResp = await _dio.get<List<dynamic>>(
-        _adminUri('/api/class-teacher-assignments/teacher/$teacherId').toString(),
+        _adminUri(
+          '/api/class-teacher-assignments/teacher/$teacherId',
+        ).toString(),
       );
       final rawAssignments = (assignResp.data ?? const [])
           .whereType<Map<String, dynamic>>()
@@ -6200,8 +6576,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         }
       }
 
-      final instClasses = ((_instDashboardData?['classes'] as List<dynamic>?) ?? const [])
-          .whereType<Map<String, dynamic>>();
+      final instClasses =
+          ((_instDashboardData?['classes'] as List<dynamic>?) ?? const [])
+              .whereType<Map<String, dynamic>>();
       for (final c in instClasses) {
         final cId = (c['id'] as num?)?.toInt();
         if (cId != null && classesMap.containsKey(cId)) {
@@ -6210,13 +6587,15 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       }
 
       final exercisesList = <Map<String, dynamic>>[];
-      final instExercises = ((_instDashboardData?['exercises'] as List<dynamic>?) ?? const [])
-          .whereType<Map<String, dynamic>>();
+      final instExercises =
+          ((_instDashboardData?['exercises'] as List<dynamic>?) ?? const [])
+              .whereType<Map<String, dynamic>>();
       for (final ex in instExercises) {
         final exClassId = (ex['schoolClassId'] as num?)?.toInt();
         final creator = (ex['creatorEmail'] ?? '').toString().toLowerCase();
         if ((exClassId != null && classesMap.containsKey(exClassId)) ||
-            (teacherEmail.isNotEmpty && creator == teacherEmail.toLowerCase())) {
+            (teacherEmail.isNotEmpty &&
+                creator == teacherEmail.toLowerCase())) {
           exercisesList.add(ex);
         }
       }
@@ -6227,8 +6606,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             final dashResp = await _dio.get<Map<String, dynamic>>(
               _adminUri('/api/classes/${entry.key}/dashboard').toString(),
             );
-            final exList = ((dashResp.data?['exercises'] as List<dynamic>?) ?? const [])
-                .whereType<Map<String, dynamic>>();
+            final exList =
+                ((dashResp.data?['exercises'] as List<dynamic>?) ?? const [])
+                    .whereType<Map<String, dynamic>>();
             for (final ex in exList) {
               exercisesList.add({
                 ...ex,
@@ -6258,7 +6638,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _teacherDetailsError = _extractErrorMessage(e, 'Erro ao carregar detalhes do professor.');
+        _teacherDetailsError = _extractErrorMessage(
+          e,
+          'Erro ao carregar detalhes do professor.',
+        );
         _isLoadingTeacherDetails = false;
       });
     }
@@ -6274,7 +6657,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       context: context,
       builder: (ctx) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 820, maxHeight: 720),
@@ -6289,15 +6674,23 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     child: Center(child: CircularProgressIndicator()),
                   );
                 }
-                if (snapshot.hasError || !snapshot.hasData || snapshot.data?.data == null) {
+                if (snapshot.hasError ||
+                    !snapshot.hasData ||
+                    snapshot.data?.data == null) {
                   return Padding(
                     padding: const EdgeInsets.all(24),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 40),
+                        const Icon(
+                          Icons.error_outline_rounded,
+                          color: Colors.redAccent,
+                          size: 40,
+                        ),
                         const SizedBox(height: 12),
-                        Text('Não foi possível carregar o dashboard da turma $className.'),
+                        Text(
+                          'Não foi possível carregar o dashboard da turma $className.',
+                        ),
                         const SizedBox(height: 16),
                         FilledButton(
                           onPressed: () => Navigator.pop(ctx),
@@ -6309,19 +6702,24 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 }
 
                 final d = snapshot.data!.data!;
-                final totalStudents = (d['totalStudents'] as num?)?.toInt() ?? 0;
-                final totalExercises = (d['totalExercises'] as num?)?.toInt() ?? 0;
-                final totalSubmissions = (d['totalSubmissions'] as num?)?.toInt() ?? 0;
-                final avgAccuracy = (d['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0;
+                final totalStudents =
+                    (d['totalStudents'] as num?)?.toInt() ?? 0;
+                final totalExercises =
+                    (d['totalExercises'] as num?)?.toInt() ?? 0;
+                final totalSubmissions =
+                    (d['totalSubmissions'] as num?)?.toInt() ?? 0;
+                final avgAccuracy =
+                    (d['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0;
                 final schoolName = d['schoolName']?.toString() ?? '';
                 final shift = d['shift']?.toString() ?? '';
                 final year = d['schoolYear']?.toString() ?? '';
                 final students = ((d['students'] as List<dynamic>?) ?? const [])
                     .whereType<Map<String, dynamic>>()
                     .toList();
-                final exercises = ((d['exercises'] as List<dynamic>?) ?? const [])
-                    .whereType<Map<String, dynamic>>()
-                    .toList();
+                final exercises =
+                    ((d['exercises'] as List<dynamic>?) ?? const [])
+                        .whereType<Map<String, dynamic>>()
+                        .toList();
 
                 return DefaultTabController(
                   length: 2,
@@ -6331,11 +6729,17 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         padding: const EdgeInsets.all(20),
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Color(0xFF2563EB), Color(0xFF1D4ED8), Color(0xFF1E40AF)],
+                            colors: [
+                              Color(0xFF2563EB),
+                              Color(0xFF1D4ED8),
+                              Color(0xFF1E40AF),
+                            ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(20),
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -6345,7 +6749,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                 color: Colors.white.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                              child: const Icon(Icons.groups_rounded, color: Colors.white, size: 28),
+                              child: const Icon(
+                                Icons.groups_rounded,
+                                color: Colors.white,
+                                size: 28,
+                              ),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
@@ -6364,10 +6772,17 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                       ),
                                       const SizedBox(width: 8),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: 0.25),
-                                          borderRadius: BorderRadius.circular(12),
+                                          color: Colors.white.withValues(
+                                            alpha: 0.25,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                         ),
                                         child: Text(
                                           'Ano $year • $shift',
@@ -6382,9 +6797,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    schoolName.isNotEmpty ? 'Unidade: $schoolName' : 'Dashboard da Turma',
+                                    schoolName.isNotEmpty
+                                        ? 'Unidade: $schoolName'
+                                        : 'Dashboard da Turma',
                                     style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.9),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.9,
+                                      ),
                                       fontSize: 13,
                                     ),
                                   ),
@@ -6393,7 +6812,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             ),
                             IconButton(
                               onPressed: () => Navigator.pop(ctx),
-                              icon: const Icon(Icons.close_rounded, color: Colors.white),
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                color: Colors.white,
+                              ),
                               tooltip: 'Fechar',
                             ),
                           ],
@@ -6440,14 +6862,22 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       TabBar(
                         indicatorColor: const Color(0xFF2563EB),
                         labelColor: const Color(0xFF2563EB),
-                        unselectedLabelColor: isDark ? Colors.white60 : Colors.black54,
+                        unselectedLabelColor: isDark
+                            ? Colors.white60
+                            : Colors.black54,
                         tabs: [
                           Tab(
-                            icon: const Icon(Icons.people_outline_rounded, size: 18),
+                            icon: const Icon(
+                              Icons.people_outline_rounded,
+                              size: 18,
+                            ),
                             text: 'Alunos Matriculados (${students.length})',
                           ),
                           Tab(
-                            icon: const Icon(Icons.assignment_outlined, size: 18),
+                            icon: const Icon(
+                              Icons.assignment_outlined,
+                              size: 18,
+                            ),
                             text: 'Atividades da Turma (${exercises.length})',
                           ),
                         ],
@@ -6456,31 +6886,50 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         child: TabBarView(
                           children: [
                             students.isEmpty
-                                ? const Center(child: Text('Nenhum aluno matriculado nesta turma.'))
+                                ? const Center(
+                                    child: Text(
+                                      'Nenhum aluno matriculado nesta turma.',
+                                    ),
+                                  )
                                 : ListView.separated(
                                     padding: const EdgeInsets.all(16),
                                     itemCount: students.length,
-                                    separatorBuilder: (_, index) => const SizedBox(height: 8),
+                                    separatorBuilder: (_, index) =>
+                                        const SizedBox(height: 8),
                                     itemBuilder: (ctx, i) {
                                       final s = students[i];
-                                      final sName = s['name']?.toString() ?? 'Aluno';
-                                      final sEmail = s['email']?.toString() ?? '';
-                                      final sAcc = (s['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0;
-                                      final sXp = (s['xpEarned'] as num?)?.toInt() ?? 0;
+                                      final sName =
+                                          s['name']?.toString() ?? 'Aluno';
+                                      final sEmail =
+                                          s['email']?.toString() ?? '';
+                                      final sAcc =
+                                          (s['averageAccuracyPercent'] as num?)
+                                              ?.toDouble() ??
+                                          0.0;
+                                      final sXp =
+                                          (s['xpEarned'] as num?)?.toInt() ?? 0;
 
                                       return Card(
                                         elevation: 0,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                           side: BorderSide(
-                                            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                                            color: isDark
+                                                ? const Color(0xFF334155)
+                                                : const Color(0xFFE2E8F0),
                                           ),
                                         ),
                                         child: ListTile(
                                           leading: CircleAvatar(
-                                            backgroundColor: const Color(0xFF2563EB).withValues(alpha: 0.15),
+                                            backgroundColor: const Color(
+                                              0xFF2563EB,
+                                            ).withValues(alpha: 0.15),
                                             child: Text(
-                                              sName.isNotEmpty ? sName[0].toUpperCase() : 'A',
+                                              sName.isNotEmpty
+                                                  ? sName[0].toUpperCase()
+                                                  : 'A',
                                               style: const TextStyle(
                                                 color: Color(0xFF2563EB),
                                                 fontWeight: FontWeight.bold,
@@ -6489,18 +6938,28 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                           ),
                                           title: Text(
                                             sName,
-                                            style: const TextStyle(fontWeight: FontWeight.w700),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                           ),
                                           subtitle: Text(sEmail),
                                           trailing: Wrap(
                                             spacing: 12,
-                                            crossAxisAlignment: WrapCrossAlignment.center,
+                                            crossAxisAlignment:
+                                                WrapCrossAlignment.center,
                                             children: [
                                               Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4,
+                                                    ),
                                                 decoration: BoxDecoration(
-                                                  color: const Color(0xFF059669).withValues(alpha: 0.12),
-                                                  borderRadius: BorderRadius.circular(8),
+                                                  color: const Color(
+                                                    0xFF059669,
+                                                  ).withValues(alpha: 0.12),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
                                                 ),
                                                 child: Text(
                                                   '${sAcc.toStringAsFixed(0)}% Acertos',
@@ -6512,10 +6971,17 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                                 ),
                                               ),
                                               Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4,
+                                                    ),
                                                 decoration: BoxDecoration(
-                                                  color: const Color(0xFFD97706).withValues(alpha: 0.12),
-                                                  borderRadius: BorderRadius.circular(8),
+                                                  color: const Color(
+                                                    0xFFD97706,
+                                                  ).withValues(alpha: 0.12),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
                                                 ),
                                                 child: Text(
                                                   '⚡ $sXp XP',
@@ -6533,34 +6999,60 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                     },
                                   ),
                             exercises.isEmpty
-                                ? const Center(child: Text('Nenhuma atividade cadastrada nesta turma.'))
+                                ? const Center(
+                                    child: Text(
+                                      'Nenhuma atividade cadastrada nesta turma.',
+                                    ),
+                                  )
                                 : ListView.separated(
                                     padding: const EdgeInsets.all(16),
                                     itemCount: exercises.length,
-                                    separatorBuilder: (_, index) => const SizedBox(height: 8),
+                                    separatorBuilder: (_, index) =>
+                                        const SizedBox(height: 8),
                                     itemBuilder: (ctx, i) {
                                       final ex = exercises[i];
-                                      final title = ex['title']?.toString() ?? 'Atividade';
-                                      final lang = ex['languageName']?.toString() ?? 'Idioma';
-                                      final level = ex['proficiencyLevel']?.toString() ?? 'Básico';
-                                      final due = ex['dueDate']?.toString() ?? 'Sem prazo';
-                                      final exSub = (ex['submissionsCount'] as num?)?.toInt() ?? 0;
-                                      final exAcc = (ex['averageAccuracyPercent'] as num?)?.toDouble() ?? 0.0;
+                                      final title =
+                                          ex['title']?.toString() ??
+                                          'Atividade';
+                                      final lang =
+                                          ex['languageName']?.toString() ??
+                                          'Idioma';
+                                      final level =
+                                          ex['proficiencyLevel']?.toString() ??
+                                          'Básico';
+                                      final due =
+                                          ex['dueDate']?.toString() ??
+                                          'Sem prazo';
+                                      final exSub =
+                                          (ex['submissionsCount'] as num?)
+                                              ?.toInt() ??
+                                          0;
+                                      final exAcc =
+                                          (ex['averageAccuracyPercent'] as num?)
+                                              ?.toDouble() ??
+                                          0.0;
 
                                       return Card(
                                         elevation: 0,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                           side: BorderSide(
-                                            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                                            color: isDark
+                                                ? const Color(0xFF334155)
+                                                : const Color(0xFFE2E8F0),
                                           ),
                                         ),
                                         child: ListTile(
                                           leading: Container(
                                             padding: const EdgeInsets.all(8),
                                             decoration: BoxDecoration(
-                                              color: const Color(0xFFD97706).withValues(alpha: 0.12),
-                                              borderRadius: BorderRadius.circular(10),
+                                              color: const Color(
+                                                0xFFD97706,
+                                              ).withValues(alpha: 0.12),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
                                             ),
                                             child: const Icon(
                                               Icons.menu_book_rounded,
@@ -6570,20 +7062,28 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                           ),
                                           title: Text(
                                             title,
-                                            style: const TextStyle(fontWeight: FontWeight.w700),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                           ),
-                                          subtitle: Text('$lang • $level • Entrega: $due'),
+                                          subtitle: Text(
+                                            '$lang • $level • Entrega: $due',
+                                          ),
                                           trailing: Wrap(
                                             spacing: 8,
                                             children: [
                                               Chip(
                                                 label: Text('$exSub entregas'),
-                                                visualDensity: VisualDensity.compact,
+                                                visualDensity:
+                                                    VisualDensity.compact,
                                                 padding: EdgeInsets.zero,
                                               ),
                                               Chip(
-                                                label: Text('${exAcc.toStringAsFixed(0)}% acertos'),
-                                                visualDensity: VisualDensity.compact,
+                                                label: Text(
+                                                  '${exAcc.toStringAsFixed(0)}% acertos',
+                                                ),
+                                                visualDensity:
+                                                    VisualDensity.compact,
                                                 padding: EdgeInsets.zero,
                                               ),
                                             ],
@@ -6862,7 +7362,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               runSpacing: 8,
               children: _studentAchievementsList.map((student) {
                 final id = (student['studentId'] as num?)?.toInt();
-                final isSelected = selected != null &&
+                final isSelected =
+                    selected != null &&
                     (selected['studentId'] as num?)?.toInt() == id;
                 final list = (student['achievements'] as List? ?? const []);
                 final unlockedCount = list
@@ -6911,7 +7412,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       ),
                       const SizedBox(height: 16),
                       ...selectedAchievements.map((ach) {
-                        final achId = (ach['id'] as num?)?.toInt() ??
+                        final achId =
+                            (ach['id'] as num?)?.toInt() ??
                             (ach['achievementId'] as num?)?.toInt() ??
                             0;
                         final studentId =
@@ -7148,6 +7650,7 @@ class _AdminUserItem {
     this.primaryInstitutionAdmin = false,
     this.institutionId,
     this.institutionName,
+    this.active = true,
   });
 
   factory _AdminUserItem.fromJson(Map<String, dynamic> json) {
@@ -7166,6 +7669,7 @@ class _AdminUserItem {
       primaryInstitutionAdmin: json['primaryInstitutionAdmin'] == true,
       institutionId: (json['institutionId'] as num?)?.toInt(),
       institutionName: json['institutionName']?.toString(),
+      active: json['active'] != false,
     );
   }
 
@@ -7183,6 +7687,7 @@ class _AdminUserItem {
   final bool primaryInstitutionAdmin;
   final int? institutionId;
   final String? institutionName;
+  final bool active;
 }
 
 class _AdminNotification {

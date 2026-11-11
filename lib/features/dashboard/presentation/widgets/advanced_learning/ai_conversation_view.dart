@@ -26,7 +26,6 @@ class _AiConversationViewState extends State<AiConversationView> {
   bool _sending = false;
   bool _listening = false;
   bool _showMistakesDrawer = false;
-  String? _error;
 
   @override
   void initState() {
@@ -47,26 +46,31 @@ class _AiConversationViewState extends State<AiConversationView> {
       final res = await _dio.get('/api/ai/conversations/scenarios');
       if (!mounted) return;
       setState(() {
-        _scenarios = (res.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        _scenarios = (res.data as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
         _loading = false;
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _error = 'Erro ao carregar cenários.';
-        _loading = false;
-      });
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao carregar cenários: $e')));
     }
   }
 
   Future<void> _startSession(Map<String, dynamic> scenario) async {
     setState(() => _loading = true);
     try {
-      final res = await _dio.post('/api/ai/conversations/start', data: {
-        'scenarioCode': scenario['code'],
-        'targetLanguage': 'Inglês',
-        'cefrLevel': scenario['cefrLevel'],
-      });
+      final res = await _dio.post(
+        '/api/ai/conversations/start',
+        data: {
+          'scenarioCode': scenario['code'],
+          'targetLanguage': 'Inglês',
+          'cefrLevel': scenario['cefrLevel'],
+        },
+      );
 
       final sessionData = Map<String, dynamic>.from(res.data as Map);
       setState(() {
@@ -78,10 +82,11 @@ class _AiConversationViewState extends State<AiConversationView> {
       });
       _scrollToBottom();
     } catch (e) {
-      setState(() {
-        _error = 'Erro ao iniciar conversa com IA.';
-        _loading = false;
-      });
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao iniciar conversa com IA: $e')),
+      );
     }
   }
 
@@ -122,7 +127,9 @@ class _AiConversationViewState extends State<AiConversationView> {
       setState(() => _sending = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erro ao enviar mensagem. Tente novamente.')),
+          const SnackBar(
+            content: Text('Erro ao enviar mensagem. Tente novamente.'),
+          ),
         );
       }
     }
@@ -132,7 +139,9 @@ class _AiConversationViewState extends State<AiConversationView> {
     try {
       final res = await _dio.get('/api/ai/conversations/my-mistakes');
       setState(() {
-        _mistakes = (res.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        _mistakes = (res.data as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
         _showMistakesDrawer = true;
       });
     } catch (e) {
@@ -183,16 +192,28 @@ class _AiConversationViewState extends State<AiConversationView> {
         children: [
           Row(
             children: [
-              IconButton(icon: const Icon(Icons.arrow_back_rounded), onPressed: widget.onBack),
+              IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: widget.onBack,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Conversação Interativa com IA', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Conversação Interativa com IA',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     Text(
                       'Pratique diálogos do cotidiano em tempo real com correções pedagógicas e estímulo ativo da fala.',
-                      style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
+                      style: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -205,11 +226,16 @@ class _AiConversationViewState extends State<AiConversationView> {
             ],
           ),
           const SizedBox(height: 24),
-          const Text('Escolha um cenário para iniciar:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text(
+            'Escolha um cenário para iniciar:',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 16),
           LayoutBuilder(
             builder: (context, constraints) {
-              final crossAxisCount = constraints.maxWidth > 900 ? 3 : (constraints.maxWidth > 600 ? 2 : 1);
+              final crossAxisCount = constraints.maxWidth > 900
+                  ? 3
+                  : (constraints.maxWidth > 600 ? 2 : 1);
               return GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -257,36 +283,69 @@ class _AiConversationViewState extends State<AiConversationView> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: colors.primaryContainer,
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text(level, style: TextStyle(color: colors.onPrimaryContainer, fontWeight: FontWeight.bold, fontSize: 11)),
+                    child: Text(
+                      level,
+                      style: TextStyle(
+                        color: colors.onPrimaryContainer,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                    ),
                   ),
-                  Text(category, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+                  Text(
+                    category,
+                    style: TextStyle(
+                      color: colors.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
               const SizedBox(height: 6),
               Expanded(
                 child: Text(
                   desc,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
+                  style: TextStyle(
+                    color: colors.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.support_agent_rounded, size: 16, color: Color(0xFF3579E8)),
+                  const Icon(
+                    Icons.support_agent_rounded,
+                    size: 16,
+                    color: Color(0xFF3579E8),
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       'Interlocutor: $role',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF3579E8)),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF3579E8),
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -323,22 +382,39 @@ class _AiConversationViewState extends State<AiConversationView> {
               const SizedBox(width: 8),
               CircleAvatar(
                 backgroundColor: colors.primaryContainer,
-                child: const Icon(Icons.smart_toy_rounded, color: Color(0xFF3579E8)),
+                child: const Icon(
+                  Icons.smart_toy_rounded,
+                  color: Color(0xFF3579E8),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text('Interlocutor: $role • $turns turnos • $corrections correções', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      'Interlocutor: $role • $turns turnos • $corrections correções',
+                      style: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
               OutlinedButton(
                 onPressed: () async {
                   if (_currentSession != null) {
-                    await _dio.post('/api/ai/conversations/${_currentSession!['id']}/end');
+                    await _dio.post(
+                      '/api/ai/conversations/${_currentSession!['id']}/end',
+                    );
                   }
                   setState(() => _currentSession = null);
                 },
@@ -367,9 +443,20 @@ class _AiConversationViewState extends State<AiConversationView> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             child: Row(
               children: [
-                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
                 const SizedBox(width: 12),
-                Text('$role está digitando...', style: TextStyle(fontStyle: FontStyle.italic, color: colors.onSurfaceVariant, fontSize: 13)),
+                Text(
+                  '$role está digitando...',
+                  style: TextStyle(
+                    fontStyle: FontStyle.italic,
+                    color: colors.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                ),
               ],
             ),
           ),
@@ -384,11 +471,16 @@ class _AiConversationViewState extends State<AiConversationView> {
           child: Row(
             children: [
               IconButton(
-                icon: Icon(_listening ? Icons.mic_rounded : Icons.mic_none_rounded, color: _listening ? Colors.red : null),
+                icon: Icon(
+                  _listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                  color: _listening ? Colors.red : null,
+                ),
                 tooltip: 'Falar por áudio (Speech to text)',
                 onPressed: () async {
                   setState(() => _listening = true);
-                  final text = await AudioSpeechHelper.recognizeSpeech(languageName: 'Inglês');
+                  final text = await AudioSpeechHelper.recognizeSpeech(
+                    languageName: 'Inglês',
+                  );
                   setState(() {
                     _listening = false;
                     if (text != null && text.isNotEmpty) {
@@ -424,7 +516,11 @@ class _AiConversationViewState extends State<AiConversationView> {
     );
   }
 
-  Widget _buildMessageBubble(ColorScheme colors, Map<String, dynamic> msg, bool isUser) {
+  Widget _buildMessageBubble(
+    ColorScheme colors,
+    Map<String, dynamic> msg,
+    bool isUser,
+  ) {
     final content = msg['content'] ?? '';
     final hasIssues = msg['hasGrammarIssues'] == true;
     final correction = msg['grammarCorrection'];
@@ -434,25 +530,38 @@ class _AiConversationViewState extends State<AiConversationView> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
-        crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isUser
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+            mainAxisAlignment: isUser
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (!isUser) ...[
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: colors.primaryContainer,
-                  child: const Icon(Icons.smart_toy_rounded, size: 18, color: Color(0xFF3579E8)),
+                  child: const Icon(
+                    Icons.smart_toy_rounded,
+                    size: 18,
+                    color: Color(0xFF3579E8),
+                  ),
                 ),
                 const SizedBox(width: 8),
               ],
               Flexible(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
-                    color: isUser ? const Color(0xFF3579E8) : colors.surfaceContainerHighest.withOpacity(0.5),
+                    color: isUser
+                        ? const Color(0xFF3579E8)
+                        : colors.surfaceContainerHighest.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
@@ -474,8 +583,8 @@ class _AiConversationViewState extends State<AiConversationView> {
               constraints: const BoxConstraints(maxWidth: 480),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.amber.withOpacity(0.1),
-                border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                color: Colors.amber.withValues(alpha: 0.1),
+                border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -483,22 +592,52 @@ class _AiConversationViewState extends State<AiConversationView> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.auto_fix_high_rounded, size: 16, color: Colors.amber),
+                      const Icon(
+                        Icons.auto_fix_high_rounded,
+                        size: 16,
+                        color: Colors.amber,
+                      ),
                       const SizedBox(width: 6),
-                      Text('Correção Pedagógica', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber[900])),
+                      Text(
+                        'Correção Pedagógica',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.amber[900],
+                        ),
+                      ),
                     ],
                   ),
                   if (correction != null) ...[
                     const SizedBox(height: 4),
-                    Text('Correto: "$correction"', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    Text(
+                      'Correto: "$correction"',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
                   ],
                   if (explanation != null) ...[
                     const SizedBox(height: 4),
-                    Text(explanation, style: const TextStyle(fontSize: 12, color: Colors.black87)),
+                    Text(
+                      explanation,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black87,
+                      ),
+                    ),
                   ],
                   if (nativeAlt != null && nativeAlt.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text('Como um nativo diria: "$nativeAlt"', style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.teal)),
+                    Text(
+                      'Como um nativo diria: "$nativeAlt"',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                        color: Colors.teal,
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -519,7 +658,9 @@ class _AiConversationViewState extends State<AiConversationView> {
         title: const Text('Caderno de Erros & Anotações da IA'),
       ),
       body: _mistakes.isEmpty
-          ? const Center(child: Text('Nenhum erro registrado ainda. Excelente trabalho!'))
+          ? const Center(
+              child: Text('Nenhum erro registrado ainda. Excelente trabalho!'),
+            )
           : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: _mistakes.length,
@@ -532,14 +673,39 @@ class _AiConversationViewState extends State<AiConversationView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Você disse: "${m['originalText'] ?? ''}"', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w500)),
+                        Text(
+                          'Você disse: "${m['originalText'] ?? ''}"',
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        Text('Forma correta: "${m['correctedText'] ?? ''}"', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                        Text(
+                          'Forma correta: "${m['correctedText'] ?? ''}"',
+                          style: const TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         const SizedBox(height: 8),
-                        Text(m['explanation'] ?? '', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13)),
+                        Text(
+                          m['explanation'] ?? '',
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
+                        ),
                         if (m['betterNativeAlternative'] != null) ...[
                           const SizedBox(height: 6),
-                          Text('Alternativa idiomática: "${m['betterNativeAlternative']}"', style: const TextStyle(color: Colors.teal, fontStyle: FontStyle.italic, fontSize: 12)),
+                          Text(
+                            'Alternativa idiomática: "${m['betterNativeAlternative']}"',
+                            style: const TextStyle(
+                              color: Colors.teal,
+                              fontStyle: FontStyle.italic,
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
                       ],
                     ),

@@ -22,7 +22,8 @@ class RealtimeSyncEvent {
   factory RealtimeSyncEvent.fromJson(Map<String, dynamic> json) {
     return RealtimeSyncEvent(
       type: json['type'] as String? ?? 'UNKNOWN',
-      timestamp: (json['timestamp'] as num?)?.toInt() ??
+      timestamp:
+          (json['timestamp'] as num?)?.toInt() ??
           DateTime.now().millisecondsSinceEpoch,
       data: (json['data'] as Map<String, dynamic>?) ?? const {},
     );
@@ -69,7 +70,9 @@ class RealtimeSyncService {
     _cancelToken = CancelToken();
 
     try {
-      final uri = Uri.parse(AppConfig.apiBaseUrl).resolve('/api/realtime/stream');
+      final uri = Uri.parse(
+        AppConfig.apiBaseUrl,
+      ).resolve('/api/realtime/stream');
       final sseUrl = uri.replace(queryParameters: {'token': token}).toString();
 
       debugPrint('[Realtime] Conectando ao canal SSE: $sseUrl');
@@ -150,7 +153,9 @@ class RealtimeSyncService {
         debugPrint('[Realtime] Evento recebido e disparado: ${event.type}');
       }
     } catch (e) {
-      debugPrint('[Realtime] Falha ao decodificar payload SSE: $e | Raw: $rawData');
+      debugPrint(
+        '[Realtime] Falha ao decodificar payload SSE: $e | Raw: $rawData',
+      );
     }
   }
 

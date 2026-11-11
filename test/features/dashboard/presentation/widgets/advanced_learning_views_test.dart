@@ -9,51 +9,52 @@ import 'package:frontend/features/dashboard/presentation/widgets/advanced_learni
 import 'package:frontend/features/dashboard/presentation/widgets/advanced_learning/personalized_learning_path_view.dart';
 
 void main() {
-  testWidgets('DashboardSidebar renders all 5 new advanced learning menu items for students', (tester) async {
-    String? selectedSection;
+  testWidgets(
+    'DashboardSidebar renders all 5 new advanced learning menu items for students',
+    (tester) async {
+      String? selectedSection;
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: DashboardSidebar(
-            profileType: UserProfileType.student,
-            activeSection: 'profile',
-            onSectionSelected: (s) => selectedSection = s,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DashboardSidebar(
+              profileType: UserProfileType.student,
+              activeSection: 'profile',
+              onSectionSelected: (s) => selectedSection = s,
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('Revisão Espaçada'), findsOneWidget);
-    expect(find.text('Conversação IA'), findsOneWidget);
-    expect(find.text('Prática Oral'), findsOneWidget);
-    expect(find.text('Comunidade & Pares'), findsOneWidget);
-    expect(find.text('Trilha Personalizada'), findsOneWidget);
+      expect(find.text('Revisão Espaçada'), findsOneWidget);
+      expect(find.text('Conversação IA'), findsOneWidget);
+      expect(find.text('Prática Oral'), findsOneWidget);
+      expect(find.text('Comunidade & Pares'), findsOneWidget);
+      expect(find.text('Trilha Personalizada'), findsOneWidget);
 
-    await tester.tap(find.text('Revisão Espaçada'));
-    expect(selectedSection, equals('srsReview'));
+      await tester.tap(find.text('Revisão Espaçada'));
+      expect(selectedSection, equals('srsReview'));
 
-    await tester.tap(find.text('Conversação IA'));
-    expect(selectedSection, equals('aiConversation'));
+      await tester.tap(find.text('Conversação IA'));
+      expect(selectedSection, equals('aiConversation'));
 
-    await tester.tap(find.text('Prática Oral'));
-    expect(selectedSection, equals('pronunciation'));
+      await tester.tap(find.text('Prática Oral'));
+      expect(selectedSection, equals('pronunciation'));
 
-    await tester.tap(find.text('Comunidade & Pares'));
-    expect(selectedSection, equals('communityReview'));
+      await tester.tap(find.text('Comunidade & Pares'));
+      expect(selectedSection, equals('communityReview'));
 
-    await tester.tap(find.text('Trilha Personalizada'));
-    expect(selectedSection, equals('learningPath'));
-  });
+      await tester.tap(find.text('Trilha Personalizada'));
+      expect(selectedSection, equals('learningPath'));
+    },
+  );
 
   testWidgets('SrsReviewView renders gracefully', (tester) async {
     await tester.runAsync(() async {
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: SrsReviewView(onBack: () {}),
-          ),
+          home: Scaffold(body: SrsReviewView(onBack: () {})),
         ),
       );
       await tester.pump();
@@ -67,9 +68,7 @@ void main() {
     await tester.runAsync(() async {
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: AiConversationView(onBack: () {}),
-          ),
+          home: Scaffold(body: AiConversationView(onBack: () {})),
         ),
       );
       await tester.pump();
@@ -83,9 +82,7 @@ void main() {
     await tester.runAsync(() async {
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: PronunciationPracticeView(onBack: () {}),
-          ),
+          home: Scaffold(body: PronunciationPracticeView(onBack: () {})),
         ),
       );
       await tester.pump();
@@ -99,9 +96,7 @@ void main() {
     await tester.runAsync(() async {
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: CommunityPeerReviewView(onBack: () {}),
-          ),
+          home: Scaffold(body: CommunityPeerReviewView(onBack: () {})),
         ),
       );
       await tester.pump();
@@ -111,13 +106,13 @@ void main() {
     });
   });
 
-  testWidgets('PersonalizedLearningPathView renders gracefully', (tester) async {
+  testWidgets('PersonalizedLearningPathView renders gracefully', (
+    tester,
+  ) async {
     await tester.runAsync(() async {
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: PersonalizedLearningPathView(onBack: () {}),
-          ),
+          home: Scaffold(body: PersonalizedLearningPathView(onBack: () {})),
         ),
       );
       await tester.pump();

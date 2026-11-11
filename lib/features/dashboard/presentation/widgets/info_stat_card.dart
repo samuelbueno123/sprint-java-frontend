@@ -31,12 +31,15 @@ class _InfoStatCardState extends State<InfoStatCard> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
     Widget cardWidget = MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      cursor: widget.onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      cursor: widget.onTap != null
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
@@ -52,7 +55,9 @@ class _InfoStatCardState extends State<InfoStatCard> {
           boxShadow: [
             if (_isHovered && widget.onTap != null)
               BoxShadow(
-                color: widget.accentColor.withValues(alpha: isDark ? 0.2 : 0.12),
+                color: widget.accentColor.withValues(
+                  alpha: isDark ? 0.2 : 0.12,
+                ),
                 blurRadius: 16,
                 offset: const Offset(0, 6),
               )
@@ -75,7 +80,9 @@ class _InfoStatCardState extends State<InfoStatCard> {
                   duration: const Duration(milliseconds: 200),
                   padding: EdgeInsets.all(isCompactLayout(context) ? 10 : 12),
                   decoration: BoxDecoration(
-                    color: widget.accentColor.withValues(alpha: isDark ? 0.24 : 0.12),
+                    color: widget.accentColor.withValues(
+                      alpha: isDark ? 0.24 : 0.12,
+                    ),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
@@ -95,7 +102,9 @@ class _InfoStatCardState extends State<InfoStatCard> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white70 : const Color(0xFF64748B),
+                          color: isDark
+                              ? Colors.white70
+                              : const Color(0xFF64748B),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -104,7 +113,9 @@ class _InfoStatCardState extends State<InfoStatCard> {
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
                         ),
                       ),
                       if (widget.subtitle != null) ...[
@@ -142,12 +153,14 @@ class _InfoStatCardState extends State<InfoStatCard> {
     );
 
     if (_isHovered && widget.onTap != null && !reduceMotion) {
-      return cardWidget.animate(target: 1).scale(
-        begin: const Offset(1, 1),
-        end: const Offset(1.015, 1.015),
-        duration: 150.ms,
-        curve: Curves.easeOut,
-      );
+      return cardWidget
+          .animate(target: 1)
+          .scale(
+            begin: const Offset(1, 1),
+            end: const Offset(1.015, 1.015),
+            duration: 150.ms,
+            curve: Curves.easeOut,
+          );
     }
 
     return cardWidget;

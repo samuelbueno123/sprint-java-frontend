@@ -1,28 +1,19 @@
 services:
-  flutter:
-    image: ghcr.io/cirruslabs/flutter:latest
-
-    env_file:
-      - .env
-
-    working_dir: /app
-
-    volumes:
-      - .:/app
-
+  web:
+    image: ${FRONTEND_IMAGE:-duolinfo-frontend:latest}
+    container_name: duolinfo-frontend
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        API_BASE_URL: ${API_BASE_URL:-http://localhost:8080}
+        GOOGLE_WEB_CLIENT_ID: ${GOOGLE_WEB_CLIENT_ID:-367385027390-dmuj8neeqpgcbph3uk9qfb2cs5ubldhp.apps.googleusercontent.com}
+        GOOGLE_SERVER_CLIENT_ID: ${GOOGLE_SERVER_CLIENT_ID:-367385027390-dmuj8neeqpgcbph3uk9qfb2cs5ubldhp.apps.googleusercontent.com}
     ports:
-      - "5500:5500"
-
-    command: >
-      bash -c "flutter pub get &&
-      flutter run
-      --release
-      -d web-server
-      --web-hostname 0.0.0.0
-      --web-port 5500
-      --dart-define=API_BASE_URL=$$API_BASE_URL
-      --dart-define=GOOGLE_WEB_CLIENT_ID=$$GOOGLE_WEB_CLIENT_ID
-      --dart-define=GOOGLE_SERVER_CLIENT_ID=$$GOOGLE_SERVER_CLIENT_ID"
-
-    stdin_open: true
-    tty: true
+      - "${FRONTEND_PORT:-3000}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost/ || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped

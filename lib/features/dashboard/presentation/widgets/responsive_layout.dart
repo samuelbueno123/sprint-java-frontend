@@ -1,14 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:velocity_x/velocity_x.dart';
 
 const double compactLayoutBreakpoint = 600;
+const double tabletBreakpoint = 768;
 const double desktopBreakpoint = 1024;
+const double largeDesktopBreakpoint = 1440;
 
 bool isCompactLayout(BuildContext context) =>
     MediaQuery.sizeOf(context).width < compactLayoutBreakpoint;
 
+bool isMobileLayout(BuildContext context) =>
+    MediaQuery.sizeOf(context).width < tabletBreakpoint;
+
+bool isTabletLayout(BuildContext context) {
+  final width = MediaQuery.sizeOf(context).width;
+  return width >= tabletBreakpoint && width < desktopBreakpoint;
+}
+
 bool isDesktopLayout(BuildContext context) =>
     MediaQuery.sizeOf(context).width >= desktopBreakpoint;
+
+bool isLargeDesktopLayout(BuildContext context) =>
+    MediaQuery.sizeOf(context).width >= largeDesktopBreakpoint;
 
 EdgeInsets responsivePagePadding(BuildContext context) {
   final width = MediaQuery.sizeOf(context).width;
@@ -32,6 +46,7 @@ double responsiveDialogWidth(
   required double maxWidth,
 }) => (MediaQuery.sizeOf(context).width - 32).clamp(0.0, maxWidth);
 
+/// Staggered card grid adapted to mobile (1 col), tablet (2 cols), and desktop (3-4 cols).
 class ResponsiveCardGrid extends StatelessWidget {
   const ResponsiveCardGrid({
     super.key,
@@ -46,7 +61,8 @@ class ResponsiveCardGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -69,17 +85,16 @@ class ResponsiveCardGrid extends StatelessWidget {
                   cards[index]
                 else
                   cards[index]
-                      .animate(delay: (index * 60).ms)
-                      .fadeIn(duration: 350.ms)
-                      .slideY(begin: 0.08, end: 0, curve: Curves.easeOutCubic),
+                      .animate(delay: (index * 50).ms)
+                      .fadeIn(duration: 320.ms)
+                      .slideY(begin: 0.06, end: 0, curve: Curves.easeOutCubic),
               ],
             ],
           );
         }
 
         const spacing = 14.0;
-        final cardWidth =
-            (width - spacing * (activeCols - 1)) / activeCols;
+        final cardWidth = (width - spacing * (activeCols - 1)) / activeCols;
 
         return Wrap(
           spacing: spacing,
@@ -91,9 +106,13 @@ class ResponsiveCardGrid extends StatelessWidget {
                 child: reduceMotion
                     ? cards[index]
                     : cards[index]
-                        .animate(delay: (index * 60).ms)
-                        .fadeIn(duration: 350.ms)
-                        .slideY(begin: 0.08, end: 0, curve: Curves.easeOutCubic),
+                          .animate(delay: (index * 50).ms)
+                          .fadeIn(duration: 320.ms)
+                          .slideY(
+                            begin: 0.06,
+                            end: 0,
+                            curve: Curves.easeOutCubic,
+                          ),
               ),
           ],
         );
@@ -102,6 +121,7 @@ class ResponsiveCardGrid extends StatelessWidget {
   }
 }
 
+/// Elevated Card with hover effect and touch microinteractions.
 class AppHoverCard extends StatefulWidget {
   const AppHoverCard({
     super.key,
@@ -170,6 +190,7 @@ class _AppHoverCardState extends State<AppHoverCard> {
   }
 }
 
+/// Interactive Button with hover microinteractions and touch accessibility.
 class AppHoverButton extends StatefulWidget {
   const AppHoverButton({
     super.key,
@@ -201,7 +222,9 @@ class _AppHoverButtonState extends State<AppHoverButton> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      cursor: widget.onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      cursor: widget.onTap != null
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedScale(
@@ -228,5 +251,259 @@ class _AppHoverButtonState extends State<AppHoverButton> {
         ),
       ),
     );
+  }
+}
+
+/// A modern Shadcn-style Card leveraging [ShadCard] and [Vx] extensions.
+class AppModernCard extends StatelessWidget {
+  const AppModernCard({
+    super.key,
+    this.title,
+    this.subtitle,
+    this.leadingIcon,
+    this.accentColor,
+    this.trailing,
+    required this.child,
+    this.padding,
+    this.onTap,
+    this.elevation = 0,
+  });
+
+  final String? title;
+  final String? subtitle;
+  final IconData? leadingIcon;
+  final Color? accentColor;
+  final Widget? trailing;
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final VoidCallback? onTap;
+  final double elevation;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final accent = accentColor ?? theme.colorScheme.primary;
+
+    Widget cardContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (title != null) ...[
+          Row(
+            children: [
+              if (leadingIcon != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: isDark ? 0.22 : 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(leadingIcon, size: 18, color: accent),
+                ),
+                const SizedBox(width: 10),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title!,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              ?trailing,
+            ],
+          ),
+          const SizedBox(height: 14),
+          Divider(
+            height: 1,
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+          ),
+          const SizedBox(height: 14),
+        ],
+        child,
+      ],
+    );
+
+    return ShadCard(
+      padding: padding ?? const EdgeInsets.all(18),
+      child: onTap != null
+          ? InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(12),
+              child: cardContent,
+            )
+          : cardContent,
+    );
+  }
+}
+
+/// A modern status badge powered by [ShadBadge] with consistent semantic colors.
+enum AppBadgeVariant {
+  primary,
+  success,
+  warning,
+  destructive,
+  secondary,
+  outline,
+}
+
+class AppModernBadge extends StatelessWidget {
+  const AppModernBadge({
+    super.key,
+    required this.label,
+    this.icon,
+    this.variant = AppBadgeVariant.primary,
+    this.onTap,
+  });
+
+  final String label;
+  final IconData? icon;
+  final AppBadgeVariant variant;
+  final VoidCallback? onTap;
+
+  Color _resolveColor(BuildContext context) {
+    switch (variant) {
+      case AppBadgeVariant.primary:
+        return const Color(0xFF3579E8);
+      case AppBadgeVariant.success:
+        return const Color(0xFF16A34A);
+      case AppBadgeVariant.warning:
+        return const Color(0xFFD97706);
+      case AppBadgeVariant.destructive:
+        return const Color(0xFFDC2626);
+      case AppBadgeVariant.secondary:
+        return const Color(0xFF7651C8);
+      case AppBadgeVariant.outline:
+        return Theme.of(context).colorScheme.onSurfaceVariant;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _resolveColor(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final badgeChild = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+        ],
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+      ],
+    );
+
+    Widget badge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.22 : 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1.0),
+      ),
+      child: badgeChild,
+    );
+
+    if (onTap != null) {
+      badge = InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: badge,
+      );
+    }
+
+    return badge;
+  }
+}
+
+/// Accessible touch target wrapper (minimum 48x48dp for mobile touch guidelines).
+class AppTouchTarget extends StatelessWidget {
+  const AppTouchTarget({
+    super.key,
+    required this.child,
+    this.minSize = 48.0,
+    this.semanticLabel,
+  });
+
+  final Widget child;
+  final double minSize;
+  final String? semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget target = ConstrainedBox(
+      constraints: BoxConstraints(minWidth: minSize, minHeight: minSize),
+      child: Center(child: child),
+    );
+
+    if (semanticLabel != null) {
+      target = Semantics(label: semanticLabel, button: true, child: target);
+    }
+
+    return target;
+  }
+}
+
+/// Shimmer skeleton placeholder for loading states.
+class AppSkeleton extends StatelessWidget {
+  const AppSkeleton({
+    super.key,
+    this.width = double.infinity,
+    required this.height,
+    this.borderRadius = 8,
+  });
+
+  final double width;
+  final double height;
+  final double borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+
+    Widget box = Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF242A35) : const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(borderRadius),
+      ),
+    );
+
+    if (reduceMotion) return box;
+    return box
+        .animate(onPlay: (c) => c.repeat())
+        .shimmer(
+          duration: 1200.ms,
+          color: (isDark ? Colors.white : Colors.grey.shade300).withValues(
+            alpha: 0.15,
+          ),
+        );
   }
 }

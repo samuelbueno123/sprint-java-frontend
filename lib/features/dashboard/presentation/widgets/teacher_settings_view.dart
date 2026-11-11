@@ -61,8 +61,10 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
         setState(() {
           _ttsSpeed = sp.getDouble('teacher_tts_speed') ?? 1.0;
           _soundEffects = sp.getBool('sound_effects_enabled') ?? true;
-          _aiFeedbackStyle = sp.getString('ai_teacher_feedback_style') ?? 'detailed';
-          _autoNotifySubmissions = sp.getBool('auto_notify_submissions') ?? true;
+          _aiFeedbackStyle =
+              sp.getString('ai_teacher_feedback_style') ?? 'detailed';
+          _autoNotifySubmissions =
+              sp.getBool('auto_notify_submissions') ?? true;
         });
       }
 
@@ -147,7 +149,9 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
     return InputDecoration(
       labelText: label,
       labelStyle: TextStyle(
-        color: isDark ? Colors.white70 : Theme.of(context).colorScheme.onSurfaceVariant,
+        color: isDark
+            ? Colors.white70
+            : Theme.of(context).colorScheme.onSurfaceVariant,
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -161,7 +165,8 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
     final isGoogleAccount = widget.data.user.googleId.isNotEmpty;
     final roleWord = widget.data.isFemale ? 'Professora' : 'Professor';
     final institutionName = widget.data.teacherProfile?.institution;
-    final taughtLanguages = widget.data.teacherProfile?.taughtLanguages ?? const [];
+    final taughtLanguages =
+        widget.data.teacherProfile?.taughtLanguages ?? const [];
 
     final cardBg = isDark
         ? const Color(0xFF1E293B)
@@ -169,8 +174,12 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
     final cardBorder = isDark
         ? const Color(0xFF334155)
         : Theme.of(context).colorScheme.outlineVariant;
-    final primaryTextColor = isDark ? Colors.white : Theme.of(context).colorScheme.onSurface;
-    final secondaryTextColor = isDark ? const Color(0xFFCBD5E1) : Theme.of(context).colorScheme.onSurfaceVariant;
+    final primaryTextColor = isDark
+        ? Colors.white
+        : Theme.of(context).colorScheme.onSurface;
+    final secondaryTextColor = isDark
+        ? const Color(0xFFCBD5E1)
+        : Theme.of(context).colorScheme.onSurfaceVariant;
 
     return SingleChildScrollView(
       padding: responsivePagePadding(context),
@@ -264,7 +273,10 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                       )
                     else
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(20),
@@ -272,7 +284,11 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.check_rounded, size: 14, color: Colors.white),
+                            Icon(
+                              Icons.check_rounded,
+                              size: 14,
+                              color: Colors.white,
+                            ),
                             SizedBox(width: 4),
                             Text(
                               'Salvo',
@@ -292,146 +308,164 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
 
               // Card 1: Perfil do Professor
               Card(
-                elevation: 0,
-                color: cardBg,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(color: cardBorder),
-                ),
-                child: Padding(
-                  padding: responsiveCardPadding(context),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                    elevation: 0,
+                    color: cardBg,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(color: cardBorder),
+                    ),
+                    child: Padding(
+                      padding: responsiveCardPadding(context),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.co_present_rounded,
-                            color: purpleColor,
-                            size: 22,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Perfil de $roleWord',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: purpleColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          AppUserAvatar(
-                            name: widget.data.user.name,
-                            pictureUrl: widget.data.user.picture,
-                            radius: 38,
-                            backgroundColor: purpleColor.withValues(alpha: .15),
-                            textColor: purpleColor,
-                          ),
-                          const SizedBox(width: 18),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  widget.data.user.name,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 17,
-                                    color: primaryTextColor,
-                                  ),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.co_present_rounded,
+                                color: purpleColor,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Perfil de $roleWord',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: purpleColor,
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  widget.data.user.email,
-                                  style: TextStyle(
-                                    color: secondaryTextColor,
-                                    fontSize: 13,
-                                  ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              AppUserAvatar(
+                                name: widget.data.user.name,
+                                pictureUrl: widget.data.user.picture,
+                                radius: 38,
+                                backgroundColor: purpleColor.withValues(
+                                  alpha: .15,
                                 ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 4,
+                                textColor: purpleColor,
+                              ),
+                              const SizedBox(width: 18),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isDark
-                                            ? purpleColor.withValues(alpha: 0.22)
-                                            : const Color(0xFFF0EAFE),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        '$roleWord Credenciado(a)',
-                                        style: TextStyle(
-                                          color: isDark ? Colors.white : purpleColor,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                    Text(
+                                      widget.data.user.name,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 17,
+                                        color: primaryTextColor,
                                       ),
                                     ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      widget.data.user.email,
+                                      style: TextStyle(
+                                        color: secondaryTextColor,
+                                        fontSize: 13,
                                       ),
-                                      decoration: BoxDecoration(
-                                        color: isDark
-                                            ? const Color(0xFF334155)
-                                            : const Color(0xFFF1F5F9),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        widget.data.isFemale ? 'Tratamento: Feminino' : 'Tratamento: Masculino',
-                                        style: TextStyle(
-                                          color: secondaryTextColor,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 4,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isDark
+                                                ? purpleColor.withValues(
+                                                    alpha: 0.22,
+                                                  )
+                                                : const Color(0xFFF0EAFE),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '$roleWord Credenciado(a)',
+                                            style: TextStyle(
+                                              color: isDark
+                                                  ? Colors.white
+                                                  : purpleColor,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isDark
+                                                ? const Color(0xFF334155)
+                                                : const Color(0xFFF1F5F9),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            widget.data.isFemale
+                                                ? 'Tratamento: Feminino'
+                                                : 'Tratamento: Masculino',
+                                            style: TextStyle(
+                                              color: secondaryTextColor,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                              ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+                          OutlinedButton.icon(
+                            onPressed: () => EditProfilePictureDialog.show(
+                              context,
+                              data: widget.data,
+                              onSaved: () {
+                                setState(() {});
+                                widget.onRefresh?.call();
+                              },
                             ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: purpleColor,
+                              side: const BorderSide(color: purpleColor),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.camera_alt_rounded,
+                              size: 18,
+                            ),
+                            label: const Text('Alterar Foto de Perfil'),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 18),
-                      OutlinedButton.icon(
-                        onPressed: () => EditProfilePictureDialog.show(
-                          context,
-                          data: widget.data,
-                          onSaved: () {
-                            setState(() {});
-                            widget.onRefresh?.call();
-                          },
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: purpleColor,
-                          side: const BorderSide(color: purpleColor),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        icon: const Icon(Icons.camera_alt_rounded, size: 18),
-                        label: const Text('Alterar Foto de Perfil'),
-                      ),
-                    ],
-                  ),
-                ),
-              ).animate().fadeIn(duration: 350.ms, delay: 60.ms).slideY(begin: 0.05, end: 0),
+                    ),
+                  )
+                  .animate()
+                  .fadeIn(duration: 350.ms, delay: 60.ms)
+                  .slideY(begin: 0.05, end: 0),
               const SizedBox(height: 16),
 
               // Card 2: Informações Pessoais & Instituição
@@ -483,11 +517,14 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                       Divider(height: 16, color: cardBorder),
                       _DetailRow(
                         label: 'Gênero / Tratamento',
-                        value: widget.data.isFemale ? 'Feminino (Professora)' : 'Masculino (Professor)',
+                        value: widget.data.isFemale
+                            ? 'Feminino (Professora)'
+                            : 'Masculino (Professor)',
                         icon: Icons.person_search_rounded,
                         isDark: isDark,
                       ),
-                      if (institutionName != null && institutionName.isNotEmpty) ...[
+                      if (institutionName != null &&
+                          institutionName.isNotEmpty) ...[
                         Divider(height: 16, color: cardBorder),
                         _DetailRow(
                           label: 'Instituição',
@@ -597,7 +634,10 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            icon: const Icon(Icons.lock_reset_rounded, size: 20),
+                            icon: const Icon(
+                              Icons.lock_reset_rounded,
+                              size: 20,
+                            ),
                             label: Text(
                               isGoogleAccount
                                   ? 'Definir Senha Alternativa'
@@ -610,7 +650,10 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                                 context,
                                 initialEmail: widget.data.user.email,
                               ),
-                              icon: const Icon(Icons.vpn_key_outlined, size: 18),
+                              icon: const Icon(
+                                Icons.vpn_key_outlined,
+                                size: 18,
+                              ),
                               label: const Text('Recuperar ou Redefinir Senha'),
                             ),
                         ],
@@ -623,72 +666,85 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
 
               // Card 4: Preferências de Interface
               Card(
-                elevation: 0,
-                color: cardBg,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(color: cardBorder),
-                ),
-                child: Padding(
-                  padding: responsiveCardPadding(context),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
+                    elevation: 0,
+                    color: cardBg,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(color: cardBorder),
+                    ),
+                    child: Padding(
+                      padding: responsiveCardPadding(context),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.palette_outlined, color: purpleColor, size: 22),
-                          SizedBox(width: 8),
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.palette_outlined,
+                                color: purpleColor,
+                                size: 22,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Preferências da Interface',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: purpleColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
                           Text(
-                            'Preferências da Interface',
+                            AppLocaleController.tr(
+                              pt: 'Idioma da Interface',
+                              en: 'Interface Language',
+                              es: 'Idioma de la Interfaz',
+                            ),
                             style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: purpleColor,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: primaryTextColor,
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        AppLocaleController.tr(
-                          pt: 'Idioma da Interface',
-                          en: 'Interface Language',
-                          es: 'Idioma de la Interfaz',
-                        ),
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: primaryTextColor,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        key: ValueKey<String>('lang_$_language'),
-                        initialValue: _language,
-                        isExpanded: true,
-                        decoration: _inputDecoration(context, 'Idioma'),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'pt',
-                            child: Text('Português (Brasil)'),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            key: ValueKey<String>('lang_$_language'),
+                            initialValue: _language,
+                            isExpanded: true,
+                            decoration: _inputDecoration(context, 'Idioma'),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'pt',
+                                child: Text('Português (Brasil)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'en',
+                                child: Text('English'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'es',
+                                child: Text('Español'),
+                              ),
+                            ],
+                            onChanged: (val) async {
+                              if (val != null) {
+                                setState(() => _language = val);
+                                await AppLocaleController.setLanguageCode(val);
+                                await _savePreferences(uiLanguage: val);
+                              }
+                            },
                           ),
-                          DropdownMenuItem(value: 'en', child: Text('English')),
-                          DropdownMenuItem(value: 'es', child: Text('Español')),
+                          const SizedBox(height: 16),
+                          const AppThemeSelector(),
                         ],
-                        onChanged: (val) async {
-                          if (val != null) {
-                            setState(() => _language = val);
-                            await AppLocaleController.setLanguageCode(val);
-                            await _savePreferences(uiLanguage: val);
-                          }
-                        },
                       ),
-                      const SizedBox(height: 16),
-                      const AppThemeSelector(),
-                    ],
-                  ),
-                ),
-              ).animate().fadeIn(duration: 350.ms, delay: 140.ms).slideY(begin: 0.05, end: 0),
+                    ),
+                  )
+                  .animate()
+                  .fadeIn(duration: 350.ms, delay: 140.ms)
+                  .slideY(begin: 0.05, end: 0),
               const SizedBox(height: 16),
 
               // Card Novo: Recursos Pedagógicos & Assistente IA
@@ -761,7 +817,10 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                       const SizedBox(height: 4),
                       Text(
                         'Velocidade padrão ao pré-visualizar áudio de questões geradas.',
-                        style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                        style: TextStyle(
+                          color: secondaryTextColor,
+                          fontSize: 12,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Wrap(
@@ -772,10 +831,10 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                           final speedLabel = speed == 0.75
                               ? '0.75x (Lento)'
                               : speed == 1.0
-                                  ? '1.0x (Padrão)'
-                                  : speed == 1.25
-                                      ? '1.25x (Rápido)'
-                                      : '1.5x (Desafio)';
+                              ? '1.0x (Padrão)'
+                              : speed == 1.25
+                              ? '1.25x (Rápido)'
+                              : '1.5x (Desafio)';
                           return ChoiceChip(
                             label: Text(speedLabel),
                             selected: isSelected,
@@ -786,8 +845,12 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                             labelStyle: TextStyle(
                               color: isSelected
                                   ? Colors.white
-                                  : (isDark ? Colors.white70 : const Color(0xFF1E40AF)),
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                  : (isDark
+                                        ? Colors.white70
+                                        : const Color(0xFF1E40AF)),
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
                               fontSize: 12,
                             ),
                             onSelected: (selected) {
@@ -813,26 +876,38 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                       const SizedBox(height: 4),
                       Text(
                         'Nível de aprofundamento sugerido pela IA ao analisar submissões das turmas.',
-                        style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                        style: TextStyle(
+                          color: secondaryTextColor,
+                          fontSize: 12,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         key: ValueKey<String>('ai_teacher_$_aiFeedbackStyle'),
                         initialValue: _aiFeedbackStyle,
                         isExpanded: true,
-                        decoration: _inputDecoration(context, 'Modo de Sugestão da IA'),
+                        decoration: _inputDecoration(
+                          context,
+                          'Modo de Sugestão da IA',
+                        ),
                         items: const [
                           DropdownMenuItem(
                             value: 'concise',
-                            child: Text('Resumido (Pontos centrais de erro/acerto)'),
+                            child: Text(
+                              'Resumido (Pontos centrais de erro/acerto)',
+                            ),
                           ),
                           DropdownMenuItem(
                             value: 'detailed',
-                            child: Text('Completo (Análise detalhada de erros comuns da turma)'),
+                            child: Text(
+                              'Completo (Análise detalhada de erros comuns da turma)',
+                            ),
                           ),
                           DropdownMenuItem(
                             value: 'pedagogical',
-                            child: Text('Pedagógico com Plano de Ação (Sugere novos exercícios de reforço)'),
+                            child: Text(
+                              'Pedagógico com Plano de Ação (Sugere novos exercícios de reforço)',
+                            ),
                           ),
                         ],
                         onChanged: (val) {
@@ -858,7 +933,10 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                         ),
                         subtitle: Text(
                           'Sons de feedback ao publicar lições e receber novas entregas.',
-                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                          style: TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12,
+                          ),
                         ),
                         onChanged: (val) {
                           setState(() => _soundEffects = val);
@@ -882,7 +960,10 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                         ),
                         subtitle: Text(
                           'Receber badge visual em tempo real quando alunos enviarem atividades.',
-                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                          style: TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12,
+                          ),
                         ),
                         onChanged: (val) {
                           setState(() => _autoNotifySubmissions = val);
@@ -933,16 +1014,24 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                         decoration: BoxDecoration(
                           color: _externalEmailConfigured
                               ? (isDark
-                                  ? const Color(0xFF065F46).withValues(alpha: 0.3)
-                                  : const Color(0xFFECFDF5))
+                                    ? const Color(
+                                        0xFF065F46,
+                                      ).withValues(alpha: 0.3)
+                                    : const Color(0xFFECFDF5))
                               : (isDark
-                                  ? const Color(0xFF78350F).withValues(alpha: 0.3)
-                                  : const Color(0xFFFFFBEB)),
+                                    ? const Color(
+                                        0xFF78350F,
+                                      ).withValues(alpha: 0.3)
+                                    : const Color(0xFFFFFBEB)),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: _externalEmailConfigured
-                                ? (isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0))
-                                : (isDark ? const Color(0xFFD97706) : const Color(0xFFFDE68A)),
+                                ? (isDark
+                                      ? const Color(0xFF059669)
+                                      : const Color(0xFFA7F3D0))
+                                : (isDark
+                                      ? const Color(0xFFD97706)
+                                      : const Color(0xFFFDE68A)),
                           ),
                         ),
                         child: Row(
@@ -971,8 +1060,8 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                                       color: isDark
                                           ? Colors.white
                                           : (_externalEmailConfigured
-                                              ? const Color(0xFF065F46)
-                                              : const Color(0xFF92400E)),
+                                                ? const Color(0xFF065F46)
+                                                : const Color(0xFF92400E)),
                                     ),
                                   ),
                                   if (_channelNotice != null &&
@@ -982,7 +1071,9 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                                       _channelNotice!,
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+                                        color: isDark
+                                            ? const Color(0xFFCBD5E1)
+                                            : const Color(0xFF475569),
                                       ),
                                     ),
                                   ],
@@ -1006,7 +1097,10 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                         ),
                         subtitle: Text(
                           'Receba alertas quando os estudantes enviarem respostas das tarefas.',
-                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                          style: TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12,
+                          ),
                         ),
                         onChanged: (val) {
                           setState(() => _notifAssignments = val);
@@ -1028,7 +1122,10 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                         ),
                         subtitle: Text(
                           'Notificações sobre o progresso e conquistas dos estudantes.',
-                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                          style: TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12,
+                          ),
                         ),
                         onChanged: (val) {
                           setState(() => _notifStudents = val);
@@ -1050,7 +1147,10 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                         ),
                         subtitle: Text(
                           'Resumo diário de atividades pendentes de correção.',
-                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                          style: TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12,
+                          ),
                         ),
                         onChanged: (val) {
                           setState(() => _notifDaily = val);
@@ -1085,8 +1185,13 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.redAccent,
                           side: const BorderSide(color: Colors.redAccent),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                         icon: const Icon(Icons.logout_rounded, size: 18),
                         label: Text(
@@ -1104,9 +1209,14 @@ class _TeacherSettingsViewState extends State<TeacherSettingsView> {
                           onAccountDeleted: widget.onLogout,
                         ),
                         style: TextButton.styleFrom(
-                          foregroundColor: isDark ? const Color(0xFFFCA5A5) : Colors.red.shade700,
+                          foregroundColor: isDark
+                              ? const Color(0xFFFCA5A5)
+                              : Colors.red.shade700,
                         ),
-                        icon: const Icon(Icons.delete_forever_rounded, size: 18),
+                        icon: const Icon(
+                          Icons.delete_forever_rounded,
+                          size: 18,
+                        ),
                         label: Text(
                           AppLocaleController.tr(
                             pt: 'Excluir Conta Permanentemente',
@@ -1155,7 +1265,9 @@ class _DetailRow extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: isDark ? const Color(0xFF94A3B8) : Theme.of(context).colorScheme.onSurfaceVariant,
+              color: isDark
+                  ? const Color(0xFF94A3B8)
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 13,
             ),
           ),
@@ -1164,7 +1276,9 @@ class _DetailRow extends StatelessWidget {
           child: Text(
             value.isEmpty ? 'Não informado' : value,
             style: TextStyle(
-              color: isDark ? Colors.white : Theme.of(context).colorScheme.onSurface,
+              color: isDark
+                  ? Colors.white
+                  : Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w600,
               fontSize: 14,
             ),
@@ -1181,7 +1295,9 @@ class _DetailRow extends StatelessWidget {
               badge!,
               style: TextStyle(
                 fontSize: 11,
-                color: isDark ? Colors.white70 : Theme.of(context).colorScheme.onSurfaceVariant,
+                color: isDark
+                    ? Colors.white70
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),

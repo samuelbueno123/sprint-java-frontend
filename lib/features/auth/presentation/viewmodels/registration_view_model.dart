@@ -33,6 +33,7 @@ class RegistrationViewModel extends ChangeNotifier {
 
   bool _isLoading = false;
   bool _isCatalogLoading = false;
+  bool _isCatalogLoaded = false;
   String? _errorMessage;
   String? _catalogErrorMessage;
   List<String> _availableLanguages = _defaultLanguages;
@@ -40,19 +41,22 @@ class RegistrationViewModel extends ChangeNotifier {
 
   bool get isLoading => _isLoading;
   bool get isCatalogLoading => _isCatalogLoading;
+  bool get isCatalogLoaded => _isCatalogLoaded;
   String? get errorMessage => _errorMessage;
   String? get catalogErrorMessage => _catalogErrorMessage;
   List<String> get availableLanguages => _availableLanguages;
   List<String> get proficiencyLevels => _proficiencyLevels;
 
-  Future<void> loadCatalog() async {
+  Future<void> loadCatalog({bool forceRefresh = false}) async {
     if (_isCatalogLoading) return;
+    if (_isCatalogLoaded && !forceRefresh) return;
     _isCatalogLoading = true;
     _catalogErrorMessage = null;
     notifyListeners();
     try {
       final langs = await _remote.fetchLanguages();
       _availableLanguages = langs.isEmpty ? _defaultLanguages : langs;
+      _isCatalogLoaded = true;
     } catch (_) {
       _availableLanguages = _defaultLanguages;
     } finally {

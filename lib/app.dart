@@ -45,16 +45,17 @@ class App extends StatelessWidget {
           return isDark
               ? ThemeData(
                   brightness: Brightness.dark,
-                  colorScheme: ColorScheme.fromSeed(
-                    seedColor: const Color(0xFF7DA7FF),
-                    brightness: Brightness.dark,
-                    surface: const Color(0xFF1B202A),
-                  ).copyWith(
-                    onSurface: Colors.white,
-                    onSurfaceVariant: const Color(0xFFE2E8F0),
-                    onPrimaryContainer: Colors.white,
-                    onSecondaryContainer: Colors.white,
-                  ),
+                  colorScheme:
+                      ColorScheme.fromSeed(
+                        seedColor: const Color(0xFF7DA7FF),
+                        brightness: Brightness.dark,
+                        surface: const Color(0xFF1B202A),
+                      ).copyWith(
+                        onSurface: Colors.white,
+                        onSurfaceVariant: const Color(0xFFE2E8F0),
+                        onPrimaryContainer: Colors.white,
+                        onSecondaryContainer: Colors.white,
+                      ),
                   useMaterial3: true,
                   scaffoldBackgroundColor: const Color(0xFF10131A),
                   cardTheme: const CardThemeData(color: Color(0xFF1B202A)),
@@ -99,19 +100,25 @@ class App extends StatelessWidget {
                   filledButtonTheme: FilledButtonThemeData(
                     style: ButtonStyle(
                       elevation: WidgetStateProperty.resolveWith(
-                        (states) => states.contains(WidgetState.hovered) ? 6 : 1,
+                        (states) =>
+                            states.contains(WidgetState.hovered) ? 6 : 1,
                       ),
                       shadowColor: WidgetStateProperty.resolveWith(
                         (states) => states.contains(WidgetState.hovered)
                             ? const Color(0xFF7DA7FF).withValues(alpha: 0.4)
                             : Colors.black45,
                       ),
-                      mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+                      mouseCursor: WidgetStateProperty.all(
+                        SystemMouseCursors.click,
+                      ),
                       shape: WidgetStateProperty.resolveWith(
                         (states) => RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                           side: states.contains(WidgetState.hovered)
-                              ? const BorderSide(color: Color(0xFF8CAEFF), width: 1.5)
+                              ? const BorderSide(
+                                  color: Color(0xFF8CAEFF),
+                                  width: 1.5,
+                                )
                               : BorderSide.none,
                         ),
                       ),
@@ -119,17 +126,23 @@ class App extends StatelessWidget {
                   ),
                   outlinedButtonTheme: OutlinedButtonThemeData(
                     style: ButtonStyle(
-                      mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+                      mouseCursor: WidgetStateProperty.all(
+                        SystemMouseCursors.click,
+                      ),
                       side: WidgetStateProperty.resolveWith(
                         (states) => BorderSide(
                           color: states.contains(WidgetState.hovered)
                               ? const Color(0xFF8CAEFF)
                               : const Color(0xFF3A4352),
-                          width: states.contains(WidgetState.hovered) ? 1.5 : 1.0,
+                          width: states.contains(WidgetState.hovered)
+                              ? 1.5
+                              : 1.0,
                         ),
                       ),
                       shape: WidgetStateProperty.all(
-                        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -144,19 +157,25 @@ class App extends StatelessWidget {
                   filledButtonTheme: FilledButtonThemeData(
                     style: ButtonStyle(
                       elevation: WidgetStateProperty.resolveWith(
-                        (states) => states.contains(WidgetState.hovered) ? 6 : 1,
+                        (states) =>
+                            states.contains(WidgetState.hovered) ? 6 : 1,
                       ),
                       shadowColor: WidgetStateProperty.resolveWith(
                         (states) => states.contains(WidgetState.hovered)
                             ? const Color(0xFF3579E8).withValues(alpha: 0.35)
                             : Colors.black12,
                       ),
-                      mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+                      mouseCursor: WidgetStateProperty.all(
+                        SystemMouseCursors.click,
+                      ),
                       shape: WidgetStateProperty.resolveWith(
                         (states) => RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                           side: states.contains(WidgetState.hovered)
-                              ? const BorderSide(color: Color(0xFF3579E8), width: 1.5)
+                              ? const BorderSide(
+                                  color: Color(0xFF3579E8),
+                                  width: 1.5,
+                                )
                               : BorderSide.none,
                         ),
                       ),
@@ -164,17 +183,23 @@ class App extends StatelessWidget {
                   ),
                   outlinedButtonTheme: OutlinedButtonThemeData(
                     style: ButtonStyle(
-                      mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+                      mouseCursor: WidgetStateProperty.all(
+                        SystemMouseCursors.click,
+                      ),
                       side: WidgetStateProperty.resolveWith(
                         (states) => BorderSide(
                           color: states.contains(WidgetState.hovered)
                               ? const Color(0xFF3579E8)
                               : const Color(0xFFE1E4EC),
-                          width: states.contains(WidgetState.hovered) ? 1.5 : 1.0,
+                          width: states.contains(WidgetState.hovered)
+                              ? 1.5
+                              : 1.0,
                         ),
                       ),
                       shape: WidgetStateProperty.all(
-                        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -203,7 +228,9 @@ class App extends StatelessWidget {
                   ),
                 );
         },
-        home: SessionStore.hasSession ? const DashboardPage() : const LoginPage(),
+        home: SessionStore.hasSession
+            ? const DashboardPage()
+            : const LoginPage(),
       ),
     ),
   );

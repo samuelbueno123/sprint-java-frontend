@@ -409,7 +409,9 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
               ),
               const SizedBox(height: 18),
               Text(
-                isGoogleAccount ? 'Senha Atual (opcional para conta Google)' : 'Senha Atual',
+                isGoogleAccount
+                    ? 'Senha Atual (opcional para conta Google)'
+                    : 'Senha Atual',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
@@ -847,7 +849,8 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
     try {
       final ds = DashboardRemoteDataSource(ApiClient().dio);
       final response = await ds.requestPasswordReset(email);
-      final msg = response['message']?.toString() ??
+      final msg =
+          response['message']?.toString() ??
           'Se o e-mail estiver cadastrado, um link de recuperação foi enviado.';
       final mailConfigured = response['mailConfigured'] == true;
       final extraNote = mailConfigured
@@ -977,8 +980,8 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                 _isDirectReset
                     ? 'Digite e confirme sua nova senha para acessar sua conta.'
                     : (_linkSent
-                        ? 'Verifique sua caixa de entrada para acessar o link de redefinição de senha.'
-                        : 'Informe o e-mail da sua conta para enviarmos o link de recuperação de senha (válido por 15 minutos).'),
+                          ? 'Verifique sua caixa de entrada para acessar o link de redefinição de senha.'
+                          : 'Informe o e-mail da sua conta para enviarmos o link de recuperação de senha (válido por 15 minutos).'),
                 style: TextStyle(
                   fontSize: 13,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1072,7 +1075,9 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                    onPressed: _isLoading
+                        ? null
+                        : () => Navigator.of(context).pop(),
                     child: Text(_linkSent ? 'Fechar' : 'Cancelar'),
                   ),
                   if (!_linkSent || _isDirectReset) ...[
@@ -1096,7 +1101,9 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                               ),
                             )
                           : Text(
-                              _isDirectReset ? 'Redefinir Senha' : 'Enviar Link',
+                              _isDirectReset
+                                  ? 'Redefinir Senha'
+                                  : 'Enviar Link',
                             ),
                     ),
                   ],
@@ -1109,7 +1116,6 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
     );
   }
 }
-
 
 /// Modal dialog for confirming permanent account deletion (`DELETE /api/auth/me`).
 class DeleteAccountDialog extends StatefulWidget {
@@ -1129,10 +1135,8 @@ class DeleteAccountDialog extends StatefulWidget {
   }) {
     return showDialog<void>(
       context: context,
-      builder: (_) => DeleteAccountDialog(
-        data: data,
-        onAccountDeleted: onAccountDeleted,
-      ),
+      builder: (_) =>
+          DeleteAccountDialog(data: data, onAccountDeleted: onAccountDeleted),
     );
   }
 

@@ -70,11 +70,9 @@ class AccessSelectionPage extends StatelessWidget {
     Color color,
     IconData icon,
   ) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const LoginPage(),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const LoginPage()));
   }
 }
 

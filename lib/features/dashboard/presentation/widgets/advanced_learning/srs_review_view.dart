@@ -42,15 +42,20 @@ class _SrsReviewViewState extends State<SrsReviewView> {
 
       if (!mounted) return;
       setState(() {
-        _items = (responses[0].data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
-        _stats = responses[1].data is Map ? Map<String, dynamic>.from(responses[1].data as Map) : null;
+        _items = (responses[0].data as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+        _stats = responses[1].data is Map
+            ? Map<String, dynamic>.from(responses[1].data as Map)
+            : null;
         _currentIndex = 0;
         _isFlipped = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Não foi possível carregar a sessão de revisão. Verifique sua conexão.';
+        _error =
+            'Não foi possível carregar a sessão de revisão. Verifique sua conexão.';
       });
     }
   }
@@ -94,7 +99,9 @@ class _SrsReviewViewState extends State<SrsReviewView> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erro ao salvar revisão. Tente novamente.')),
+          const SnackBar(
+            content: Text('Erro ao salvar revisão. Tente novamente.'),
+          ),
         );
         setState(() {
           _submitting = false;
@@ -116,7 +123,9 @@ class _SrsReviewViewState extends State<SrsReviewView> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Row(
             children: [
               Icon(Icons.add_card_rounded, color: Color(0xFF3579E8)),
@@ -159,7 +168,8 @@ class _SrsReviewViewState extends State<SrsReviewView> {
                   controller: exampleTranslationCtrl,
                   decoration: const InputDecoration(
                     labelText: 'Tradução do Exemplo',
-                    hintText: 'ex: Ela se sentiu sobrecarregada com o trabalho.',
+                    hintText:
+                        'ex: Ela se sentiu sobrecarregada com o trabalho.',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -168,19 +178,46 @@ class _SrsReviewViewState extends State<SrsReviewView> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: cefrLevel,
-                        decoration: const InputDecoration(labelText: 'Nível CEFR', border: OutlineInputBorder()),
-                        items: ['A1', 'A2', 'B1', 'B2', 'C1'].map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
-                        onChanged: (v) => setDialogState(() => cefrLevel = v ?? 'B1'),
+                        initialValue: cefrLevel,
+                        decoration: const InputDecoration(
+                          labelText: 'Nível CEFR',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: ['A1', 'A2', 'B1', 'B2', 'C1']
+                            .map(
+                              (l) => DropdownMenuItem(value: l, child: Text(l)),
+                            )
+                            .toList(),
+                        onChanged: (v) =>
+                            setDialogState(() => cefrLevel = v ?? 'B1'),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: category,
-                        decoration: const InputDecoration(labelText: 'Categoria', border: OutlineInputBorder()),
-                        items: ['geral', 'adjetivo', 'verbo', 'substantivo', 'phrasal verb', 'expressão'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                        onChanged: (v) => setDialogState(() => category = v ?? 'geral'),
+                        initialValue: category,
+                        decoration: const InputDecoration(
+                          labelText: 'Categoria',
+                          border: OutlineInputBorder(),
+                        ),
+                        items:
+                            [
+                                  'geral',
+                                  'adjetivo',
+                                  'verbo',
+                                  'substantivo',
+                                  'phrasal verb',
+                                  'expressão',
+                                ]
+                                .map(
+                                  (c) => DropdownMenuItem(
+                                    value: c,
+                                    child: Text(c),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged: (v) =>
+                            setDialogState(() => category = v ?? 'geral'),
                       ),
                     ),
                   ],
@@ -194,26 +231,44 @@ class _SrsReviewViewState extends State<SrsReviewView> {
               child: const Text('Cancelar'),
             ),
             FilledButton(
-              onPressed: saving ? null : () async {
-                if (termCtrl.text.trim().isEmpty || translationCtrl.text.trim().isEmpty) return;
-                setDialogState(() => saving = true);
-                try {
-                  await _dio.post('/api/srs/items', data: {
-                    'languageName': 'Inglês',
-                    'term': termCtrl.text.trim(),
-                    'translation': translationCtrl.text.trim(),
-                    'exampleSentence': exampleCtrl.text.trim(),
-                    'exampleTranslation': exampleTranslationCtrl.text.trim(),
-                    'category': category,
-                    'cefrLevel': cefrLevel,
-                  });
-                  if (ctx.mounted) Navigator.of(ctx).pop();
-                  _loadData();
-                } catch (e) {
-                  setDialogState(() => saving = false);
-                }
-              },
-              child: saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Salvar'),
+              onPressed: saving
+                  ? null
+                  : () async {
+                      if (termCtrl.text.trim().isEmpty ||
+                          translationCtrl.text.trim().isEmpty) {
+                        return;
+                      }
+                      setDialogState(() => saving = true);
+                      try {
+                        await _dio.post(
+                          '/api/srs/items',
+                          data: {
+                            'languageName': 'Inglês',
+                            'term': termCtrl.text.trim(),
+                            'translation': translationCtrl.text.trim(),
+                            'exampleSentence': exampleCtrl.text.trim(),
+                            'exampleTranslation': exampleTranslationCtrl.text
+                                .trim(),
+                            'category': category,
+                            'cefrLevel': cefrLevel,
+                          },
+                        );
+                        if (ctx.mounted) Navigator.of(ctx).pop();
+                        _loadData();
+                      } catch (e) {
+                        setDialogState(() => saving = false);
+                      }
+                    },
+              child: saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Salvar'),
             ),
           ],
         ),
@@ -237,11 +292,18 @@ class _SrsReviewViewState extends State<SrsReviewView> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline_rounded, size: 48, color: colors.error),
+                Icon(
+                  Icons.error_outline_rounded,
+                  size: 48,
+                  color: colors.error,
+                ),
                 const SizedBox(height: 16),
                 Text(_error!, style: TextStyle(color: colors.error)),
                 const SizedBox(height: 16),
-                FilledButton.tonal(onPressed: _loadData, child: const Text('Tentar novamente')),
+                FilledButton.tonal(
+                  onPressed: _loadData,
+                  child: const Text('Tentar novamente'),
+                ),
               ],
             ),
           );
@@ -266,11 +328,17 @@ class _SrsReviewViewState extends State<SrsReviewView> {
                       children: [
                         const Text(
                           'Revisão Espaçada Inteligente (SRS)',
-                          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         Text(
                           'Otimização baseada no algoritmo SuperMemo SM-2 com intervalos cientificamente calculados.',
-                          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),
@@ -290,12 +358,37 @@ class _SrsReviewViewState extends State<SrsReviewView> {
                   spacing: 12,
                   runSpacing: 12,
                   children: [
-                    _buildStatPill(Icons.pending_actions_rounded, '${_stats!['dueTodayCount'] ?? 0}', 'Para hoje', colors.primary),
-                    _buildStatPill(Icons.schedule_rounded, '${_stats!['upcomingCount'] ?? 0}', 'Próximos dias', Colors.purple),
-                    _buildStatPill(Icons.verified_rounded, '${_stats!['masteredCount'] ?? 0}', 'Dominados', Colors.green),
-                    _buildStatPill(Icons.trending_up_rounded, '${_stats!['retentionRate'] ?? 0}%', 'Taxa de Retenção', Colors.teal),
+                    _buildStatPill(
+                      Icons.pending_actions_rounded,
+                      '${_stats!['dueTodayCount'] ?? 0}',
+                      'Para hoje',
+                      colors.primary,
+                    ),
+                    _buildStatPill(
+                      Icons.schedule_rounded,
+                      '${_stats!['upcomingCount'] ?? 0}',
+                      'Próximos dias',
+                      Colors.purple,
+                    ),
+                    _buildStatPill(
+                      Icons.verified_rounded,
+                      '${_stats!['masteredCount'] ?? 0}',
+                      'Dominados',
+                      Colors.green,
+                    ),
+                    _buildStatPill(
+                      Icons.trending_up_rounded,
+                      '${_stats!['retentionRate'] ?? 0}%',
+                      'Taxa de Retenção',
+                      Colors.teal,
+                    ),
                     if (_sessionXp > 0)
-                      _buildStatPill(Icons.bolt_rounded, '+$_sessionXp XP', 'Ganhos na sessão', Colors.amber[800]!),
+                      _buildStatPill(
+                        Icons.bolt_rounded,
+                        '+$_sessionXp XP',
+                        'Ganhos na sessão',
+                        Colors.amber[800]!,
+                      ),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -314,13 +407,18 @@ class _SrsReviewViewState extends State<SrsReviewView> {
     );
   }
 
-  Widget _buildStatPill(IconData icon, String value, String label, Color color) {
+  Widget _buildStatPill(
+    IconData icon,
+    String value,
+    String label,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -330,8 +428,18 @@ class _SrsReviewViewState extends State<SrsReviewView> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color)),
-              Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              Text(
+                value,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: color,
+                ),
+              ),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
             ],
           ),
         ],
@@ -363,8 +471,17 @@ class _SrsReviewViewState extends State<SrsReviewView> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Card ${_currentIndex + 1} de ${_items.length}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                Text('Repetição #$repetition • Intervalo: $interval d', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+                Text(
+                  'Card ${_currentIndex + 1} de ${_items.length}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  'Repetição #$repetition • Intervalo: $interval d',
+                  style: TextStyle(
+                    color: colors.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -377,12 +494,15 @@ class _SrsReviewViewState extends State<SrsReviewView> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: colors.surfaceContainerHighest.withOpacity(0.4),
+                  color: colors.surfaceContainerHighest.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: _isFlipped ? colors.primary : colors.outlineVariant, width: 2),
+                  border: Border.all(
+                    color: _isFlipped ? colors.primary : colors.outlineVariant,
+                    width: 2,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
+                      color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 16,
                       offset: const Offset(0, 8),
                     ),
@@ -395,16 +515,31 @@ class _SrsReviewViewState extends State<SrsReviewView> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: colors.primaryContainer,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text(cefr, style: TextStyle(color: colors.onPrimaryContainer, fontWeight: FontWeight.bold, fontSize: 12)),
+                          child: Text(
+                            cefr,
+                            style: TextStyle(
+                              color: colors.onPrimaryContainer,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
                         Text(
-                          _isFlipped ? 'Toque para ocultar' : 'Toque para ver a resposta',
-                          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+                          _isFlipped
+                              ? 'Toque para ocultar'
+                              : 'Toque para ver a resposta',
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -412,14 +547,22 @@ class _SrsReviewViewState extends State<SrsReviewView> {
                     Text(
                       term,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: -0.5),
+                      style: const TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
+                      ),
                     ),
                     if (example.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       Text(
                         '"$example"',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontStyle: FontStyle.italic, color: colors.onSurfaceVariant, fontSize: 16),
+                        style: TextStyle(
+                          fontStyle: FontStyle.italic,
+                          color: colors.onSurfaceVariant,
+                          fontSize: 16,
+                        ),
                       ),
                     ],
                     if (_isFlipped) ...[
@@ -429,14 +572,21 @@ class _SrsReviewViewState extends State<SrsReviewView> {
                       Text(
                         translation,
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: colors.primary),
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          color: colors.primary,
+                        ),
                       ),
                       if (exampleTranslation.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         Text(
                           '"$exampleTranslation"',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 14),
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 14,
+                          ),
                         ),
                       ],
                     ],
@@ -449,7 +599,10 @@ class _SrsReviewViewState extends State<SrsReviewView> {
 
             // SM-2 Quality Buttons
             if (_isFlipped) ...[
-              const Text('Como foi sua lembrança deste termo?', style: TextStyle(fontWeight: FontWeight.w600)),
+              const Text(
+                'Como foi sua lembrança deste termo?',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -497,7 +650,9 @@ class _SrsReviewViewState extends State<SrsReviewView> {
                 label: const Text('Mostrar Resposta'),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ],
@@ -507,19 +662,30 @@ class _SrsReviewViewState extends State<SrsReviewView> {
     );
   }
 
-  Widget _buildQualityButton({required String label, required String subtext, required Color color, required VoidCallback onTap}) {
+  Widget _buildQualityButton({
+    required String label,
+    required String subtext,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return OutlinedButton(
       onPressed: _submitting ? null : onTap,
       style: OutlinedButton.styleFrom(
         foregroundColor: color,
-        side: BorderSide(color: color.withOpacity(0.5), width: 1.5),
+        side: BorderSide(color: color.withValues(alpha: 0.5), width: 1.5),
         padding: const EdgeInsets.symmetric(vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       child: Column(
         children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          Text(subtext, style: TextStyle(fontSize: 10, color: color.withOpacity(0.8))),
+          Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+          Text(
+            subtext,
+            style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.8)),
+          ),
         ],
       ),
     );
@@ -532,15 +698,22 @@ class _SrsReviewViewState extends State<SrsReviewView> {
         child: Container(
           padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(
-            color: colors.surfaceContainerHighest.withOpacity(0.4),
+            color: colors.surfaceContainerHighest.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: colors.outlineVariant),
           ),
           child: Column(
             children: [
-              const Icon(Icons.celebration_rounded, size: 64, color: Colors.amber),
+              const Icon(
+                Icons.celebration_rounded,
+                size: 64,
+                color: Colors.amber,
+              ),
               const SizedBox(height: 16),
-              const Text('Parabéns! Revisão Concluída', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const Text(
+                'Parabéns! Revisão Concluída',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 8),
               Text(
                 'Você revisou $_sessionReviewedCount cards hoje e ganhou +$_sessionXp XP! Seu cérebro consolidou os caminhos neurais da memória.',

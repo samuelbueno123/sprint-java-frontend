@@ -67,7 +67,9 @@ class _TeacherExercisePreviewScreenState
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.28),
+                          color: const Color(
+                            0xFF8B5CF6,
+                          ).withValues(alpha: 0.28),
                           blurRadius: 16,
                           offset: const Offset(0, 4),
                         ),
@@ -129,7 +131,9 @@ class _TeacherExercisePreviewScreenState
                                   Text(
                                     'Visão com gabarito e explicações',
                                     style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.9),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.9,
+                                      ),
                                       fontSize: 13,
                                     ),
                                   ),
@@ -550,8 +554,8 @@ class _TeacherExercisePreviewScreenState
                             color: isCorrect
                                 ? const Color(0xFFF0FDF4)
                                 : (isDark
-                                    ? colors.surfaceContainerLow
-                                    : Colors.white),
+                                      ? colors.surfaceContainerLow
+                                      : Colors.white),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: isCorrect
@@ -680,7 +684,9 @@ class _TeacherExercisePreviewScreenState
 
   _StyleBadgeInfo _resolveStyleBadge(String rawStyle) {
     final s = rawStyle.trim().toUpperCase();
-    if (s.contains('MULTIPLE') || s.contains('ESCOLHA') || s.contains('OBJECTIVE')) {
+    if (s.contains('MULTIPLE') ||
+        s.contains('ESCOLHA') ||
+        s.contains('OBJECTIVE')) {
       return _StyleBadgeInfo(
         label: 'Múltipla Escolha',
         bgColor: const Color(0xFFDBEAFE),
@@ -694,7 +700,9 @@ class _TeacherExercisePreviewScreenState
         textColor: const Color(0xFF15803D),
       );
     }
-    if (s.contains('DISCURSIVA') || s.contains('OPEN') || s.contains('ABERTA')) {
+    if (s.contains('DISCURSIVA') ||
+        s.contains('OPEN') ||
+        s.contains('ABERTA')) {
       return _StyleBadgeInfo(
         label: 'Discursiva',
         bgColor: const Color(0xFFF3E8FF),
@@ -729,19 +737,29 @@ class _TeacherExercisePreviewScreenState
       if (q is Map) {
         prompt = '${q['prompt'] ?? q['question'] ?? q['text'] ?? ''}';
         style = '${q['style'] ?? q['type'] ?? 'Múltipla Escolha'}';
-        expectedAnswer = '${q['expectedAnswer'] ?? q['correctAnswer'] ?? q['answer'] ?? ''}';
+        expectedAnswer =
+            '${q['expectedAnswer'] ?? q['correctAnswer'] ?? q['answer'] ?? ''}';
         explanation = '${q['explanation'] ?? q['rubric'] ?? ''}';
         final rawOpts = q['options'];
         if (rawOpts is List) {
-          options = rawOpts.map((o) {
-            if (o is Map) return '${o['text'] ?? o['label'] ?? o['value'] ?? ''}';
-            return '$o';
-          }).where((o) => o.trim().isNotEmpty).toList();
+          options = rawOpts
+              .map((o) {
+                if (o is Map) {
+                  return '${o['text'] ?? o['label'] ?? o['value'] ?? ''}';
+                }
+                return '$o';
+              })
+              .where((o) => o.trim().isNotEmpty)
+              .toList();
         }
       } else {
         // Object with fields (like _QuestionDraft or similar)
         try {
-          prompt = (q.prompt is TextEditingController ? q.prompt.text : '${q.prompt ?? ''}').toString();
+          prompt =
+              (q.prompt is TextEditingController
+                      ? q.prompt.text
+                      : '${q.prompt ?? ''}')
+                  .toString();
         } catch (_) {
           prompt = '$q';
         }
@@ -749,22 +767,29 @@ class _TeacherExercisePreviewScreenState
           style = '${q.style ?? ''}';
         } catch (_) {}
         try {
-          expectedAnswer = (q.expectedAnswer is TextEditingController
-              ? q.expectedAnswer.text
-              : '${q.expectedAnswer ?? ''}').toString();
+          expectedAnswer =
+              (q.expectedAnswer is TextEditingController
+                      ? q.expectedAnswer.text
+                      : '${q.expectedAnswer ?? ''}')
+                  .toString();
         } catch (_) {}
         try {
-          explanation = (q.explanation is TextEditingController
-              ? q.explanation.text
-              : '${q.explanation ?? ''}').toString();
+          explanation =
+              (q.explanation is TextEditingController
+                      ? q.explanation.text
+                      : '${q.explanation ?? ''}')
+                  .toString();
         } catch (_) {}
         try {
           final rawOpts = q.options;
           if (rawOpts is List) {
-            options = rawOpts.map((o) {
-              if (o is TextEditingController) return o.text;
-              return '$o';
-            }).where((o) => o.trim().isNotEmpty).toList();
+            options = rawOpts
+                .map((o) {
+                  if (o is TextEditingController) return o.text;
+                  return '$o';
+                })
+                .where((o) => o.trim().isNotEmpty)
+                .toList();
           }
         } catch (_) {}
       }

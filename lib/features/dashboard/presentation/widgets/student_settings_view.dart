@@ -166,7 +166,9 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
     return InputDecoration(
       labelText: label,
       labelStyle: TextStyle(
-        color: isDark ? Colors.white70 : Theme.of(context).colorScheme.onSurfaceVariant,
+        color: isDark
+            ? Colors.white70
+            : Theme.of(context).colorScheme.onSurfaceVariant,
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -187,8 +189,12 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
     final cardBorder = isDark
         ? const Color(0xFF334155)
         : Theme.of(context).colorScheme.outlineVariant;
-    final primaryTextColor = isDark ? Colors.white : Theme.of(context).colorScheme.onSurface;
-    final secondaryTextColor = isDark ? const Color(0xFFCBD5E1) : Theme.of(context).colorScheme.onSurfaceVariant;
+    final primaryTextColor = isDark
+        ? Colors.white
+        : Theme.of(context).colorScheme.onSurface;
+    final secondaryTextColor = isDark
+        ? const Color(0xFFCBD5E1)
+        : Theme.of(context).colorScheme.onSurfaceVariant;
 
     return SingleChildScrollView(
       padding: responsivePagePadding(context),
@@ -282,7 +288,10 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                       )
                     else
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(20),
@@ -290,7 +299,11 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.check_rounded, size: 14, color: Colors.white),
+                            Icon(
+                              Icons.check_rounded,
+                              size: 14,
+                              color: Colors.white,
+                            ),
                             SizedBox(width: 4),
                             Text(
                               'Salvo',
@@ -310,290 +323,139 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
 
               // Card 1: Perfil do Estudante
               Card(
-                elevation: 0,
-                color: cardBg,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(color: cardBorder),
-                ),
-                child: Padding(
-                  padding: responsiveCardPadding(context),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                    elevation: 0,
+                    color: cardBg,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(color: cardBorder),
+                    ),
+                    child: Padding(
+                      padding: responsiveCardPadding(context),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.school_rounded,
-                            color: blueColor,
-                            size: 22,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Perfil de $roleWord',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: blueColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          AppUserAvatar(
-                            name: widget.data.user.name,
-                            pictureUrl: widget.data.user.picture,
-                            radius: 38,
-                            backgroundColor: blueColor.withValues(alpha: .15),
-                            textColor: blueColor,
-                          ),
-                          const SizedBox(width: 18),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  widget.data.user.name,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 17,
-                                    color: primaryTextColor,
-                                  ),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.school_rounded,
+                                color: blueColor,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Perfil de $roleWord',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: blueColor,
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  widget.data.user.email,
-                                  style: TextStyle(
-                                    color: secondaryTextColor,
-                                    fontSize: 13,
-                                  ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              AppUserAvatar(
+                                name: widget.data.user.name,
+                                pictureUrl: widget.data.user.picture,
+                                radius: 38,
+                                backgroundColor: blueColor.withValues(
+                                  alpha: .15,
                                 ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 4,
+                                textColor: blueColor,
+                              ),
+                              const SizedBox(width: 18),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isDark
-                                            ? blueColor.withValues(alpha: 0.22)
-                                            : const Color(0xFFEAF2FF),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        roleWord,
-                                        style: TextStyle(
-                                          color: isDark ? Colors.white : blueColor,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                    Text(
+                                      widget.data.user.name,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 17,
+                                        color: primaryTextColor,
                                       ),
                                     ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      widget.data.user.email,
+                                      style: TextStyle(
+                                        color: secondaryTextColor,
+                                        fontSize: 13,
                                       ),
-                                      decoration: BoxDecoration(
-                                        color: isDark
-                                            ? const Color(0xFF334155)
-                                            : const Color(0xFFF1F5F9),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        widget.data.isFemale ? 'Tratamento: Feminino' : 'Tratamento: Masculino',
-                                        style: TextStyle(
-                                          color: secondaryTextColor,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 4,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isDark
+                                                ? blueColor.withValues(
+                                                    alpha: 0.22,
+                                                  )
+                                                : const Color(0xFFEAF2FF),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            roleWord,
+                                            style: TextStyle(
+                                              color: isDark
+                                                  ? Colors.white
+                                                  : blueColor,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isDark
+                                                ? const Color(0xFF334155)
+                                                : const Color(0xFFF1F5F9),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            widget.data.isFemale
+                                                ? 'Tratamento: Feminino'
+                                                : 'Tratamento: Masculino',
+                                            style: TextStyle(
+                                              color: secondaryTextColor,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      OutlinedButton.icon(
-                        onPressed: () => EditProfilePictureDialog.show(
-                          context,
-                          data: widget.data,
-                          onSaved: () {
-                            setState(() {});
-                            widget.onRefresh?.call();
-                          },
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: blueColor,
-                          side: const BorderSide(color: blueColor),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        icon: const Icon(Icons.camera_alt_rounded, size: 18),
-                        label: const Text('Alterar Foto de Perfil'),
-                      ),
-                    ],
-                  ),
-                ),
-              ).animate().fadeIn(duration: 350.ms, delay: 60.ms).slideY(begin: 0.05, end: 0),
-              const SizedBox(height: 16),
-
-              // Card 2: Informações Pessoais & Institucionais
-              Card(
-                elevation: 0,
-                color: cardBg,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(color: cardBorder),
-                ),
-                child: Padding(
-                  padding: responsiveCardPadding(context),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(
-                            Icons.badge_outlined,
-                            color: blueColor,
-                            size: 22,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Informações Pessoais',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: blueColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      _DetailRow(
-                        label: 'Nome completo',
-                        value: widget.data.user.name,
-                        icon: Icons.person_outline_rounded,
-                        isDark: isDark,
-                      ),
-                      Divider(height: 16, color: cardBorder),
-                      _DetailRow(
-                        label: 'E-mail',
-                        value: widget.data.user.email,
-                        icon: Icons.email_outlined,
-                        badge: isGoogleAccount ? 'Somente Leitura' : null,
-                        isDark: isDark,
-                      ),
-                      Divider(height: 16, color: cardBorder),
-                      _DetailRow(
-                        label: 'Gênero / Tratamento',
-                        value: widget.data.isFemale ? 'Feminino (Aluna)' : 'Masculino (Aluno)',
-                        icon: Icons.person_search_rounded,
-                        isDark: isDark,
-                      ),
-                      if (institutionName != null && institutionName.isNotEmpty) ...[
-                        Divider(height: 16, color: cardBorder),
-                        _DetailRow(
-                          label: 'Instituição',
-                          value: institutionName,
-                          icon: Icons.account_balance_rounded,
-                          isDark: isDark,
-                        ),
-                      ],
-                      const SizedBox(height: 18),
-                      OutlinedButton.icon(
-                        onPressed: () => EditProfileDetailsDialog.show(
-                          context,
-                          data: widget.data,
-                          onSaved: () {
-                            setState(() {});
-                            widget.onRefresh?.call();
-                          },
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: blueColor,
-                          side: const BorderSide(color: blueColor),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        icon: const Icon(Icons.edit_note_rounded, size: 20),
-                        label: const Text('Editar Nome, E-mail e Gênero'),
-                      ),
-                    ],
-                  ),
-                ),
-              ).animate().fadeIn(duration: 350.ms, delay: 100.ms).slideY(begin: 0.05, end: 0),
-              const SizedBox(height: 16),
-
-              // Card 3: Segurança e Senha
-              Card(
-                elevation: 0,
-                color: cardBg,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(color: cardBorder),
-                ),
-                child: Padding(
-                  padding: responsiveCardPadding(context),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(
-                            Icons.security_rounded,
-                            color: blueColor,
-                            size: 22,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Segurança e Senha',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: blueColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        isGoogleAccount
-                            ? 'Sua conta está conectada via Google Identity. A autenticação é gerenciada diretamente pelo Google.'
-                            : 'Altere sua senha de acesso a qualquer momento para garantir a segurança dos seus dados.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: secondaryTextColor,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 10,
-                        children: [
+                          const SizedBox(height: 18),
                           OutlinedButton.icon(
-                            onPressed: () => ChangePasswordDialog.show(
+                            onPressed: () => EditProfilePictureDialog.show(
                               context,
                               data: widget.data,
+                              onSaved: () {
+                                setState(() {});
+                                widget.onRefresh?.call();
+                              },
                             ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: blueColor,
@@ -606,157 +468,367 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            icon: const Icon(Icons.lock_reset_rounded, size: 20),
-                            label: Text(
-                              isGoogleAccount
-                                  ? 'Definir Senha Alternativa'
-                                  : 'Alterar Senha de Acesso',
+                            icon: const Icon(
+                              Icons.camera_alt_rounded,
+                              size: 18,
                             ),
+                            label: const Text('Alterar Foto de Perfil'),
                           ),
-                          if (!isGoogleAccount)
-                            TextButton.icon(
-                              onPressed: () => ForgotPasswordDialog.show(
-                                context,
-                                initialEmail: widget.data.user.email,
-                              ),
-                              icon: const Icon(Icons.vpn_key_outlined, size: 18),
-                              label: const Text('Recuperar ou Redefinir Senha'),
-                            ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              ).animate().fadeIn(duration: 350.ms, delay: 140.ms).slideY(begin: 0.05, end: 0),
+                    ),
+                  )
+                  .animate()
+                  .fadeIn(duration: 350.ms, delay: 60.ms)
+                  .slideY(begin: 0.05, end: 0),
+              const SizedBox(height: 16),
+
+              // Card 2: Informações Pessoais & Institucionais
+              Card(
+                    elevation: 0,
+                    color: cardBg,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(color: cardBorder),
+                    ),
+                    child: Padding(
+                      padding: responsiveCardPadding(context),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.badge_outlined,
+                                color: blueColor,
+                                size: 22,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Informações Pessoais',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: blueColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          _DetailRow(
+                            label: 'Nome completo',
+                            value: widget.data.user.name,
+                            icon: Icons.person_outline_rounded,
+                            isDark: isDark,
+                          ),
+                          Divider(height: 16, color: cardBorder),
+                          _DetailRow(
+                            label: 'E-mail',
+                            value: widget.data.user.email,
+                            icon: Icons.email_outlined,
+                            badge: isGoogleAccount ? 'Somente Leitura' : null,
+                            isDark: isDark,
+                          ),
+                          Divider(height: 16, color: cardBorder),
+                          _DetailRow(
+                            label: 'Gênero / Tratamento',
+                            value: widget.data.isFemale
+                                ? 'Feminino (Aluna)'
+                                : 'Masculino (Aluno)',
+                            icon: Icons.person_search_rounded,
+                            isDark: isDark,
+                          ),
+                          if (institutionName != null &&
+                              institutionName.isNotEmpty) ...[
+                            Divider(height: 16, color: cardBorder),
+                            _DetailRow(
+                              label: 'Instituição',
+                              value: institutionName,
+                              icon: Icons.account_balance_rounded,
+                              isDark: isDark,
+                            ),
+                          ],
+                          const SizedBox(height: 18),
+                          OutlinedButton.icon(
+                            onPressed: () => EditProfileDetailsDialog.show(
+                              context,
+                              data: widget.data,
+                              onSaved: () {
+                                setState(() {});
+                                widget.onRefresh?.call();
+                              },
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: blueColor,
+                              side: const BorderSide(color: blueColor),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: const Icon(Icons.edit_note_rounded, size: 20),
+                            label: const Text('Editar Nome, E-mail e Gênero'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .animate()
+                  .fadeIn(duration: 350.ms, delay: 100.ms)
+                  .slideY(begin: 0.05, end: 0),
+              const SizedBox(height: 16),
+
+              // Card 3: Segurança e Senha
+              Card(
+                    elevation: 0,
+                    color: cardBg,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(color: cardBorder),
+                    ),
+                    child: Padding(
+                      padding: responsiveCardPadding(context),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.security_rounded,
+                                color: blueColor,
+                                size: 22,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Segurança e Senha',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: blueColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            isGoogleAccount
+                                ? 'Sua conta está conectada via Google Identity. A autenticação é gerenciada diretamente pelo Google.'
+                                : 'Altere sua senha de acesso a qualquer momento para garantir a segurança dos seus dados.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: secondaryTextColor,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 10,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: () => ChangePasswordDialog.show(
+                                  context,
+                                  data: widget.data,
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: blueColor,
+                                  side: const BorderSide(color: blueColor),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                icon: const Icon(
+                                  Icons.lock_reset_rounded,
+                                  size: 20,
+                                ),
+                                label: Text(
+                                  isGoogleAccount
+                                      ? 'Definir Senha Alternativa'
+                                      : 'Alterar Senha de Acesso',
+                                ),
+                              ),
+                              if (!isGoogleAccount)
+                                TextButton.icon(
+                                  onPressed: () => ForgotPasswordDialog.show(
+                                    context,
+                                    initialEmail: widget.data.user.email,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.vpn_key_outlined,
+                                    size: 18,
+                                  ),
+                                  label: const Text(
+                                    'Recuperar ou Redefinir Senha',
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .animate()
+                  .fadeIn(duration: 350.ms, delay: 140.ms)
+                  .slideY(begin: 0.05, end: 0),
               const SizedBox(height: 16),
 
               // Card 4: Preferências de Estudo & Visualização
               Card(
-                elevation: 0,
-                color: cardBg,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(color: cardBorder),
-                ),
-                child: Padding(
-                  padding: responsiveCardPadding(context),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
+                    elevation: 0,
+                    color: cardBg,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(color: cardBorder),
+                    ),
+                    child: Padding(
+                      padding: responsiveCardPadding(context),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.tune_rounded, color: blueColor, size: 22),
-                          SizedBox(width: 8),
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.tune_rounded,
+                                color: blueColor,
+                                size: 22,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Preferências de Estudo & Interface',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: blueColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
                           Text(
-                            'Preferências de Estudo & Interface',
+                            'Meta Diária de Estudos',
                             style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: blueColor,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: primaryTextColor,
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Meta Diária de Estudos',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: primaryTextColor,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        key: ValueKey<String>('goal_$_dailyGoal'),
-                        initialValue: _dailyGoal,
-                        isExpanded: true,
-                        decoration: _inputDecoration(context, 'Meta Diária'),
-                        items: const [
-                          DropdownMenuItem(
-                            value: '5',
-                            child: Text('5 minutos / dia (10 XP • Casual)'),
-                          ),
-                          DropdownMenuItem(
-                            value: '10',
-                            child: Text('10 minutos / dia (20 XP • Regular)'),
-                          ),
-                          DropdownMenuItem(
-                            value: '15',
-                            child: Text('15 minutos / dia (30 XP • Sério)'),
-                          ),
-                          DropdownMenuItem(
-                            value: '20',
-                            child: Text('20 minutos / dia (40 XP • Intenso)'),
-                          ),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() => _dailyGoal = val);
-                            _savePreferences(
-                              dailyGoalMinutes: int.tryParse(val) ?? 10,
-                            );
-                          }
-                        },
-                      ),
-                      if (_dailyGoalXp != null) ...[
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            const Icon(Icons.bolt_rounded, size: 16, color: blueColor),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Meta calculada pelo servidor: $_dailyGoalXp XP/dia',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: blueColor,
-                                fontWeight: FontWeight.bold,
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            key: ValueKey<String>('goal_$_dailyGoal'),
+                            initialValue: _dailyGoal,
+                            isExpanded: true,
+                            decoration: _inputDecoration(
+                              context,
+                              'Meta Diária',
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: '5',
+                                child: Text('5 minutos / dia (10 XP • Casual)'),
                               ),
+                              DropdownMenuItem(
+                                value: '10',
+                                child: Text(
+                                  '10 minutos / dia (20 XP • Regular)',
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: '15',
+                                child: Text('15 minutos / dia (30 XP • Sério)'),
+                              ),
+                              DropdownMenuItem(
+                                value: '20',
+                                child: Text(
+                                  '20 minutos / dia (40 XP • Intenso)',
+                                ),
+                              ),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _dailyGoal = val);
+                                _savePreferences(
+                                  dailyGoalMinutes: int.tryParse(val) ?? 10,
+                                );
+                              }
+                            },
+                          ),
+                          if (_dailyGoalXp != null) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.bolt_rounded,
+                                  size: 16,
+                                  color: blueColor,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Meta calculada pelo servidor: $_dailyGoalXp XP/dia',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: blueColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      Text(
-                        AppLocaleController.tr(
-                          pt: 'Idioma da Interface',
-                          en: 'Interface Language',
-                          es: 'Idioma de la Interfaz',
-                        ),
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: primaryTextColor,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        key: ValueKey<String>('lang_$_language'),
-                        initialValue: _language,
-                        isExpanded: true,
-                        decoration: _inputDecoration(context, 'Idioma'),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'pt',
-                            child: Text('Português (Brasil)'),
+                          const SizedBox(height: 16),
+                          Text(
+                            AppLocaleController.tr(
+                              pt: 'Idioma da Interface',
+                              en: 'Interface Language',
+                              es: 'Idioma de la Interfaz',
+                            ),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: primaryTextColor,
+                            ),
                           ),
-                          DropdownMenuItem(value: 'en', child: Text('English')),
-                          DropdownMenuItem(value: 'es', child: Text('Español')),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            key: ValueKey<String>('lang_$_language'),
+                            initialValue: _language,
+                            isExpanded: true,
+                            decoration: _inputDecoration(context, 'Idioma'),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'pt',
+                                child: Text('Português (Brasil)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'en',
+                                child: Text('English'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'es',
+                                child: Text('Español'),
+                              ),
+                            ],
+                            onChanged: (val) async {
+                              if (val != null) {
+                                setState(() => _language = val);
+                                await AppLocaleController.setLanguageCode(val);
+                                await _savePreferences(uiLanguage: val);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          const AppThemeSelector(),
                         ],
-                        onChanged: (val) async {
-                          if (val != null) {
-                            setState(() => _language = val);
-                            await AppLocaleController.setLanguageCode(val);
-                            await _savePreferences(uiLanguage: val);
-                          }
-                        },
                       ),
-                      const SizedBox(height: 16),
-                      const AppThemeSelector(),
-                    ],
-                  ),
-                ),
-              ).animate().fadeIn(duration: 350.ms, delay: 180.ms).slideY(begin: 0.05, end: 0),
+                    ),
+                  )
+                  .animate()
+                  .fadeIn(duration: 350.ms, delay: 180.ms)
+                  .slideY(begin: 0.05, end: 0),
               const SizedBox(height: 16),
 
               // Card Novo: Experiência de Aprendizado & IA (Opções Avançadas)
@@ -829,7 +901,10 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                       const SizedBox(height: 4),
                       Text(
                         'Ajuste a rapidez com que as frases em áudio são reproduzidas.',
-                        style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                        style: TextStyle(
+                          color: secondaryTextColor,
+                          fontSize: 12,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Wrap(
@@ -840,10 +915,10 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                           final speedLabel = speed == 0.75
                               ? '0.75x (Lento)'
                               : speed == 1.0
-                                  ? '1.0x (Padrão)'
-                                  : speed == 1.25
-                                      ? '1.25x (Rápido)'
-                                      : '1.5x (Desafio)';
+                              ? '1.0x (Padrão)'
+                              : speed == 1.25
+                              ? '1.25x (Rápido)'
+                              : '1.5x (Desafio)';
                           return ChoiceChip(
                             label: Text(speedLabel),
                             selected: isSelected,
@@ -854,8 +929,12 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                             labelStyle: TextStyle(
                               color: isSelected
                                   ? Colors.white
-                                  : (isDark ? Colors.white70 : const Color(0xFF5B21B6)),
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                  : (isDark
+                                        ? Colors.white70
+                                        : const Color(0xFF5B21B6)),
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
                               fontSize: 12,
                             ),
                             onSelected: (selected) {
@@ -883,7 +962,10 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                         ),
                         subtitle: Text(
                           'Tocar sons de incentivo ao acertar questões ou subir de nível.',
-                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                          style: TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12,
+                          ),
                         ),
                         onChanged: (val) {
                           setState(() => _soundEffects = val);
@@ -905,26 +987,38 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                       const SizedBox(height: 4),
                       Text(
                         'Escolha quanta explicação você deseja receber ao errar ou tirar dúvidas.',
-                        style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                        style: TextStyle(
+                          color: secondaryTextColor,
+                          fontSize: 12,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         key: ValueKey<String>('ai_$_aiDetail'),
                         initialValue: _aiDetail,
                         isExpanded: true,
-                        decoration: _inputDecoration(context, 'Modo do Tutor IA'),
+                        decoration: _inputDecoration(
+                          context,
+                          'Modo do Tutor IA',
+                        ),
                         items: const [
                           DropdownMenuItem(
                             value: 'direct',
-                            child: Text('Direto e Objetivo (Respostas rápidas sem rodeios)'),
+                            child: Text(
+                              'Direto e Objetivo (Respostas rápidas sem rodeios)',
+                            ),
                           ),
                           DropdownMenuItem(
                             value: 'tips',
-                            child: Text('Explicativo com Dicas (Indica a correção e truques de fixação)'),
+                            child: Text(
+                              'Explicativo com Dicas (Indica a correção e truques de fixação)',
+                            ),
                           ),
                           DropdownMenuItem(
                             value: 'grammar',
-                            child: Text('Aprofundado com Gramática (Regras detalhadas e etimologia)'),
+                            child: Text(
+                              'Aprofundado com Gramática (Regras detalhadas e etimologia)',
+                            ),
                           ),
                         ],
                         onChanged: (val) {
@@ -950,7 +1044,10 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                         ),
                         subtitle: Text(
                           'Oculta rankings comparativos durante as lições para manter concentração máxima.',
-                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                          style: TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12,
+                          ),
                         ),
                         onChanged: (val) {
                           setState(() => _studyFocusMode = val);
@@ -972,18 +1069,26 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                       const SizedBox(height: 4),
                       Text(
                         'Receba alertas estratégicos para não deixar sua sequência diária zerar.',
-                        style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                        style: TextStyle(
+                          color: secondaryTextColor,
+                          fontSize: 12,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         key: ValueKey<String>('reminder_$_reminderTime'),
                         initialValue: _reminderTime,
                         isExpanded: true,
-                        decoration: _inputDecoration(context, 'Horário do Lembrete'),
+                        decoration: _inputDecoration(
+                          context,
+                          'Horário do Lembrete',
+                        ),
                         items: const [
                           DropdownMenuItem(
                             value: '08:00',
-                            child: Text('08:00 • Início da Manhã (Energia matinal)'),
+                            child: Text(
+                              '08:00 • Início da Manhã (Energia matinal)',
+                            ),
                           ),
                           DropdownMenuItem(
                             value: '12:30',
@@ -1048,16 +1153,24 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                         decoration: BoxDecoration(
                           color: _externalEmailConfigured
                               ? (isDark
-                                  ? const Color(0xFF065F46).withValues(alpha: 0.3)
-                                  : const Color(0xFFECFDF5))
+                                    ? const Color(
+                                        0xFF065F46,
+                                      ).withValues(alpha: 0.3)
+                                    : const Color(0xFFECFDF5))
                               : (isDark
-                                  ? const Color(0xFF78350F).withValues(alpha: 0.3)
-                                  : const Color(0xFFFFFBEB)),
+                                    ? const Color(
+                                        0xFF78350F,
+                                      ).withValues(alpha: 0.3)
+                                    : const Color(0xFFFFFBEB)),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: _externalEmailConfigured
-                                ? (isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0))
-                                : (isDark ? const Color(0xFFD97706) : const Color(0xFFFDE68A)),
+                                ? (isDark
+                                      ? const Color(0xFF059669)
+                                      : const Color(0xFFA7F3D0))
+                                : (isDark
+                                      ? const Color(0xFFD97706)
+                                      : const Color(0xFFFDE68A)),
                           ),
                         ),
                         child: Row(
@@ -1086,8 +1199,8 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                                       color: isDark
                                           ? Colors.white
                                           : (_externalEmailConfigured
-                                              ? const Color(0xFF065F46)
-                                              : const Color(0xFF92400E)),
+                                                ? const Color(0xFF065F46)
+                                                : const Color(0xFF92400E)),
                                     ),
                                   ),
                                   if (_channelNotice != null &&
@@ -1097,7 +1210,9 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                                       _channelNotice!,
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+                                        color: isDark
+                                            ? const Color(0xFFCBD5E1)
+                                            : const Color(0xFF475569),
                                       ),
                                     ),
                                   ],
@@ -1121,7 +1236,10 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                         ),
                         subtitle: Text(
                           'Receba lembretes para manter sua sequência e rotina diária.',
-                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                          style: TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12,
+                          ),
                         ),
                         onChanged: (val) {
                           setState(() => _notifDaily = val);
@@ -1143,7 +1261,10 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                         ),
                         subtitle: Text(
                           'Notificações ao desbloquear medalhas e marcos de estudo.',
-                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                          style: TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12,
+                          ),
                         ),
                         onChanged: (val) {
                           setState(() => _notifAchievement = val);
@@ -1165,7 +1286,10 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                         ),
                         subtitle: Text(
                           'Alertas semanais sobre mudanças na sua posição do ranking.',
-                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                          style: TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12,
+                          ),
                         ),
                         onChanged: (val) {
                           setState(() => _notifRanking = val);
@@ -1187,7 +1311,10 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                         ),
                         subtitle: Text(
                           'Avisos imediatos quando seus professores publicarem lições ou correções.',
-                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                          style: TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12,
+                          ),
                         ),
                         onChanged: (val) {
                           setState(() => _notifTeacher = val);
@@ -1222,8 +1349,13 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.redAccent,
                           side: const BorderSide(color: Colors.redAccent),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                         icon: const Icon(Icons.logout_rounded, size: 18),
                         label: Text(
@@ -1241,9 +1373,14 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                           onAccountDeleted: widget.onLogout,
                         ),
                         style: TextButton.styleFrom(
-                          foregroundColor: isDark ? const Color(0xFFFCA5A5) : Colors.red.shade700,
+                          foregroundColor: isDark
+                              ? const Color(0xFFFCA5A5)
+                              : Colors.red.shade700,
                         ),
-                        icon: const Icon(Icons.delete_forever_rounded, size: 18),
+                        icon: const Icon(
+                          Icons.delete_forever_rounded,
+                          size: 18,
+                        ),
                         label: Text(
                           AppLocaleController.tr(
                             pt: 'Excluir Conta Permanentemente',
@@ -1292,7 +1429,9 @@ class _DetailRow extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: isDark ? const Color(0xFF94A3B8) : Theme.of(context).colorScheme.onSurfaceVariant,
+              color: isDark
+                  ? const Color(0xFF94A3B8)
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 13,
             ),
           ),
@@ -1301,7 +1440,9 @@ class _DetailRow extends StatelessWidget {
           child: Text(
             value.isEmpty ? 'Não informado' : value,
             style: TextStyle(
-              color: isDark ? Colors.white : Theme.of(context).colorScheme.onSurface,
+              color: isDark
+                  ? Colors.white
+                  : Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w600,
               fontSize: 14,
             ),
@@ -1318,7 +1459,9 @@ class _DetailRow extends StatelessWidget {
               badge!,
               style: TextStyle(
                 fontSize: 11,
-                color: isDark ? Colors.white70 : Theme.of(context).colorScheme.onSurfaceVariant,
+                color: isDark
+                    ? Colors.white70
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),

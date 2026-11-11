@@ -116,10 +116,16 @@ class _TeacherCreateExerciseScreenState
 
   List<String> get _effectiveLanguages {
     final taught = _teacher?.taughtLanguages ?? const [];
-    final defaults = ['Inglês', 'Espanhol', 'Francês', 'Alemão', 'Italiano', 'Japonês'];
+    final defaults = [
+      'Inglês',
+      'Espanhol',
+      'Francês',
+      'Alemão',
+      'Italiano',
+      'Japonês',
+    ];
     return <String>{...taught, ...defaults}.toList();
   }
-
 
   List<String> get _effectiveLevels {
     if (widget.proficiencyLevels.isNotEmpty) {
@@ -134,7 +140,9 @@ class _TeacherCreateExerciseScreenState
     // 1. Initial classes from assignments
     for (final a in _activeAssignments) {
       if (a.schoolClassId != null) {
-        _availableClasses.add(_ClassOption(id: a.schoolClassId!, name: a.schoolClassName));
+        _availableClasses.add(
+          _ClassOption(id: a.schoolClassId!, name: a.schoolClassName),
+        );
       }
     }
     if (_availableClasses.isNotEmpty) {
@@ -239,7 +247,9 @@ class _TeacherCreateExerciseScreenState
 
     if (_contentOnly) {
       if (_content.text.trim().isEmpty && _mediaUrl.text.trim().isEmpty) {
-        issues.add('• Informe o texto teórico ou um link de mídia para o conteúdo.');
+        issues.add(
+          '• Informe o texto teórico ou um link de mídia para o conteúdo.',
+        );
       }
     } else {
       if (_questions.isEmpty) {
@@ -257,17 +267,23 @@ class _TeacherCreateExerciseScreenState
               .where((t) => t.isNotEmpty)
               .toSet();
           if (opts.length < 2) {
-            issues.add('• Questão $qNum: Preencha ao menos 2 opções de resposta.');
+            issues.add(
+              '• Questão $qNum: Preencha ao menos 2 opções de resposta.',
+            );
           }
           if (q.correctAnswer == null || !opts.contains(q.correctAnswer)) {
             if (opts.isNotEmpty) {
               q.correctAnswer = opts.first;
             } else {
-              issues.add('• Questão $qNum: Selecione a resposta correta (gabarito).');
+              issues.add(
+                '• Questão $qNum: Selecione a resposta correta (gabarito).',
+              );
             }
           }
         } else if (q.expectedAnswer.text.trim().isEmpty) {
-          issues.add('• Questão $qNum: Informe o gabarito ou resposta esperada.');
+          issues.add(
+            '• Questão $qNum: Informe o gabarito ou resposta esperada.',
+          );
         }
       }
     }
@@ -330,7 +346,11 @@ class _TeacherCreateExerciseScreenState
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded, color: Color(0xFFE5902D), size: 40),
+        icon: const Icon(
+          Icons.warning_amber_rounded,
+          color: Color(0xFFE5902D),
+          size: 40,
+        ),
         title: const Text(
           'Campos Pendentes',
           style: TextStyle(fontWeight: FontWeight.w800),
@@ -381,7 +401,11 @@ class _TeacherCreateExerciseScreenState
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.check_circle_rounded, color: Color(0xFF2EB872), size: 52),
+        icon: const Icon(
+          Icons.check_circle_rounded,
+          color: Color(0xFF2EB872),
+          size: 52,
+        ),
         title: const Text(
           'Atividade Publicada! 🎉',
           style: TextStyle(fontWeight: FontWeight.w800),
@@ -423,7 +447,11 @@ class _TeacherCreateExerciseScreenState
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 44),
+        icon: const Icon(
+          Icons.error_outline_rounded,
+          color: Color(0xFFDC2626),
+          size: 44,
+        ),
         title: const Text(
           'Erro ao Publicar',
           style: TextStyle(fontWeight: FontWeight.w800),
@@ -628,7 +656,11 @@ class _TeacherCreateExerciseScreenState
         const SizedBox(height: 10),
         Row(
           children: [
-            const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 30),
+            const Icon(
+              Icons.auto_awesome_rounded,
+              color: Colors.white,
+              size: 30,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -751,9 +783,12 @@ class _TeacherCreateExerciseScreenState
                   SizedBox(
                     width: width,
                     child: DropdownButtonFormField<int>(
-                      initialValue: _availableClasses.any((c) => c.id == _classId)
+                      initialValue:
+                          _availableClasses.any((c) => c.id == _classId)
                           ? _classId
-                          : (_availableClasses.isNotEmpty ? _availableClasses.first.id : null),
+                          : (_availableClasses.isNotEmpty
+                                ? _availableClasses.first.id
+                                : null),
                       isExpanded: true,
                       decoration: InputDecoration(
                         labelText: 'Turma',
@@ -763,14 +798,18 @@ class _TeacherCreateExerciseScreenState
                                 height: 16,
                                 child: Padding(
                                   padding: EdgeInsets.all(12),
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 ),
                               )
                             : null,
                       ),
                       hint: Text(
                         _availableClasses.isEmpty
-                            ? (_loadingClasses ? 'Carregando turmas...' : 'Nenhuma turma disponível')
+                            ? (_loadingClasses
+                                  ? 'Carregando turmas...'
+                                  : 'Nenhuma turma disponível')
                             : 'Selecione a turma',
                       ),
                       items: _availableClasses
@@ -830,10 +869,10 @@ class _TeacherCreateExerciseScreenState
                                     color: value == 'Fácil'
                                         ? const Color(0xFF2EB872)
                                         : value == 'Médio'
-                                            ? const Color(0xFFE5902D)
-                                            : value == 'Difícil'
-                                                ? const Color(0xFFE53935)
-                                                : const Color(0xFF5869D8),
+                                        ? const Color(0xFFE5902D)
+                                        : value == 'Difícil'
+                                        ? const Color(0xFFE53935)
+                                        : const Color(0xFF5869D8),
                                   ),
                                   const SizedBox(width: 8),
                                   Text(value),
@@ -1000,7 +1039,8 @@ class _TeacherCreateExerciseScreenState
     });
 
     try {
-      final List<String> requestedStyles = _aiQuestionStyle == 'Todos os estilos'
+      final List<String> requestedStyles =
+          _aiQuestionStyle == 'Todos os estilos'
           ? _questionStyles
           : [_aiQuestionStyle];
 
@@ -1094,7 +1134,9 @@ class _TeacherCreateExerciseScreenState
   Future<void> _generateOptionsWithAi(_ComposerQuestion question) async {
     final prompt = question.prompt.text.trim();
     if (prompt.isEmpty) {
-      _showMessage('Digite o enunciado da questão para a IA sugerir alternativas.');
+      _showMessage(
+        'Digite o enunciado da questão para a IA sugerir alternativas.',
+      );
       return;
     }
     setState(() => question.generatingOptions = true);
@@ -1124,13 +1166,19 @@ class _TeacherCreateExerciseScreenState
             optionsPool.add(d);
           }
         }
-        while (optionsPool.length < 4 && distractors.length > optionsPool.length) {
+        while (optionsPool.length < 4 &&
+            distractors.length > optionsPool.length) {
           optionsPool.add(distractors[optionsPool.length]);
         }
-        for (var i = 0; i < question.options.length && i < optionsPool.length; i++) {
+        for (
+          var i = 0;
+          i < question.options.length && i < optionsPool.length;
+          i++
+        ) {
           question.options[i].text = optionsPool[i];
         }
-        if (question.correctAnswer == null || !optionsPool.contains(question.correctAnswer)) {
+        if (question.correctAnswer == null ||
+            !optionsPool.contains(question.correctAnswer)) {
           question.correctAnswer = optionsPool.first;
         }
         _showMessage('Alternativas geradas com sucesso pela IA!');
@@ -1146,7 +1194,8 @@ class _TeacherCreateExerciseScreenState
 
   Future<void> _generateExplanationWithAi(_ComposerQuestion question) async {
     final prompt = question.prompt.text.trim();
-    final answer = (question.correctAnswer ?? question.expectedAnswer.text).trim();
+    final answer = (question.correctAnswer ?? question.expectedAnswer.text)
+        .trim();
     if (prompt.isEmpty) {
       _showMessage('Informe o enunciado da pergunta primeiro.');
       return;
@@ -1239,13 +1288,17 @@ class _TeacherCreateExerciseScreenState
                   ChoiceChip(
                     label: const Text('Substituir lista'),
                     selected: !_aiAppendMode,
-                    selectedColor: const Color(0xFF7651C8).withValues(alpha: 0.25),
+                    selectedColor: const Color(
+                      0xFF7651C8,
+                    ).withValues(alpha: 0.25),
                     onSelected: (val) => setState(() => _aiAppendMode = !val),
                   ),
                   ChoiceChip(
                     label: const Text('Adicionar ao fim'),
                     selected: _aiAppendMode,
-                    selectedColor: const Color(0xFF7651C8).withValues(alpha: 0.25),
+                    selectedColor: const Color(
+                      0xFF7651C8,
+                    ).withValues(alpha: 0.25),
                     onSelected: (val) => setState(() => _aiAppendMode = val),
                   ),
                 ],
@@ -1312,7 +1365,9 @@ class _TeacherCreateExerciseScreenState
                     width: wide ? 160 : (constraints.maxWidth - 12) / 2,
                     child: DropdownButtonFormField<int>(
                       initialValue: _aiQuestionCount,
-                      decoration: const InputDecoration(labelText: 'Quantidade'),
+                      decoration: const InputDecoration(
+                        labelText: 'Quantidade',
+                      ),
                       items: const [1, 2, 3, 4, 5, 6, 8, 10]
                           .map(
                             (count) => DropdownMenuItem(
@@ -1335,10 +1390,7 @@ class _TeacherCreateExerciseScreenState
                           .map(
                             (s) => DropdownMenuItem(
                               value: s,
-                              child: Text(
-                                s,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              child: Text(s, overflow: TextOverflow.ellipsis),
                             ),
                           )
                           .toList(),
@@ -1359,7 +1411,10 @@ class _TeacherCreateExerciseScreenState
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF7651C8),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1445,10 +1500,14 @@ class _TeacherCreateExerciseScreenState
           style: OutlinedButton.styleFrom(
             foregroundColor: const Color(0xFF7651C8),
             side: const BorderSide(color: Color(0xFF7651C8), width: 1.5),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           icon: Icon(
-            _showAiStudio ? Icons.keyboard_arrow_up_rounded : Icons.auto_awesome_rounded,
+            _showAiStudio
+                ? Icons.keyboard_arrow_up_rounded
+                : Icons.auto_awesome_rounded,
             size: 18,
           ),
           label: Text(
@@ -1459,7 +1518,9 @@ class _TeacherCreateExerciseScreenState
         FilledButton.icon(
           onPressed: () => setState(() => _questions.add(_ComposerQuestion())),
           style: FilledButton.styleFrom(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           icon: const Icon(Icons.add_rounded, size: 18),
           label: const Text('Nova questão'),
@@ -1499,7 +1560,10 @@ class _TeacherCreateExerciseScreenState
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: colors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
@@ -1693,7 +1757,8 @@ class _TeacherCreateExerciseScreenState
                   IconButton(
                     icon: const Icon(Icons.close_rounded, size: 16),
                     tooltip: 'Ocultar explicação',
-                    onPressed: () => setState(() => question.aiExplanation = null),
+                    onPressed: () =>
+                        setState(() => question.aiExplanation = null),
                   ),
                 ],
               ),
@@ -1763,7 +1828,9 @@ class _TeacherCreateExerciseScreenState
               ? question.correctAnswer
               : (options.isNotEmpty ? options.first : null),
           isExpanded: true,
-          decoration: const InputDecoration(labelText: 'Resposta correta (Gabarito)'),
+          decoration: const InputDecoration(
+            labelText: 'Resposta correta (Gabarito)',
+          ),
           hint: const Text('Escolha a opção correta'),
           items: options
               .map(

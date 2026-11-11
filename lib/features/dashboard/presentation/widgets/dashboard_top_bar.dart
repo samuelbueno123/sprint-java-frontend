@@ -51,7 +51,7 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final avatarUrl = data.user.picture;
-    final isCompact = MediaQuery.sizeOf(context).width < 380;
+    final isCompact = MediaQuery.sizeOf(context).width < 600;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final currentRoleLabel = data.roleLabel;
 
@@ -110,10 +110,7 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
         child: roleIndicator,
       );
     } else {
-      roleIndicator = Tooltip(
-        message: currentRoleLabel,
-        child: roleIndicator,
-      );
+      roleIndicator = Tooltip(message: currentRoleLabel, child: roleIndicator);
     }
 
     final unreadCount = data.unreadNotificationsCount;
@@ -139,11 +136,7 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
             ),
             const SizedBox(width: 4),
           ],
-          Icon(
-            Icons.menu_book_rounded,
-            color: _roleColor,
-            size: 26,
-          ),
+          Icon(Icons.menu_book_rounded, color: _roleColor, size: 26),
           SizedBox(width: isCompact ? 5 : 8),
           Text(
             'Duolinfo',

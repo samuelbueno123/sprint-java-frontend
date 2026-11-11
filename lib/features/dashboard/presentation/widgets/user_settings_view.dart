@@ -147,7 +147,9 @@ class _UserSettingsViewState extends State<UserSettingsView> {
     return InputDecoration(
       labelText: label,
       labelStyle: TextStyle(
-        color: isDark ? Colors.white70 : Theme.of(context).colorScheme.onSurfaceVariant,
+        color: isDark
+            ? Colors.white70
+            : Theme.of(context).colorScheme.onSurfaceVariant,
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -167,8 +169,12 @@ class _UserSettingsViewState extends State<UserSettingsView> {
     final cardBorder = isDark
         ? const Color(0xFF334155)
         : Theme.of(context).colorScheme.outlineVariant;
-    final primaryTextColor = isDark ? Colors.white : Theme.of(context).colorScheme.onSurface;
-    final secondaryTextColor = isDark ? const Color(0xFFCBD5E1) : Theme.of(context).colorScheme.onSurfaceVariant;
+    final primaryTextColor = isDark
+        ? Colors.white
+        : Theme.of(context).colorScheme.onSurface;
+    final secondaryTextColor = isDark
+        ? const Color(0xFFCBD5E1)
+        : Theme.of(context).colorScheme.onSurfaceVariant;
 
     return SingleChildScrollView(
       padding: responsivePagePadding(context),
@@ -262,7 +268,10 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                       )
                     else
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(20),
@@ -270,7 +279,11 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.check_rounded, size: 14, color: Colors.white),
+                            Icon(
+                              Icons.check_rounded,
+                              size: 14,
+                              color: Colors.white,
+                            ),
                             SizedBox(width: 4),
                             Text(
                               'Salvo',
@@ -369,7 +382,9 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                                       child: Text(
                                         '$roleWord Ativo(a)',
                                         style: TextStyle(
-                                          color: isDark ? Colors.white : brandColor,
+                                          color: isDark
+                                              ? Colors.white
+                                              : brandColor,
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -387,7 +402,9 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
-                                        widget.data.isFemale ? 'Tratamento: Feminino' : 'Tratamento: Masculino',
+                                        widget.data.isFemale
+                                            ? 'Tratamento: Feminino'
+                                            : 'Tratamento: Masculino',
                                         style: TextStyle(
                                           color: secondaryTextColor,
                                           fontSize: 11,
@@ -481,7 +498,9 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                       Divider(height: 16, color: cardBorder),
                       _DetailRow(
                         label: 'Gênero / Tratamento',
-                        value: widget.data.isFemale ? 'Feminino (Usuária)' : 'Masculino (Usuário)',
+                        value: widget.data.isFemale
+                            ? 'Feminino (Usuária)'
+                            : 'Masculino (Usuário)',
                         icon: Icons.person_search_rounded,
                         isDark: isDark,
                       ),
@@ -577,7 +596,10 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            icon: const Icon(Icons.lock_reset_rounded, size: 20),
+                            icon: const Icon(
+                              Icons.lock_reset_rounded,
+                              size: 20,
+                            ),
                             label: Text(
                               isGoogleAccount
                                   ? 'Definir Senha Alternativa'
@@ -590,7 +612,10 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                                 context,
                                 initialEmail: widget.data.user.email,
                               ),
-                              icon: const Icon(Icons.vpn_key_outlined, size: 18),
+                              icon: const Icon(
+                                Icons.vpn_key_outlined,
+                                size: 18,
+                              ),
                               label: const Text('Recuperar ou Redefinir Senha'),
                             ),
                         ],
@@ -603,72 +628,85 @@ class _UserSettingsViewState extends State<UserSettingsView> {
 
               // Card 4: Preferências de Interface
               Card(
-                elevation: 0,
-                color: cardBg,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(color: cardBorder),
-                ),
-                child: Padding(
-                  padding: responsiveCardPadding(context),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
+                    elevation: 0,
+                    color: cardBg,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(color: cardBorder),
+                    ),
+                    child: Padding(
+                      padding: responsiveCardPadding(context),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.palette_outlined, color: brandColor, size: 22),
-                          SizedBox(width: 8),
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.palette_outlined,
+                                color: brandColor,
+                                size: 22,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Preferências da Interface',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: brandColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
                           Text(
-                            'Preferências da Interface',
+                            AppLocaleController.tr(
+                              pt: 'Idioma da Interface',
+                              en: 'Interface Language',
+                              es: 'Idioma de la Interfaz',
+                            ),
                             style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: brandColor,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: primaryTextColor,
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        AppLocaleController.tr(
-                          pt: 'Idioma da Interface',
-                          en: 'Interface Language',
-                          es: 'Idioma de la Interfaz',
-                        ),
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: primaryTextColor,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        key: ValueKey<String>('lang_$_language'),
-                        initialValue: _language,
-                        isExpanded: true,
-                        decoration: _inputDecoration(context, 'Idioma'),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'pt',
-                            child: Text('Português (Brasil)'),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            key: ValueKey<String>('lang_$_language'),
+                            initialValue: _language,
+                            isExpanded: true,
+                            decoration: _inputDecoration(context, 'Idioma'),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'pt',
+                                child: Text('Português (Brasil)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'en',
+                                child: Text('English'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'es',
+                                child: Text('Español'),
+                              ),
+                            ],
+                            onChanged: (val) async {
+                              if (val != null) {
+                                setState(() => _language = val);
+                                await AppLocaleController.setLanguageCode(val);
+                                await _savePreferences(uiLanguage: val);
+                              }
+                            },
                           ),
-                          DropdownMenuItem(value: 'en', child: Text('English')),
-                          DropdownMenuItem(value: 'es', child: Text('Español')),
+                          const SizedBox(height: 16),
+                          const AppThemeSelector(),
                         ],
-                        onChanged: (val) async {
-                          if (val != null) {
-                            setState(() => _language = val);
-                            await AppLocaleController.setLanguageCode(val);
-                            await _savePreferences(uiLanguage: val);
-                          }
-                        },
                       ),
-                      const SizedBox(height: 16),
-                      const AppThemeSelector(),
-                    ],
-                  ),
-                ),
-              ).animate().fadeIn(duration: 350.ms, delay: 100.ms).slideY(begin: 0.05, end: 0),
+                    ),
+                  )
+                  .animate()
+                  .fadeIn(duration: 350.ms, delay: 100.ms)
+                  .slideY(begin: 0.05, end: 0),
               const SizedBox(height: 16),
 
               // Card Novo: Preferências Globais do Sistema & IA
@@ -743,7 +781,10 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                         ),
                         subtitle: Text(
                           'Tocar alertas sonoros para confirmações de ações e avisos importantes.',
-                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                          style: TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12,
+                          ),
                         ),
                         onChanged: (val) {
                           setState(() => _soundEffects = val);
@@ -765,26 +806,38 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                       const SizedBox(height: 4),
                       Text(
                         'Comportamento do assistente nas análises de dados e relatórios.',
-                        style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                        style: TextStyle(
+                          color: secondaryTextColor,
+                          fontSize: 12,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         key: ValueKey<String>('ai_assist_$_aiAssistanceMode'),
                         initialValue: _aiAssistanceMode,
                         isExpanded: true,
-                        decoration: _inputDecoration(context, 'Comportamento da IA'),
+                        decoration: _inputDecoration(
+                          context,
+                          'Comportamento da IA',
+                        ),
                         items: const [
                           DropdownMenuItem(
                             value: 'fast',
-                            child: Text('Rápido e Conciso (Foco em dados brutos)'),
+                            child: Text(
+                              'Rápido e Conciso (Foco em dados brutos)',
+                            ),
                           ),
                           DropdownMenuItem(
                             value: 'balanced',
-                            child: Text('Equilibrado (Explicações claras com insights)'),
+                            child: Text(
+                              'Equilibrado (Explicações claras com insights)',
+                            ),
                           ),
                           DropdownMenuItem(
                             value: 'detailed',
-                            child: Text('Analítico Avançado (Com métricas estatísticas detalhadas)'),
+                            child: Text(
+                              'Analítico Avançado (Com métricas estatísticas detalhadas)',
+                            ),
                           ),
                         ],
                         onChanged: (val) {
@@ -814,15 +867,19 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                           final label = speed == 0.75
                               ? '0.75x (Lenta)'
                               : speed == 1.0
-                                  ? '1.0x (Padrão)'
-                                  : '1.25x (Rápida)';
+                              ? '1.0x (Padrão)'
+                              : '1.25x (Rápida)';
                           return ChoiceChip(
                             label: Text(label),
                             selected: isSelected,
                             selectedColor: const Color(0xFF0D9488),
                             labelStyle: TextStyle(
-                              color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected
+                                  ? Colors.white
+                                  : (isDark ? Colors.white70 : Colors.black87),
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
                               fontSize: 12,
                             ),
                             onSelected: (selected) {
@@ -850,7 +907,10 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                         ),
                         subtitle: Text(
                           'Ajusta o espaçamento de tabelas e listas para exibir mais conteúdo sem rolagem.',
-                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                          style: TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12,
+                          ),
                         ),
                         onChanged: (val) {
                           setState(() => _denseUiMode = val);
@@ -901,16 +961,24 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                         decoration: BoxDecoration(
                           color: _externalEmailConfigured
                               ? (isDark
-                                  ? const Color(0xFF065F46).withValues(alpha: 0.3)
-                                  : const Color(0xFFECFDF5))
+                                    ? const Color(
+                                        0xFF065F46,
+                                      ).withValues(alpha: 0.3)
+                                    : const Color(0xFFECFDF5))
                               : (isDark
-                                  ? const Color(0xFF78350F).withValues(alpha: 0.3)
-                                  : const Color(0xFFFFFBEB)),
+                                    ? const Color(
+                                        0xFF78350F,
+                                      ).withValues(alpha: 0.3)
+                                    : const Color(0xFFFFFBEB)),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: _externalEmailConfigured
-                                ? (isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0))
-                                : (isDark ? const Color(0xFFD97706) : const Color(0xFFFDE68A)),
+                                ? (isDark
+                                      ? const Color(0xFF059669)
+                                      : const Color(0xFFA7F3D0))
+                                : (isDark
+                                      ? const Color(0xFFD97706)
+                                      : const Color(0xFFFDE68A)),
                           ),
                         ),
                         child: Row(
@@ -939,8 +1007,8 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                                       color: isDark
                                           ? Colors.white
                                           : (_externalEmailConfigured
-                                              ? const Color(0xFF065F46)
-                                              : const Color(0xFF92400E)),
+                                                ? const Color(0xFF065F46)
+                                                : const Color(0xFF92400E)),
                                     ),
                                   ),
                                   if (_channelNotice != null &&
@@ -950,7 +1018,9 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                                       _channelNotice!,
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+                                        color: isDark
+                                            ? const Color(0xFFCBD5E1)
+                                            : const Color(0xFF475569),
                                       ),
                                     ),
                                   ],
@@ -974,7 +1044,10 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                         ),
                         subtitle: Text(
                           'Receba lembretes e novidades da plataforma.',
-                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                          style: TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12,
+                          ),
                         ),
                         onChanged: (val) {
                           setState(() => _notifDaily = val);
@@ -996,7 +1069,10 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                         ),
                         subtitle: Text(
                           'Notificações sobre suas atividades e conquistas.',
-                          style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                          style: TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12,
+                          ),
                         ),
                         onChanged: (val) {
                           setState(() => _notifAchievement = val);
@@ -1031,8 +1107,13 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.redAccent,
                           side: const BorderSide(color: Colors.redAccent),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                         icon: const Icon(Icons.logout_rounded, size: 18),
                         label: Text(
@@ -1050,9 +1131,14 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                           onAccountDeleted: widget.onLogout,
                         ),
                         style: TextButton.styleFrom(
-                          foregroundColor: isDark ? const Color(0xFFFCA5A5) : Colors.red.shade700,
+                          foregroundColor: isDark
+                              ? const Color(0xFFFCA5A5)
+                              : Colors.red.shade700,
                         ),
-                        icon: const Icon(Icons.delete_forever_rounded, size: 18),
+                        icon: const Icon(
+                          Icons.delete_forever_rounded,
+                          size: 18,
+                        ),
                         label: Text(
                           AppLocaleController.tr(
                             pt: 'Excluir Conta Permanentemente',
@@ -1101,7 +1187,9 @@ class _DetailRow extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: isDark ? const Color(0xFF94A3B8) : Theme.of(context).colorScheme.onSurfaceVariant,
+              color: isDark
+                  ? const Color(0xFF94A3B8)
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 13,
             ),
           ),
@@ -1110,7 +1198,9 @@ class _DetailRow extends StatelessWidget {
           child: Text(
             value.isEmpty ? 'Não informado' : value,
             style: TextStyle(
-              color: isDark ? Colors.white : Theme.of(context).colorScheme.onSurface,
+              color: isDark
+                  ? Colors.white
+                  : Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w600,
               fontSize: 14,
             ),
@@ -1127,7 +1217,9 @@ class _DetailRow extends StatelessWidget {
               badge!,
               style: TextStyle(
                 fontSize: 11,
-                color: isDark ? Colors.white70 : Theme.of(context).colorScheme.onSurfaceVariant,
+                color: isDark
+                    ? Colors.white70
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),

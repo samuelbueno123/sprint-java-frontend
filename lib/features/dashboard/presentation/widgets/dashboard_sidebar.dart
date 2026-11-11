@@ -127,6 +127,38 @@ class DashboardSidebar extends StatelessWidget {
                   isCollapsed: isCollapsed,
                   onTap: () => onSectionSelected('users'),
                 ),
+                _NavItem(
+                  icon: Icons.security_rounded,
+                  label: 'Logs & Auditoria',
+                  isSelected: activeSection == 'auditLogs',
+                  accentColor: _accentColor,
+                  isCollapsed: isCollapsed,
+                  onTap: () => onSectionSelected('auditLogs'),
+                ),
+                _NavItem(
+                  icon: Icons.monitor_heart_rounded,
+                  label: 'Monitoramento & Saúde',
+                  isSelected: activeSection == 'systemHealth',
+                  accentColor: _accentColor,
+                  isCollapsed: isCollapsed,
+                  onTap: () => onSectionSelected('systemHealth'),
+                ),
+                _NavItem(
+                  icon: Icons.category_rounded,
+                  label: 'Catálogo & Idiomas',
+                  isSelected: activeSection == 'catalogManagement',
+                  accentColor: _accentColor,
+                  isCollapsed: isCollapsed,
+                  onTap: () => onSectionSelected('catalogManagement'),
+                ),
+                _NavItem(
+                  icon: Icons.folder_shared_rounded,
+                  label: 'Documentos Docentes',
+                  isSelected: activeSection == 'teacherDocuments',
+                  accentColor: _accentColor,
+                  isCollapsed: isCollapsed,
+                  onTap: () => onSectionSelected('teacherDocuments'),
+                ),
               ],
               if (profileType != UserProfileType.user &&
                   profileType != UserProfileType.admin)
@@ -202,6 +234,14 @@ class DashboardSidebar extends StatelessWidget {
                   isCollapsed: isCollapsed,
                   onTap: () => onSectionSelected('teacherRanking'),
                 ),
+                _NavItem(
+                  icon: Icons.insights_rounded,
+                  label: 'Analytics da Turma',
+                  isSelected: activeSection == 'classAnalytics',
+                  accentColor: _accentColor,
+                  isCollapsed: isCollapsed,
+                  onTap: () => onSectionSelected('classAnalytics'),
+                ),
               ],
               if (profileType == UserProfileType.student) ...[
                 _NavItem(
@@ -251,6 +291,22 @@ class DashboardSidebar extends StatelessWidget {
                   accentColor: _accentColor,
                   isCollapsed: isCollapsed,
                   onTap: () => onSectionSelected('learningPath'),
+                ),
+                _NavItem(
+                  icon: Icons.rule_folder_rounded,
+                  label: 'Caderno de Erros',
+                  isSelected: activeSection == 'mistakes',
+                  accentColor: _accentColor,
+                  isCollapsed: isCollapsed,
+                  onTap: () => onSectionSelected('mistakes'),
+                ),
+                _NavItem(
+                  icon: Icons.auto_stories_rounded,
+                  label: 'Meu Vocabulário',
+                  isSelected: activeSection == 'vocabulary',
+                  accentColor: _accentColor,
+                  isCollapsed: isCollapsed,
+                  onTap: () => onSectionSelected('vocabulary'),
                 ),
               ],
               if (profileType == UserProfileType.student) ...[
@@ -368,15 +424,15 @@ class _NavItemState extends State<_NavItem> {
         color: widget.isSelected
             ? widget.accentColor.withValues(alpha: isDark ? 0.28 : 0.14)
             : (_isHovered
-                ? widget.accentColor.withValues(alpha: isDark ? 0.16 : 0.08)
-                : Colors.transparent),
+                  ? widget.accentColor.withValues(alpha: isDark ? 0.16 : 0.08)
+                  : Colors.transparent),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: widget.isSelected
               ? widget.accentColor.withValues(alpha: 0.5)
               : (_isHovered
-                  ? widget.accentColor.withValues(alpha: 0.25)
-                  : Colors.transparent),
+                    ? widget.accentColor.withValues(alpha: 0.25)
+                    : Colors.transparent),
           width: 1.0,
         ),
       ),
@@ -400,7 +456,9 @@ class _NavItemState extends State<_NavItem> {
                           : (_isHovered ? FontWeight.w600 : FontWeight.w500),
                       color: widget.isSelected
                           ? widget.accentColor
-                          : (_isHovered ? widget.accentColor : unselectedTextColor),
+                          : (_isHovered
+                                ? widget.accentColor
+                                : unselectedTextColor),
                       fontSize: 14,
                     ),
                     overflow: TextOverflow.ellipsis,

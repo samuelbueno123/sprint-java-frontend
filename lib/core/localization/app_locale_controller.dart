@@ -35,10 +35,14 @@ class AppLocaleController {
       return 'pt';
     }
     final lower = raw.trim().toLowerCase();
-    if (lower.startsWith('en') || lower.contains('ingl') || lower.contains('english')) {
+    if (lower.startsWith('en') ||
+        lower.contains('ingl') ||
+        lower.contains('english')) {
       return 'en';
     }
-    if (lower.startsWith('es') || lower.contains('espan') || lower.contains('spanish')) {
+    if (lower.startsWith('es') ||
+        lower.contains('espan') ||
+        lower.contains('spanish')) {
       return 'es';
     }
     return 'pt';
@@ -55,11 +59,7 @@ class AppLocaleController {
     }
   }
 
-  static String tr({
-    required String pt,
-    String? en,
-    String? es,
-  }) {
+  static String tr({required String pt, String? en, String? es}) {
     switch (languageCode.value) {
       case 'en':
         return en ?? pt;

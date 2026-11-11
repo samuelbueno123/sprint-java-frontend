@@ -24,7 +24,8 @@ class AuthPageFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
     return Scaffold(
       body: DecoratedBox(
@@ -167,7 +168,11 @@ class AuthPageFrame extends StatelessWidget {
                 ],
               ),
               child: const Center(
-                child: Icon(Icons.school_rounded, color: Colors.white, size: 28),
+                child: Icon(
+                  Icons.school_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
               ),
             ),
             const SizedBox(width: 14),
@@ -187,7 +192,9 @@ class AuthPageFrame extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                    color: isDark
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF64748B),
                   ),
                 ),
               ],
@@ -222,7 +229,9 @@ class AuthPageFrame extends StatelessWidget {
               color: isDark ? const Color(0xFF1E293B) : Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                color: isDark
+                    ? const Color(0xFF334155)
+                    : const Color(0xFFE2E8F0),
               ),
               boxShadow: [
                 BoxShadow(
@@ -237,7 +246,9 @@ class AuthPageFrame extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: showcaseItems[i].$4.withValues(alpha: isDark ? 0.25 : 0.12),
+                    color: showcaseItems[i].$4.withValues(
+                      alpha: isDark ? 0.25 : 0.12,
+                    ),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -263,7 +274,9 @@ class AuthPageFrame extends StatelessWidget {
                         showcaseItems[i].$3,
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                          color: isDark
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF64748B),
                         ),
                       ),
                     ],
@@ -277,7 +290,10 @@ class AuthPageFrame extends StatelessWidget {
     );
 
     if (reduceMotion) return content;
-    return content.animate().fadeIn(duration: 400.ms).slideX(begin: -0.05, end: 0);
+    return content
+        .animate()
+        .fadeIn(duration: 400.ms)
+        .slideX(begin: -0.05, end: 0);
   }
 
   Widget _buildMobileHeader(BuildContext context, bool reduceMotion) {
@@ -340,7 +356,10 @@ class AuthPageFrame extends StatelessWidget {
     );
 
     if (reduceMotion) return header;
-    return header.animate().fadeIn(duration: 350.ms).slideY(begin: -0.1, end: 0);
+    return header
+        .animate()
+        .fadeIn(duration: 350.ms)
+        .slideY(begin: -0.1, end: 0);
   }
 
   Widget _buildFormCard(BuildContext context, bool reduceMotion) {
@@ -391,7 +410,9 @@ class AuthPageFrame extends StatelessWidget {
             Text(
               subtitle,
               style: TextStyle(
-                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                color: isDark
+                    ? const Color(0xFF94A3B8)
+                    : const Color(0xFF64748B),
                 fontSize: 13,
                 height: 1.4,
               ),

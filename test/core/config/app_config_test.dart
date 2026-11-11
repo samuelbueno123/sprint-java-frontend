@@ -28,7 +28,9 @@ void main() {
   });
 
   test('respects API_BASE_URL from .env or explicit override', () {
-    dotenv.loadFromString(envString: 'API_BASE_URL=https://api.duolinfo.edu.br');
+    dotenv.loadFromString(
+      envString: 'API_BASE_URL=https://api.duolinfo.edu.br',
+    );
     expect(AppConfig.apiBaseUrl, 'https://api.duolinfo.edu.br');
 
     expect(
@@ -41,10 +43,7 @@ void main() {
   });
 
   test('requires explicit API_BASE_URL in production environment', () {
-    expect(
-      AppConfig.resolveApiBaseUrl(environmentName: 'production'),
-      isEmpty,
-    );
+    expect(AppConfig.resolveApiBaseUrl(environmentName: 'production'), isEmpty);
     expect(
       AppConfig.resolveApiBaseUrl(
         environmentName: 'production',

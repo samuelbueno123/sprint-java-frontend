@@ -87,16 +87,20 @@ class AudioSpeechHelper {
 
     final completer = Completer<String?>();
     try {
-      final ctor = (globalContext.getProperty('SpeechRecognition'.toJS) ??
-              globalContext.getProperty('webkitSpeechRecognition'.toJS))
-          as JSFunction?;
+      final ctor =
+          (globalContext.getProperty('SpeechRecognition'.toJS) ??
+                  globalContext.getProperty('webkitSpeechRecognition'.toJS))
+              as JSFunction?;
       if (ctor == null) {
         onStatus?.call('Reconhecimento de voz indisponível neste navegador.');
         return null;
       }
 
       final recognition = ctor.callAsConstructor<JSObject>();
-      recognition.setProperty('lang'.toJS, mapLanguageToBcp47(languageName).toJS);
+      recognition.setProperty(
+        'lang'.toJS,
+        mapLanguageToBcp47(languageName).toJS,
+      );
       recognition.setProperty('interimResults'.toJS, false.toJS);
       recognition.setProperty('maxAlternatives'.toJS, 1.toJS);
 

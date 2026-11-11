@@ -23,8 +23,21 @@ class DashboardRepositoryImpl implements DashboardRepository {
     var teacherApprovalPending = false;
     var studentEnrollments = const <StudentEnrollment>[];
     var teacherAssignments = const <TeacherClassAssignment>[];
+    var unreadNotificationsCount = 0;
 
-    if (home.availableProfileTypes.contains(UserProfileType.student)) {
+    final isStudent = home.availableProfileTypes.contains(
+      UserProfileType.student,
+    );
+    final isTeacher = home.availableProfileTypes.contains(
+      UserProfileType.teacher,
+    );
+    final isUserOnly = home.profileType == UserProfileType.user;
+    final isAdmin =
+        home.availableProfileTypes.contains(UserProfileType.admin) ||
+        home.user.isAdmin;
+
+    Future<void> fetchStudentData() async {
+      if (!isStudent) return;
       final model = await _remoteDataSource.getOwnStudentProfile();
       studentProfile = model?.toEntity();
       if (studentProfile?.id != null) {
@@ -45,48 +58,58 @@ class DashboardRepositoryImpl implements DashboardRepository {
         }
       }
     }
-    if (home.availableProfileTypes.contains(UserProfileType.teacher)) {
-      final model = await _remoteDataSource.getOwnTeacherProfile();
-      if (model != null) {
-        var institutionName = model.institution;
-        if (model.institutionId != null) {
-          try {
-            institutionName =
-                await _remoteDataSource.getInstitutionName(
-                  model.institutionId!,
-                ) ??
-                institutionName;
-          } catch (_) {
-            // Keep the identifier from the profile if institution lookup fails.
+
+    Future<void> fetchTeacherData() async {
+      if (isTeacher) {
+        final model = await _remoteDataSource.getOwnTeacherProfile();
+        if (model != null) {
+          var institutionName = model.institution;
+          if (model.institutionId != null) {
+            try {
+              institutionName =
+                  await _remoteDataSource.getInstitutionName(
+                    model.institutionId!,
+                  ) ??
+                  institutionName;
+            } catch (_) {
+              // Keep the identifier from the profile if institution lookup fails.
+            }
+          }
+          teacherProfile = model.toEntity(institutionName: institutionName);
+          final teacherId = teacherProfile?.id;
+          if (teacherId != null) {
+            try {
+              teacherAssignments =
+                  (await _remoteDataSource.getTeacherAssignments(
+                    teacherId,
+                  )).map((assignment) => assignment.toEntity()).toList();
+            } catch (_) {
+              // The teacher profile remains usable without class history.
+            }
           }
         }
-        teacherProfile = model.toEntity(institutionName: institutionName);
-        final teacherId = teacherProfile.id;
-        if (teacherId != null) {
-          try {
-            teacherAssignments = (await _remoteDataSource.getTeacherAssignments(
-              teacherId,
-            )).map((assignment) => assignment.toEntity()).toList();
-          } catch (_) {
-            // The teacher profile remains usable without class history.
-          }
+      } else if (isUserOnly) {
+        final teacher = await _remoteDataSource.getOwnTeacherProfile();
+        if (teacher != null) {
+          hasTeacherProfile = true;
+          teacherApprovalPending = !teacher.approved;
         }
-      }
-    }
-    if (home.profileType == UserProfileType.user && teacherProfile == null) {
-      final teacher = await _remoteDataSource.getOwnTeacherProfile();
-      if (teacher != null) {
-        hasTeacherProfile = true;
-        teacherApprovalPending = !teacher.approved;
       }
     }
 
-    var unreadNotificationsCount = 0;
-    if (home.availableProfileTypes.contains(UserProfileType.admin) ||
-        home.user.isAdmin) {
-      unreadNotificationsCount =
-          await _remoteDataSource.getUnreadNotificationsCount();
+    Future<void> fetchAdminNotifications() async {
+      if (isAdmin) {
+        unreadNotificationsCount = await _remoteDataSource
+            .getUnreadNotificationsCount();
+      }
     }
+
+    // Execute independent network calls in parallel to eliminate sequential round-trip wait time
+    await Future.wait([
+      fetchStudentData(),
+      fetchTeacherData(),
+      fetchAdminNotifications(),
+    ]);
 
     final displayName = studentProfile?.name ?? teacherProfile?.name;
 

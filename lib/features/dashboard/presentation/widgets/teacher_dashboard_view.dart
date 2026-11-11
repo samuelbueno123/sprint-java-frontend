@@ -465,7 +465,7 @@ class TeacherDashboardView extends StatelessWidget {
                         Icons.settings_rounded,
                         color: Colors.white,
                       ),
-                      ),
+                    ),
                     IconButton(
                       tooltip: 'Sair da conta',
                       onPressed: onLogout,
@@ -473,7 +473,7 @@ class TeacherDashboardView extends StatelessWidget {
                         Icons.logout_rounded,
                         color: Colors.white,
                       ),
-                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -639,9 +639,7 @@ class TeacherDashboardView extends StatelessWidget {
                     child: LayoutBuilder(
                       builder: (context, c) {
                         final wide = c.maxWidth >= 520;
-                        final width = wide
-                            ? (c.maxWidth - 12) / 2
-                            : c.maxWidth;
+                        final width = wide ? (c.maxWidth - 12) / 2 : c.maxWidth;
                         return Wrap(
                           spacing: 12,
                           runSpacing: 12,
@@ -663,7 +661,8 @@ class TeacherDashboardView extends StatelessWidget {
                                 context,
                                 icon: Icons.groups_outlined,
                                 label: 'Gerenciar turmas',
-                                onPressed: () => onSectionSelected?.call('classes'),
+                                onPressed: () =>
+                                    onSectionSelected?.call('classes'),
                               ),
                             ),
                             SizedBox(
@@ -713,7 +712,9 @@ class TeacherDashboardView extends StatelessWidget {
                           'Idiomas lecionados:',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontSize: 13,
                           ),
                         ),
@@ -724,7 +725,9 @@ class TeacherDashboardView extends StatelessWidget {
                           'Áreas de especialização:',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontSize: 13,
                           ),
                         ),
@@ -830,42 +833,77 @@ class TeacherDashboardView extends StatelessWidget {
     required VoidCallback onPressed,
     bool primary = false,
   }) {
-    final style = primary
-        ? FilledButton.styleFrom(
-            backgroundColor: _purple,
-            foregroundColor: Colors.white,
-            alignment: Alignment.centerLeft,
-            minimumSize: const Size.fromHeight(54),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return AppHoverCard(
+      onTap: onPressed,
+      borderRadius: 14,
+      scale: 1.025,
+      accentColor: primary ? _purple : theme.colorScheme.primary,
+      child: Container(
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: primary
+              ? _purple
+              : (isDark ? const Color(0xFF1E2530) : theme.colorScheme.surface),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: primary
+                ? _purple
+                : theme.colorScheme.outlineVariant.withValues(alpha: 0.8),
+            width: primary ? 1.5 : 1.0,
+          ),
+          boxShadow: [
+            if (primary)
+              BoxShadow(
+                color: _purple.withValues(alpha: isDark ? 0.4 : 0.25),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: primary
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : _purple.withValues(alpha: isDark ? 0.22 : 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                size: 18,
+                color: primary ? Colors.white : _purple,
+              ),
             ),
-          )
-        : OutlinedButton.styleFrom(
-            foregroundColor: Theme.of(context).colorScheme.onSurface,
-            alignment: Alignment.centerLeft,
-            minimumSize: const Size.fromHeight(54),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            side: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: primary ? Colors.white : theme.colorScheme.onSurface,
+                  fontWeight: primary ? FontWeight.w700 : FontWeight.w600,
+                  fontSize: 13.5,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 13,
+              color: primary
+                  ? Colors.white.withValues(alpha: 0.7)
+                  : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
-          );
-    return primary
-        ? FilledButton.icon(
-            onPressed: onPressed,
-            style: style,
-            icon: Icon(icon),
-            label: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis),
-          )
-        : OutlinedButton.icon(
-            onPressed: onPressed,
-            style: style,
-            icon: Icon(icon),
-            label: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis),
-          );
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _profileContent(TeacherProfile teacher, BuildContext context) =>
@@ -915,8 +953,9 @@ class TeacherDashboardView extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(13),
                   decoration: BoxDecoration(
-                    color:
-                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: Theme.of(context).colorScheme.outlineVariant,
@@ -1107,7 +1146,8 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final card = Card(
       elevation: 0,
       color: Theme.of(context).colorScheme.surface,
@@ -1129,15 +1169,21 @@ class _ProfileCard extends StatelessWidget {
                     color: TeacherDashboardView._purple.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(icon, color: TeacherDashboardView._purple, size: 18),
+                  child: Icon(
+                    icon,
+                    color: TeacherDashboardView._purple,
+                    size: 18,
+                  ),
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                    color: Theme.of(context).colorScheme.onSurface,
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                 ),
               ],

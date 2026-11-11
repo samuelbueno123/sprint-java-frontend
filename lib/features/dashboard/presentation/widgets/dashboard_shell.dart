@@ -14,6 +14,10 @@ import 'advanced_learning/ai_conversation_view.dart';
 import 'advanced_learning/pronunciation_practice_view.dart';
 import 'advanced_learning/community_peer_review_view.dart';
 import 'advanced_learning/personalized_learning_path_view.dart';
+import 'advanced_learning/student_mistakes_view.dart';
+import 'advanced_learning/student_vocabulary_view.dart';
+import 'advanced_learning/teacher_class_analytics_view.dart';
+import 'advanced_learning/student_notifications_dialog.dart';
 
 class DashboardShell extends StatefulWidget {
   const DashboardShell({
@@ -41,11 +45,87 @@ class _DashboardShellState extends State<DashboardShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isSidebarExpanded = true;
 
+  int _calculateMobileNavIndex() {
+    if (widget.data.profileType == UserProfileType.student) {
+      switch (widget.activeSection) {
+        case 'profile':
+          return 0;
+        case 'classes':
+          return 1;
+        case 'srsReview':
+          return 2;
+        case 'vocabulary':
+          return 3;
+        default:
+          return 4; // Menu / Outros
+      }
+    } else if (widget.data.profileType == UserProfileType.teacher) {
+      switch (widget.activeSection) {
+        case 'profile':
+          return 0;
+        case 'classes':
+          return 1;
+        case 'classAnalytics':
+          return 2;
+        case 'manageExercises':
+          return 3;
+        default:
+          return 4; // Menu / Outros
+      }
+    }
+    return 0;
+  }
+
+  void _onMobileNavTapped(int index) {
+    if (widget.data.profileType == UserProfileType.student) {
+      switch (index) {
+        case 0:
+          widget.onSectionSelected('profile');
+          break;
+        case 1:
+          widget.onSectionSelected('classes');
+          break;
+        case 2:
+          widget.onSectionSelected('srsReview');
+          break;
+        case 3:
+          widget.onSectionSelected('vocabulary');
+          break;
+        case 4:
+          _scaffoldKey.currentState?.openDrawer();
+          break;
+      }
+    } else if (widget.data.profileType == UserProfileType.teacher) {
+      switch (index) {
+        case 0:
+          widget.onSectionSelected('profile');
+          break;
+        case 1:
+          widget.onSectionSelected('classes');
+          break;
+        case 2:
+          widget.onSectionSelected('classAnalytics');
+          break;
+        case 3:
+          widget.onSectionSelected('manageExercises');
+          break;
+        case 4:
+          _scaffoldKey.currentState?.openDrawer();
+          break;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final hasNavigationRail = constraints.maxWidth >= 768;
+        final isMobile = !hasNavigationRail;
+        final mobileIndex = _calculateMobileNavIndex();
 
         return Scaffold(
           key: _scaffoldKey,
@@ -55,15 +135,16 @@ class _DashboardShellState extends State<DashboardShell> {
             onLogout: widget.onLogout,
             onOpenSettings: () => widget.onSectionSelected('settings'),
             onProfileTypeChanged: widget.onProfileTypeSelected,
-            onOpenNotifications:
-                widget.data.availableProfileTypes.contains(
-                  UserProfileType.admin,
-                )
-                ? () {
-                    widget.onProfileTypeSelected(UserProfileType.admin);
-                    widget.onSectionSelected('notifications');
-                  }
-                : null,
+            onOpenNotifications: () {
+              if (widget.data.profileType == UserProfileType.student) {
+                StudentNotificationsDialog.show(context);
+              } else if (widget.data.availableProfileTypes.contains(
+                UserProfileType.admin,
+              )) {
+                widget.onProfileTypeSelected(UserProfileType.admin);
+                widget.onSectionSelected('notifications');
+              }
+            },
             onMenuPressed: () {
               if (hasNavigationRail) {
                 setState(() => _isSidebarExpanded = !_isSidebarExpanded);
@@ -89,6 +170,74 @@ class _DashboardShellState extends State<DashboardShell> {
                     ),
                   ),
                 ),
+          bottomNavigationBar:
+              isMobile &&
+                  (widget.data.profileType == UserProfileType.student ||
+                      widget.data.profileType == UserProfileType.teacher)
+              ? NavigationBar(
+                  selectedIndex: mobileIndex.clamp(0, 4),
+                  onDestinationSelected: _onMobileNavTapped,
+                  elevation: 4,
+                  height: 64,
+                  labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                  destinations:
+                      widget.data.profileType == UserProfileType.student
+                      ? const [
+                          NavigationDestination(
+                            icon: Icon(Icons.home_outlined),
+                            selectedIcon: Icon(Icons.home_rounded),
+                            label: 'Início',
+                          ),
+                          NavigationDestination(
+                            icon: Icon(Icons.school_outlined),
+                            selectedIcon: Icon(Icons.school_rounded),
+                            label: 'Turmas',
+                          ),
+                          NavigationDestination(
+                            icon: Icon(Icons.psychology_outlined),
+                            selectedIcon: Icon(Icons.psychology_rounded),
+                            label: 'Prática',
+                          ),
+                          NavigationDestination(
+                            icon: Icon(Icons.menu_book_outlined),
+                            selectedIcon: Icon(Icons.menu_book_rounded),
+                            label: 'Vocabulário',
+                          ),
+                          NavigationDestination(
+                            icon: Icon(Icons.widgets_outlined),
+                            selectedIcon: Icon(Icons.widgets_rounded),
+                            label: 'Mais',
+                          ),
+                        ]
+                      : const [
+                          NavigationDestination(
+                            icon: Icon(Icons.dashboard_outlined),
+                            selectedIcon: Icon(Icons.dashboard_rounded),
+                            label: 'Início',
+                          ),
+                          NavigationDestination(
+                            icon: Icon(Icons.groups_outlined),
+                            selectedIcon: Icon(Icons.groups_rounded),
+                            label: 'Turmas',
+                          ),
+                          NavigationDestination(
+                            icon: Icon(Icons.insights_outlined),
+                            selectedIcon: Icon(Icons.insights_rounded),
+                            label: 'Analytics',
+                          ),
+                          NavigationDestination(
+                            icon: Icon(Icons.assignment_outlined),
+                            selectedIcon: Icon(Icons.assignment_rounded),
+                            label: 'Atividades',
+                          ),
+                          NavigationDestination(
+                            icon: Icon(Icons.widgets_outlined),
+                            selectedIcon: Icon(Icons.widgets_rounded),
+                            label: 'Mais',
+                          ),
+                        ],
+                )
+              : null,
           body: Row(
             children: [
               if (hasNavigationRail)
@@ -103,7 +252,31 @@ class _DashboardShellState extends State<DashboardShell> {
                 ),
               Expanded(
                 child: SizedBox.expand(
-                  child: _buildMainContent(),
+                  child: reduceMotion
+                      ? _buildMainContent()
+                      : AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          transitionBuilder: (child, animation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0, 0.02),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: KeyedSubtree(
+                            key: ValueKey(
+                              '${widget.data.profileType}_${widget.activeSection}',
+                            ),
+                            child: _buildMainContent(),
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -124,19 +297,39 @@ class _DashboardShellState extends State<DashboardShell> {
           );
         }
         if (widget.activeSection == 'srsReview') {
-          return SrsReviewView(onBack: () => widget.onSectionSelected('profile'));
+          return SrsReviewView(
+            onBack: () => widget.onSectionSelected('profile'),
+          );
         }
         if (widget.activeSection == 'aiConversation') {
-          return AiConversationView(onBack: () => widget.onSectionSelected('profile'));
+          return AiConversationView(
+            onBack: () => widget.onSectionSelected('profile'),
+          );
         }
         if (widget.activeSection == 'pronunciation') {
-          return PronunciationPracticeView(onBack: () => widget.onSectionSelected('profile'));
+          return PronunciationPracticeView(
+            onBack: () => widget.onSectionSelected('profile'),
+          );
         }
         if (widget.activeSection == 'communityReview') {
-          return CommunityPeerReviewView(onBack: () => widget.onSectionSelected('profile'));
+          return CommunityPeerReviewView(
+            onBack: () => widget.onSectionSelected('profile'),
+          );
         }
         if (widget.activeSection == 'learningPath') {
-          return PersonalizedLearningPathView(onBack: () => widget.onSectionSelected('profile'));
+          return PersonalizedLearningPathView(
+            onBack: () => widget.onSectionSelected('profile'),
+          );
+        }
+        if (widget.activeSection == 'mistakes') {
+          return StudentMistakesView(
+            onBack: () => widget.onSectionSelected('profile'),
+          );
+        }
+        if (widget.activeSection == 'vocabulary') {
+          return StudentVocabularyView(
+            onBack: () => widget.onSectionSelected('profile'),
+          );
         }
         if (const {
           'lesson',
@@ -162,6 +355,12 @@ class _DashboardShellState extends State<DashboardShell> {
           return TeacherClassManagementView(
             data: widget.data,
             onRefresh: widget.onRefresh,
+          );
+        }
+        if (widget.activeSection == 'classAnalytics') {
+          return TeacherClassAnalyticsView(
+            data: widget.data,
+            onBack: () => widget.onSectionSelected('profile'),
           );
         }
         if (const {

@@ -115,315 +115,315 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
           maxWidth: 560,
           onBack: () => Navigator.of(context).pop(),
           child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(
-                controller: _nameController,
-                textCapitalization: TextCapitalization.words,
-                textInputAction: TextInputAction.next,
-                autofillHints: const [AutofillHints.name],
-                decoration: const InputDecoration(
-                  labelText: 'Nome completo',
-                  hintText: 'Ex.: João Silva',
-                  prefixIcon: Icon(Icons.person_outline_rounded),
-                ),
-                validator: (value) => (value?.trim().isEmpty ?? true)
-                    ? 'Informe seu nome.'
-                    : null,
-              ),
-              const SizedBox(height: 14),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedGender,
-                decoration: const InputDecoration(
-                  labelText: 'Sexo',
-                  prefixIcon: Icon(Icons.wc_rounded),
-                ),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'MASCULINO',
-                    child: Text('Masculino'),
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.name],
+                  decoration: const InputDecoration(
+                    labelText: 'Nome completo',
+                    hintText: 'Ex.: João Silva',
+                    prefixIcon: Icon(Icons.person_outline_rounded),
                   ),
-                  DropdownMenuItem(
-                    value: 'FEMININO',
-                    child: Text('Feminino'),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _selectedGender = value);
-                  }
-                },
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _emailController,
-                readOnly: isEmailLocked,
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
-                autofillHints: const [AutofillHints.email],
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  hintText: 'aluno@exemplo.com',
-                  prefixIcon: const Icon(Icons.mail_outline_rounded),
-                  suffixIcon: isEmailLocked
-                      ? const Icon(
-                          Icons.lock_outline_rounded,
-                          color: Color(0xFF8A8FA1),
-                          size: 18,
-                        )
-                      : null,
-                  helperText: isEmailLocked
-                      ? 'Email vinculado à sua conta'
+                  validator: (value) => (value?.trim().isEmpty ?? true)
+                      ? 'Informe seu nome.'
                       : null,
                 ),
-                validator: _validateEmail,
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                textInputAction: TextInputAction.next,
-                autofillHints: const [AutofillHints.newPassword],
-                decoration: InputDecoration(
-                  labelText: 'Senha',
-                  prefixIcon: const Icon(Icons.lock_outline_rounded),
-                  suffixIcon: IconButton(
-                    tooltip: _obscurePassword
-                        ? 'Mostrar senha'
-                        : 'Ocultar senha',
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                    ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedGender,
+                  decoration: const InputDecoration(
+                    labelText: 'Sexo',
+                    prefixIcon: Icon(Icons.wc_rounded),
                   ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'MASCULINO',
+                      child: Text('Masculino'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'FEMININO',
+                      child: Text('Feminino'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _selectedGender = value);
+                    }
+                  },
                 ),
-                validator: (value) => (value?.length ?? 0) < 6
-                    ? 'Use pelo menos 6 caracteres.'
-                    : null,
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _confirmPasswordController,
-                obscureText: _obscureConfirmation,
-                textInputAction: TextInputAction.done,
-                onFieldSubmitted: (_) => _submit(),
-                decoration: InputDecoration(
-                  labelText: 'Confirmar senha',
-                  prefixIcon: const Icon(Icons.lock_reset_rounded),
-                  suffixIcon: IconButton(
-                    tooltip: _obscureConfirmation
-                        ? 'Mostrar senha'
-                        : 'Ocultar senha',
-                    onPressed: () => setState(
-                      () => _obscureConfirmation = !_obscureConfirmation,
-                    ),
-                    icon: Icon(
-                      _obscureConfirmation
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                    ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _emailController,
+                  readOnly: isEmailLocked,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.email],
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    hintText: 'aluno@exemplo.com',
+                    prefixIcon: const Icon(Icons.mail_outline_rounded),
+                    suffixIcon: isEmailLocked
+                        ? const Icon(
+                            Icons.lock_outline_rounded,
+                            color: Color(0xFF8A8FA1),
+                            size: 18,
+                          )
+                        : null,
+                    helperText: isEmailLocked
+                        ? 'Email vinculado à sua conta'
+                        : null,
                   ),
+                  validator: _validateEmail,
                 ),
-                validator: (value) => value != _passwordController.text
-                    ? 'As senhas não coincidem.'
-                    : null,
-              ),
-              const SizedBox(height: 22),
-              const Text(
-                'Idiomas e Proficiência',
-                style: TextStyle(
-                  color: Color(0xFF33384A),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Escolha os idiomas em que tem proficiência e selecione o seu nível (Básico, Intermediário ou Avançado).',
-                style: TextStyle(color: Color(0xFF73788B), fontSize: 12),
-              ),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                key: ValueKey(availableLanguages.join('|')),
-                initialValue: dropdownValue,
-                decoration: const InputDecoration(
-                  labelText: 'Adicionar idioma com proficiência',
-                  hintText: 'Selecione um idioma...',
-                  prefixIcon: Icon(Icons.language_rounded),
-                ),
-                items: availableLanguages
-                    .map(
-                      (lang) => DropdownMenuItem<String>(
-                        value: lang,
-                        child: Text(lang),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.newPassword],
+                  decoration: InputDecoration(
+                    labelText: 'Senha',
+                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                    suffixIcon: IconButton(
+                      tooltip: _obscurePassword
+                          ? 'Mostrar senha'
+                          : 'Ocultar senha',
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
                       ),
-                    )
-                    .toList(),
-                onChanged:
-                    _viewModel.isCatalogLoading || availableLanguages.isEmpty
-                    ? null
-                    : (value) {
-                        if (value == null) return;
+                    ),
+                  ),
+                  validator: (value) => (value?.length ?? 0) < 6
+                      ? 'Use pelo menos 6 caracteres.'
+                      : null,
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: _obscureConfirmation,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _submit(),
+                  decoration: InputDecoration(
+                    labelText: 'Confirmar senha',
+                    prefixIcon: const Icon(Icons.lock_reset_rounded),
+                    suffixIcon: IconButton(
+                      tooltip: _obscureConfirmation
+                          ? 'Mostrar senha'
+                          : 'Ocultar senha',
+                      onPressed: () => setState(
+                        () => _obscureConfirmation = !_obscureConfirmation,
+                      ),
+                      icon: Icon(
+                        _obscureConfirmation
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
+                    ),
+                  ),
+                  validator: (value) => value != _passwordController.text
+                      ? 'As senhas não coincidem.'
+                      : null,
+                ),
+                const SizedBox(height: 22),
+                const Text(
+                  'Idiomas e Proficiência',
+                  style: TextStyle(
+                    color: Color(0xFF33384A),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Escolha os idiomas em que tem proficiência e selecione o seu nível (Básico, Intermediário ou Avançado).',
+                  style: TextStyle(color: Color(0xFF73788B), fontSize: 12),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  key: ValueKey(availableLanguages.join('|')),
+                  initialValue: dropdownValue,
+                  decoration: const InputDecoration(
+                    labelText: 'Adicionar idioma com proficiência',
+                    hintText: 'Selecione um idioma...',
+                    prefixIcon: Icon(Icons.language_rounded),
+                  ),
+                  items: availableLanguages
+                      .map(
+                        (lang) => DropdownMenuItem<String>(
+                          value: lang,
+                          child: Text(lang),
+                        ),
+                      )
+                      .toList(),
+                  onChanged:
+                      _viewModel.isCatalogLoading || availableLanguages.isEmpty
+                      ? null
+                      : (value) {
+                          if (value == null) return;
 
-                        setState(() {
-                          _selectedLanguages.add(
-                            _SelectedLanguageItem(
-                              languageName: value,
-                              level: 'Básico',
-                            ),
-                          );
-                          _selectedDropdownLanguage = null;
-                        });
-                      },
-              ),
-              if (_viewModel.isCatalogLoading) ...[
-                const SizedBox(height: 8),
-                const LinearProgressIndicator(minHeight: 2),
-              ],
-              if (_viewModel.catalogErrorMessage != null) ...[
-                const SizedBox(height: 8),
-                _FormError(message: _viewModel.catalogErrorMessage!),
-              ],
-              const SizedBox(height: 12),
-              if (_selectedLanguages.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8.0),
-                  child: Text(
-                    'Nenhum idioma selecionado. Escolha no campo acima.',
-                    style: TextStyle(
-                      color: Color(0xFF73788B),
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-              ..._selectedLanguages.map((item) {
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  elevation: 0,
-                  color: const Color(0xFFF6F8FA),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    side: const BorderSide(color: Color(0xFFE1E4EC)),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.translate_rounded,
-                                  size: 18,
-                                  color: Color(0xFF3579E8),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  item.languageName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                    color: Color(0xFF33384A),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            IconButton(
-                              tooltip: 'Remover idioma',
-                              icon: const Icon(
-                                Icons.close_rounded,
-                                size: 18,
-                                color: Colors.grey,
+                          setState(() {
+                            _selectedLanguages.add(
+                              _SelectedLanguageItem(
+                                languageName: value,
+                                level: 'Básico',
                               ),
-                              onPressed: () {
-                                setState(() {
-                                  _selectedLanguages.remove(item);
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        DropdownButtonFormField<String>(
-                          initialValue: item.level,
-                          decoration: const InputDecoration(
-                            labelText: 'Nível de proficiência',
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            isDense: true,
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'Básico',
-                              child: Text('Básico'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'Intermediário',
-                              child: Text('Intermediário'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'Avançado',
-                              child: Text('Avançado'),
-                            ),
-                          ],
-                          onChanged: (newLevel) {
-                            if (newLevel != null) {
-                              setState(() {
-                                item.level = newLevel;
-                              });
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-              if (_viewModel.errorMessage != null) ...[
-                const SizedBox(height: 16),
-                _FormError(message: _viewModel.errorMessage!),
-              ],
-              const SizedBox(height: 22),
-              SizedBox(
-                height: 50,
-                child: FilledButton(
-                  onPressed: _viewModel.isLoading ? null : _submit,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF3579E8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _viewModel.isLoading
-                      ? const SizedBox.square(
-                          dimension: 19,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : Text(
-                          _selectedGender == 'FEMININO'
-                              ? 'Criar perfil de aluna'
-                              : 'Criar perfil de aluno',
-                        ),
+                            );
+                            _selectedDropdownLanguage = null;
+                          });
+                        },
                 ),
-              ),
-            ],
+                if (_viewModel.isCatalogLoading) ...[
+                  const SizedBox(height: 8),
+                  const LinearProgressIndicator(minHeight: 2),
+                ],
+                if (_viewModel.catalogErrorMessage != null) ...[
+                  const SizedBox(height: 8),
+                  _FormError(message: _viewModel.catalogErrorMessage!),
+                ],
+                const SizedBox(height: 12),
+                if (_selectedLanguages.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.0),
+                    child: Text(
+                      'Nenhum idioma selecionado. Escolha no campo acima.',
+                      style: TextStyle(
+                        color: Color(0xFF73788B),
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ..._selectedLanguages.map((item) {
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    elevation: 0,
+                    color: const Color(0xFFF6F8FA),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: const BorderSide(color: Color(0xFFE1E4EC)),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.translate_rounded,
+                                    size: 18,
+                                    color: Color(0xFF3579E8),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    item.languageName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: Color(0xFF33384A),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              IconButton(
+                                tooltip: 'Remover idioma',
+                                icon: const Icon(
+                                  Icons.close_rounded,
+                                  size: 18,
+                                  color: Colors.grey,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedLanguages.remove(item);
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            initialValue: item.level,
+                            decoration: const InputDecoration(
+                              labelText: 'Nível de proficiência',
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              isDense: true,
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'Básico',
+                                child: Text('Básico'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Intermediário',
+                                child: Text('Intermediário'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Avançado',
+                                child: Text('Avançado'),
+                              ),
+                            ],
+                            onChanged: (newLevel) {
+                              if (newLevel != null) {
+                                setState(() {
+                                  item.level = newLevel;
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+                if (_viewModel.errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  _FormError(message: _viewModel.errorMessage!),
+                ],
+                const SizedBox(height: 22),
+                SizedBox(
+                  height: 50,
+                  child: FilledButton(
+                    onPressed: _viewModel.isLoading ? null : _submit,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF3579E8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _viewModel.isLoading
+                        ? const SizedBox.square(
+                            dimension: 19,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            _selectedGender == 'FEMININO'
+                                ? 'Criar perfil de aluna'
+                                : 'Criar perfil de aluno',
+                          ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
+        );
       },
     );
   }
