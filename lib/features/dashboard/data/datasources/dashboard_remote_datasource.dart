@@ -28,7 +28,9 @@ class DashboardRemoteDataSource {
         return StudentModel.fromJson(response.data!);
       }
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404) return null;
+      if (e.response?.statusCode == 404 || e.response?.statusCode == 403) {
+        return null;
+      }
       rethrow;
     }
     return null;
@@ -43,7 +45,9 @@ class DashboardRemoteDataSource {
         return TeacherModel.fromJson(response.data!);
       }
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404) return null;
+      if (e.response?.statusCode == 404 || e.response?.statusCode == 403) {
+        return null;
+      }
       rethrow;
     }
     return null;

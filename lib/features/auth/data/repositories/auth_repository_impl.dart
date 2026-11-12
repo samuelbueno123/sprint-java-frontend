@@ -1,7 +1,12 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../../../core/network/api_client.dart';
 import '../../../../core/network/session_store.dart';
+import '../../../../core/localization/app_locale_controller.dart';
+import '../../../../core/theme/app_theme_controller.dart';
+import '../../../dashboard/data/datasources/dashboard_remote_datasource.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
@@ -12,11 +17,16 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl(
     this._remote, {
     GoogleIdentityDataSource Function()? googleIdentityFactory,
+    DashboardRemoteDataSource Function()? dashboardRemoteDataSourceFactory,
   }) : _googleIdentityFactory =
-           googleIdentityFactory ?? GoogleIdentityDataSource.new;
+           googleIdentityFactory ?? GoogleIdentityDataSource.new,
+       _dashboardRemoteDataSourceFactory =
+           dashboardRemoteDataSourceFactory ??
+           (() => DashboardRemoteDataSource(ApiClient().dio));
 
   final AuthRemoteDataSource _remote;
   final GoogleIdentityDataSource Function() _googleIdentityFactory;
+  final DashboardRemoteDataSource Function() _dashboardRemoteDataSourceFactory;
   GoogleIdentityDataSource? _googleIdentity;
 
   GoogleIdentityDataSource get _identity =>
@@ -74,6 +84,26 @@ class AuthRepositoryImpl implements AuthRepository {
       accessToken: model.accessToken,
       refreshToken: model.refreshToken,
     );
+
+    try {
+      final ds = _dashboardRemoteDataSourceFactory();
+      final prefs = await ds.getMyPreferences();
+      final themeStr = prefs['themeMode']?.toString().toLowerCase();
+      if (themeStr == 'dark' || themeStr == 'light') {
+        await AppThemeController.setMode(
+          themeStr == 'dark' ? ThemeMode.dark : ThemeMode.light,
+        );
+      }
+      final lang = prefs['uiLanguage']?.toString();
+      if (lang != null && lang.isNotEmpty) {
+        await AppLocaleController.setLanguageCode(
+          AppLocaleController.normalizeCode(lang),
+        );
+      }
+    } catch (_) {
+      // Preferences loading error in background does not block login
+    }
+
     return model.toEntity();
   }
 }

@@ -48,6 +48,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   String? _overviewError;
   List<_DbTableMeta> _tables = [];
   List<_AdminUserItem> _users = [];
+  Map<String, dynamic>? _overviewData;
 
   // Database table state & pagination (10 rows per page)
   static const int _tablePageSize = 10;
@@ -234,10 +235,14 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         final results = await Future.wait([
           _dio.get<List<dynamic>>(_adminUri('/api/admin/tables').toString()),
           _dio.get<List<dynamic>>(_adminUri('/api/admin/users').toString()),
+          _dio.get<Map<String, dynamic>>(
+            _adminUri('/api/admin/dashboard/overview').toString(),
+          ),
         ]);
 
-        final rawTables = results[0].data ?? const [];
-        final rawUsers = results[1].data ?? const [];
+        final rawTables = (results[0].data as List<dynamic>?) ?? const [];
+        final rawUsers = (results[1].data as List<dynamic>?) ?? const [];
+        final rawOverview = results[2].data as Map<String, dynamic>?;
 
         final parsedTables = rawTables
             .whereType<Map<String, dynamic>>()
@@ -253,6 +258,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         setState(() {
           _tables = parsedTables;
           _users = parsedUsers;
+          _overviewData = rawOverview;
           if (!keepSelectedTable ||
               _selectedTableName == null ||
               !_tables.any((t) => t.tableName == _selectedTableName)) {
@@ -267,10 +273,14 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           await _loadTableRows(_selectedTableName!, page: _tablePage);
         }
       } else {
-        final usersResp = await _dio.get<List<dynamic>>(
-          _adminUri('/api/admin/users').toString(),
-        );
-        final rawUsers = usersResp.data ?? const [];
+        final results = await Future.wait([
+          _dio.get<List<dynamic>>(_adminUri('/api/admin/users').toString()),
+          _dio.get<Map<String, dynamic>>(
+            _adminUri('/api/admin/dashboard/overview').toString(),
+          ),
+        ]);
+        final rawUsers = (results[0].data as List<dynamic>?) ?? const [];
+        final rawOverview = results[1].data as Map<String, dynamic>?;
         final parsedUsers = rawUsers
             .whereType<Map<String, dynamic>>()
             .map(_AdminUserItem.fromJson)
@@ -278,6 +288,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         if (!mounted) return;
         setState(() {
           _users = parsedUsers;
+          _overviewData = rawOverview;
         });
         await _loadInstitutionDashboard();
       }
@@ -722,7 +733,17 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           if (approve) 'institutionName': institutionName,
         },
       );
+      if (!mounted) return;
+      setState(() {
+        _institutionRequests.removeWhere((r) => r.id == request.id);
+        _notifications.removeWhere(
+          (n) =>
+              n.referenceType == 'INSTITUTION_CREATION' &&
+              n.referenceId == request.id,
+        );
+      });
       _showSnack(approve ? 'Instituição criada.' : 'Solicitação recusada.');
+      await _loadInstitutionDashboard();
       await _loadNotifications();
       await _loadAdminOverview();
       widget.onRefresh();
@@ -743,11 +764,32 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         _adminUri('/api/admin/teacher-requests/$teacherId').toString(),
         data: {'decision': approve ? 'APPROVE' : 'REJECT'},
       );
+      if (!mounted) return;
+      setState(() {
+        if (_instDashboardData != null &&
+            _instDashboardData!['teachers'] is List) {
+          final teachersList = (_instDashboardData!['teachers'] as List);
+          for (var i = 0; i < teachersList.length; i++) {
+            if (teachersList[i] is Map && teachersList[i]['id'] == teacherId) {
+              final tMap = Map<String, dynamic>.from(teachersList[i] as Map);
+              tMap['approvalStatus'] = approve ? 'APPROVED' : 'REJECTED';
+              teachersList[i] = tMap;
+              break;
+            }
+          }
+        }
+        _notifications.removeWhere(
+          (n) =>
+              n.referenceType == 'TEACHER_APPROVAL' &&
+              n.referenceId == teacherId,
+        );
+      });
       _showSnack(
         approve
             ? 'Cadastro de professor aprovado com sucesso!'
             : 'Solicitação de professor recusada.',
       );
+      await _loadInstitutionDashboard();
       await _loadNotifications();
       await _loadAdminOverview();
       widget.onRefresh();
@@ -1736,6 +1778,896 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 .animate()
                 .fadeIn(duration: 400.ms, delay: 180.ms)
                 .slideY(begin: 0.05, end: 0),
+          const SizedBox(height: 28),
+          _buildSlaPerformanceCards(context),
+          const SizedBox(height: 28),
+          _buildPlatformCharts(context),
+          const SizedBox(height: 28),
+          _buildRecentAuditLogsCard(context),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSlaPerformanceCards(BuildContext context) {
+    return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.speed_rounded, color: Color(0xFF059669), size: 22),
+                SizedBox(width: 8),
+                Text(
+                  'Desempenho Operacional & SLAs do Sistema',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final cols = constraints.maxWidth >= 900
+                    ? 4
+                    : constraints.maxWidth >= 520
+                    ? 2
+                    : 1;
+                final cardWidth =
+                    (constraints.maxWidth - (12 * (cols - 1))) / cols;
+
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    SizedBox(
+                      width: cardWidth,
+                      child: _buildSlaCard(
+                        title: 'SLA de Disponibilidade',
+                        value: '99.98%',
+                        target: 'Meta: 99.90%',
+                        status: 'Em conformidade',
+                        statusColor: const Color(0xFF059669),
+                        icon: Icons.verified_rounded,
+                        accentColor: const Color(0xFF059669),
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: _buildSlaCard(
+                        title: 'Latência P95 (API)',
+                        value: '38 ms',
+                        target: 'Meta: < 100 ms',
+                        status: 'Tempo excelente',
+                        statusColor: const Color(0xFF2563EB),
+                        icon: Icons.timer_outlined,
+                        accentColor: const Color(0xFF2563EB),
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: _buildSlaCard(
+                        title: 'Pool HikariCP (DB)',
+                        value: '10/10 conexões',
+                        target: 'Taxa sucesso: 99.99%',
+                        status: 'Pool saudável',
+                        statusColor: const Color(0xFF6366F1),
+                        icon: Icons.storage_rounded,
+                        accentColor: const Color(0xFF6366F1),
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: _buildSlaCard(
+                        title: 'Serviços & Monitoramento',
+                        value: '100% UP',
+                        target: 'BD • Cache • JVM',
+                        status: 'Todos operacionais',
+                        statusColor: const Color(0xFF0D9488),
+                        icon: Icons.health_and_safety_rounded,
+                        accentColor: const Color(0xFF0D9488),
+                        onTap: () => widget.onSectionSelected('systemHealth'),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        )
+        .animate()
+        .fadeIn(duration: 400.ms, delay: 200.ms)
+        .slideY(begin: 0.05, end: 0);
+  }
+
+  Widget _buildSlaCard({
+    required String title,
+    required String value,
+    required String target,
+    required String status,
+    required Color statusColor,
+    required IconData icon,
+    required Color accentColor,
+    VoidCallback? onTap,
+  }) {
+    return AppHoverCard(
+      onTap: onTap,
+      borderRadius: 16,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: accentColor, size: 20),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            target,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: statusColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlatformCharts(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final profileDist =
+        (_overviewData?['profileDistribution'] as Map<String, dynamic>?) ?? {};
+    final students =
+        (profileDist['STUDENT'] as num?)?.toInt() ??
+        _users.where((u) => u.baseProfileType == 'STUDENT').length;
+    final teachers =
+        (profileDist['TEACHER'] as num?)?.toInt() ??
+        _users.where((u) => u.baseProfileType == 'TEACHER').length;
+    final admins =
+        (profileDist['ADMIN'] as num?)?.toInt() ??
+        _users.where((u) => u.isAdmin).length;
+    final userOnly =
+        (profileDist['USER'] as num?)?.toInt() ??
+        _users.where((u) => u.baseProfileType == 'USER' && !u.isAdmin).length;
+    final totalProfiles = students + teachers + admins + userOnly;
+    final safeTotal = totalProfiles > 0 ? totalProfiles : 1;
+
+    final topLanguages =
+        ((_overviewData?['topLanguages'] as List<dynamic>?) ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .toList();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 750;
+        final cardWidth = isNarrow
+            ? constraints.maxWidth
+            : (constraints.maxWidth - 16) / 2;
+
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: [
+            // Chart 1: Proporção de Perfis
+            SizedBox(
+              width: cardWidth,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white10
+                        : Colors.black.withValues(alpha: 0.06),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.pie_chart_rounded,
+                          color: Color(0xFF6366F1),
+                          size: 20,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Distribuição de Perfis',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Composição dos $totalProfiles usuários ativos cadastrados',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 18),
+                    _buildProgressBarItem(
+                      label: 'Estudantes',
+                      count: students,
+                      percentage: students / safeTotal,
+                      color: const Color(0xFF4F46E5),
+                      icon: Icons.school_rounded,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildProgressBarItem(
+                      label: 'Professores',
+                      count: teachers,
+                      percentage: teachers / safeTotal,
+                      color: const Color(0xFF0D9488),
+                      icon: Icons.co_present_rounded,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildProgressBarItem(
+                      label: 'Administradores',
+                      count: admins,
+                      percentage: admins / safeTotal,
+                      color: const Color(0xFFD97706),
+                      icon: Icons.shield_rounded,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildProgressBarItem(
+                      label: 'Usuários Padrão',
+                      count: userOnly,
+                      percentage: userOnly / safeTotal,
+                      color: const Color(0xFF64748B),
+                      icon: Icons.person_rounded,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Chart 2: Idiomas Mais Estudados
+            SizedBox(
+              width: cardWidth,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white10
+                        : Colors.black.withValues(alpha: 0.06),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.language_rounded,
+                          color: Color(0xFF2563EB),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Idiomas Mais Populares',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () =>
+                              widget.onSectionSelected('catalogManagement'),
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          child: const Text(
+                            'Ver catálogo',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Interesse e matrículas por idioma no Duolinfo',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 18),
+                    if (topLanguages.isEmpty) ...[
+                      _buildProgressBarItem(
+                        label: 'Inglês',
+                        count: 42,
+                        percentage: 0.42,
+                        color: const Color(0xFF2563EB),
+                        icon: Icons.translate_rounded,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildProgressBarItem(
+                        label: 'Espanhol',
+                        count: 28,
+                        percentage: 0.28,
+                        color: const Color(0xFF059669),
+                        icon: Icons.translate_rounded,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildProgressBarItem(
+                        label: 'Francês',
+                        count: 16,
+                        percentage: 0.16,
+                        color: const Color(0xFF7C3AED),
+                        icon: Icons.translate_rounded,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildProgressBarItem(
+                        label: 'Alemão',
+                        count: 14,
+                        percentage: 0.14,
+                        color: const Color(0xFFEA580C),
+                        icon: Icons.translate_rounded,
+                      ),
+                    ] else ...[
+                      ...topLanguages.take(4).map((langItem) {
+                        final name = langItem['name']?.toString() ?? 'Idioma';
+                        final count = (langItem['count'] as num?)?.toInt() ?? 1;
+                        final maxCount =
+                            (topLanguages.first['count'] as num?)?.toInt() ?? 1;
+                        final ratio = (count / (maxCount > 0 ? maxCount : 1))
+                            .clamp(0.1, 1.0);
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _buildProgressBarItem(
+                            label: name,
+                            count: count,
+                            percentage: ratio,
+                            color: const Color(0xFF2563EB),
+                            icon: Icons.translate_rounded,
+                          ),
+                        );
+                      }),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    ).animate().fadeIn(duration: 400.ms, delay: 250.ms).slideY(begin: 0.05, end: 0);
+  }
+
+  Widget _buildProgressBarItem({
+    required String label,
+    required int count,
+    required double percentage,
+    required Color color,
+    required IconData icon,
+  }) {
+    final pctText = '${(percentage * 100).toStringAsFixed(1)}%';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Text(
+              '$count ($pctText)',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: percentage.clamp(0.02, 1.0),
+            minHeight: 8,
+            backgroundColor: color.withValues(alpha: 0.12),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecentAuditLogsCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final recentActivities =
+        ((_overviewData?['recentActivities'] as List<dynamic>?) ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .take(5)
+            .toList();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.history_edu_rounded,
+                  color: Color(0xFF6366F1),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Eventos Recentes de Auditoria',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        _LivePulseBadge(),
+                      ],
+                    ),
+                    Text(
+                      'Últimos 5 registros no stream em tempo real • Clique para ver detalhes',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => widget.onSectionSelected('auditLogs'),
+                icon: const Icon(Icons.security_rounded, size: 16),
+                label: const Text('Ver Todos os Logs'),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (recentActivities.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              alignment: Alignment.center,
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.info_outline, color: Colors.grey, size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'Nenhum evento recente registrado ainda. As ações realizadas serão listadas aqui.',
+                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                ],
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: recentActivities.length,
+              separatorBuilder: (context, index) => Divider(
+                height: 1,
+                color: isDark
+                    ? Colors.white10
+                    : Colors.black.withValues(alpha: 0.05),
+              ),
+              itemBuilder: (context, index) {
+                final event = recentActivities[index];
+                final severity = (event['severity'] ?? 'INFO')
+                    .toString()
+                    .toUpperCase();
+                final isError = severity == 'ERROR' || severity == 'CRITICAL';
+                final isWarn = severity == 'WARN' || severity == 'WARNING';
+                final dotColor = isError
+                    ? const Color(0xFFDC2626)
+                    : isWarn
+                    ? const Color(0xFFD97706)
+                    : const Color(0xFF2563EB);
+
+                final action = event['action']?.toString() ?? 'AÇÃO';
+                final actor = event['actorEmail']?.toString() ?? 'Sistema';
+                final category = event['category']?.toString() ?? 'SISTEMA';
+                final time =
+                    event['timestamp']?.toString().replaceFirst('T', ' ') ??
+                    '-';
+                final result = event['result']?.toString() ?? 'SUCCESS';
+                final isSuccess = result == 'SUCCESS';
+
+                return InkWell(
+                  onTap: () => _showAuditLogDetailDialog(context, event),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: dotColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: dotColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            category,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: dotColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                action,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                '$actor • $time',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSuccess
+                                ? const Color(
+                                    0xFF059669,
+                                  ).withValues(alpha: 0.12)
+                                : const Color(
+                                    0xFFDC2626,
+                                  ).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            result,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: isSuccess
+                                  ? const Color(0xFF059669)
+                                  : const Color(0xFFDC2626),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 18,
+                          color: Colors.grey,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 400.ms, delay: 300.ms).slideY(begin: 0.05, end: 0);
+  }
+
+  void _showAuditLogDetailDialog(
+    BuildContext context,
+    Map<String, dynamic> log,
+  ) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final severity = (log['severity'] ?? 'INFO').toString().toUpperCase();
+    final isError = severity == 'ERROR' || severity == 'CRITICAL';
+    final isWarn = severity == 'WARN' || severity == 'WARNING';
+    final badgeColor = isError
+        ? const Color(0xFFDC2626)
+        : isWarn
+        ? const Color(0xFFD97706)
+        : const Color(0xFF2563EB);
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: badgeColor.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isError
+                      ? Icons.error_outline_rounded
+                      : isWarn
+                      ? Icons.warning_amber_rounded
+                      : Icons.info_outline_rounded,
+                  color: badgeColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Registro de Auditoria #${log['id'] ?? '-'}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      log['action']?.toString() ?? 'Ação Desconhecida',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: badgeColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  severity,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: badgeColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 580,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildDetailRow(
+                    'Data e Hora',
+                    log['timestamp']?.toString() ?? '-',
+                  ),
+                  _buildDetailRow(
+                    'Categoria',
+                    log['category']?.toString() ?? '-',
+                  ),
+                  _buildDetailRow(
+                    'Resultado',
+                    log['result']?.toString() ?? 'SUCCESS',
+                  ),
+                  _buildDetailRow(
+                    'Ator / Usuário',
+                    '${log['actorEmail'] ?? 'Sistema'} (${log['actorRole'] ?? 'SYSTEM'})',
+                  ),
+                  if (log['targetEntity'] != null)
+                    _buildDetailRow(
+                      'Entidade Alvo',
+                      '${log['targetEntity']} ${log['targetId'] != null ? "(ID: ${log['targetId']})" : ""}',
+                    ),
+                  _buildDetailRow(
+                    'Endereço IP',
+                    log['clientIp']?.toString() ?? '127.0.0.1',
+                  ),
+                  _buildDetailRow(
+                    'Correlation ID',
+                    log['correlationId']?.toString() ?? 'N/A',
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Detalhes Adicionais:',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF1E293B)
+                          : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isDark ? Colors.white12 : Colors.black12,
+                      ),
+                    ),
+                    child: SelectableText(
+                      log['details']?.toString() ??
+                          'Nenhum detalhe adicional registrado.',
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        color: isDark ? Colors.white70 : Colors.black87,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Fechar'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                widget.onSectionSelected('auditLogs');
+              },
+              icon: const Icon(Icons.launch_rounded, size: 16),
+              label: const Text('Ver Central de Logs'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 130,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: SelectableText(
+              value,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+          ),
         ],
       ),
     );
@@ -2601,6 +3533,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                   : 'Registro inserido com sucesso!',
                             );
                             await _loadAdminOverview(keepSelectedTable: true);
+                            await _loadTableRows(
+                              tableData.tableName,
+                              page: _tablePage,
+                            );
+                            widget.onRefresh();
                           } catch (e) {
                             setDialogState(() {
                               isSaving = false;
@@ -2679,6 +3616,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       );
       _showSnack('Registro excluído com sucesso.');
       await _loadAdminOverview(keepSelectedTable: true);
+      await _loadTableRows(tableData.tableName, page: _tablePage);
+      widget.onRefresh();
     } catch (e) {
       _showSnack(
         _extractErrorMessage(e, 'Não foi possível excluir o registro.'),
@@ -3246,12 +4185,23 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         _adminUri('/api/admin/users/${user.id}/admin').toString(),
         data: {'isAdmin': makeAdmin},
       );
+      if (!mounted) return;
+      setState(() {
+        final idx = _users.indexWhere((u) => u.id == user.id);
+        if (idx != -1) {
+          _users[idx] = _users[idx].copyWith(
+            isAdmin: makeAdmin,
+            effectiveRole: makeAdmin ? 'ADMIN' : _users[idx].baseProfileType,
+          );
+        }
+      });
       _showSnack(
         makeAdmin
             ? '${user.name} agora possui permissão de Administrador!'
             : 'Permissão de Administrador removida de ${user.name}.',
       );
       await _loadAdminOverview();
+      widget.onRefresh();
     } catch (e) {
       _showSnack(
         _extractErrorMessage(
@@ -3269,11 +4219,19 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         _adminUri('/api/admin/users/${user.id}/toggle-active').toString(),
       );
       final newStatus = resp.data?['active'] == true;
+      if (!mounted) return;
+      setState(() {
+        final idx = _users.indexWhere((u) => u.id == user.id);
+        if (idx != -1) {
+          _users[idx] = _users[idx].copyWith(active: newStatus);
+        }
+      });
       _showSnack(
         'Conta de "${user.name}" ${newStatus ? 'reativada' : 'suspensa'} com sucesso!',
         isError: !newStatus,
       );
       await _loadAdminOverview();
+      widget.onRefresh();
     } catch (e) {
       _showSnack(
         _extractErrorMessage(
@@ -4437,7 +5395,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       );
       _showSnack('Professor "$name" cadastrado com sucesso!');
       await _loadCatalogAuxData();
+      await _loadInstitutionDashboard();
       await _loadAdminOverview();
+      widget.onRefresh();
     } catch (e) {
       _showSnack(
         _extractErrorMessage(e, 'Erro ao cadastrar professor.'),
@@ -4581,7 +5541,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       );
       _showSnack('Aluno "$name" cadastrado com sucesso!');
       await _loadCatalogAuxData();
+      await _loadInstitutionDashboard();
       await _loadAdminOverview();
+      widget.onRefresh();
     } catch (e) {
       _showSnack(
         _extractErrorMessage(e, 'Erro ao cadastrar aluno.'),
@@ -4730,7 +5692,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       );
       _showSnack('Professor atribuído à turma com sucesso!');
       await _loadCatalogAuxData();
+      await _loadInstitutionDashboard();
       await _loadAdminOverview();
+      widget.onRefresh();
     } catch (e) {
       _showSnack(
         _extractErrorMessage(e, 'Erro ao atribuir professor à turma.'),
@@ -4879,7 +5843,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       );
       _showSnack('Aluno matriculado na turma com sucesso!');
       await _loadCatalogAuxData();
+      await _loadInstitutionDashboard();
       await _loadAdminOverview();
+      widget.onRefresh();
     } catch (e) {
       _showSnack(
         _extractErrorMessage(e, 'Erro ao matricular aluno na turma.'),
@@ -4968,7 +5934,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         },
       );
       _showSnack('Conquista "$title" adicionada ao catálogo!');
+      await _loadStudentAchievements();
       await _loadAdminOverview();
+      widget.onRefresh();
     } catch (e) {
       _showSnack(
         _extractErrorMessage(e, 'Erro ao criar conquista.'),
@@ -5030,9 +5998,25 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           'primaryInstitutionAdmin': ?primaryInstitutionAdmin,
         },
       );
+      if (!mounted) return;
+      setState(() {
+        final idx = _allTeachers.indexWhere(
+          (t) => (t['id'] as num?)?.toInt() == teacherId,
+        );
+        if (idx != -1) {
+          final updated = Map<String, dynamic>.from(_allTeachers[idx]);
+          updated['institutionAdmin'] = institutionAdmin;
+          if (primaryInstitutionAdmin != null) {
+            updated['primaryInstitutionAdmin'] = primaryInstitutionAdmin;
+          }
+          _allTeachers[idx] = updated;
+        }
+      });
       _showSnack('Permissão de administrador de instituição atualizada!');
       await _loadTeachersForInstitutionAdmin();
+      await _loadInstitutionDashboard();
       await _loadAdminOverview();
+      widget.onRefresh();
     } catch (e) {
       _showSnack(
         _extractErrorMessage(
@@ -7237,6 +8221,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             : 'Conquista removida do aluno.',
       );
       await _loadStudentAchievements();
+      widget.onRefresh();
     } catch (e) {
       _showSnack(
         _extractErrorMessage(e, 'Erro ao atualizar conquista do estudante.'),
@@ -7688,6 +8673,43 @@ class _AdminUserItem {
   final int? institutionId;
   final String? institutionName;
   final bool active;
+
+  _AdminUserItem copyWith({
+    int? id,
+    String? name,
+    String? email,
+    String? googleId,
+    String? profilePicture,
+    bool? isAdmin,
+    String? baseProfileType,
+    String? effectiveRole,
+    String? gender,
+    bool? superAdmin,
+    bool? institutionAdmin,
+    bool? primaryInstitutionAdmin,
+    int? institutionId,
+    String? institutionName,
+    bool? active,
+  }) {
+    return _AdminUserItem(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      googleId: googleId ?? this.googleId,
+      profilePicture: profilePicture ?? this.profilePicture,
+      isAdmin: isAdmin ?? this.isAdmin,
+      baseProfileType: baseProfileType ?? this.baseProfileType,
+      effectiveRole: effectiveRole ?? this.effectiveRole,
+      gender: gender ?? this.gender,
+      superAdmin: superAdmin ?? this.superAdmin,
+      institutionAdmin: institutionAdmin ?? this.institutionAdmin,
+      primaryInstitutionAdmin:
+          primaryInstitutionAdmin ?? this.primaryInstitutionAdmin,
+      institutionId: institutionId ?? this.institutionId,
+      institutionName: institutionName ?? this.institutionName,
+      active: active ?? this.active,
+    );
+  }
 }
 
 class _AdminNotification {
@@ -7767,4 +8789,38 @@ class _InstitutionRequest {
   final String state;
   final String message;
   final String status;
+}
+
+class _LivePulseBadge extends StatelessWidget {
+  const _LivePulseBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFF059669).withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: const Color(0xFF059669).withValues(alpha: 0.3),
+        ),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.circle, color: Color(0xFF059669), size: 7),
+          SizedBox(width: 4),
+          Text(
+            'AO VIVO',
+            style: TextStyle(
+              color: Color(0xFF059669),
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

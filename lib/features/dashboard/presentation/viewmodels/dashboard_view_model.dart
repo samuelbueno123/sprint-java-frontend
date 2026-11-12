@@ -1,9 +1,13 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
+import '../../../../core/network/api_client.dart';
 import '../../../../core/network/realtime_sync_service.dart';
+import '../../../../core/localization/app_locale_controller.dart';
+import '../../../../core/theme/app_theme_controller.dart';
+import '../../data/datasources/dashboard_remote_datasource.dart';
 import '../../domain/entities/user_profile_type.dart';
 import '../../domain/usecases/get_home_data.dart';
 import '../../domain/usecases/logout.dart';
@@ -84,6 +88,7 @@ class DashboardViewModel extends ChangeNotifier {
         _activeProfileType = null;
       }
       _state = DashboardSuccess(data);
+      unawaited(_syncUserPreferences());
     } on DioException catch (e) {
       if (!silent) {
         final status = e.response?.statusCode;
@@ -104,6 +109,28 @@ class DashboardViewModel extends ChangeNotifier {
       }
     } finally {
       notifyListeners();
+    }
+  }
+
+  Future<void> _syncUserPreferences() async {
+    try {
+      final prefs = await DashboardRemoteDataSource(
+        ApiClient().dio,
+      ).getMyPreferences();
+      final themeStr = prefs['themeMode']?.toString().toLowerCase();
+      if (themeStr == 'dark' || themeStr == 'light') {
+        await AppThemeController.setMode(
+          themeStr == 'dark' ? ThemeMode.dark : ThemeMode.light,
+        );
+      }
+      final lang = prefs['uiLanguage']?.toString();
+      if (lang != null && lang.isNotEmpty) {
+        await AppLocaleController.setLanguageCode(
+          AppLocaleController.normalizeCode(lang),
+        );
+      }
+    } catch (_) {
+      // Ignora falha de sincronização de preferências em background
     }
   }
 

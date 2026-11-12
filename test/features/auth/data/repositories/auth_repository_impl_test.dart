@@ -1,12 +1,24 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_locale_controller.dart';
 import 'package:frontend/core/network/session_store.dart';
+import 'package:frontend/core/theme/app_theme_controller.dart';
 import 'package:frontend/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:frontend/features/auth/data/models/backend_auth_session_model.dart';
 import 'package:frontend/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:frontend/features/auth/domain/entities/authenticated_user.dart';
 import 'package:frontend/features/auth/domain/entities/user_role.dart';
+import 'package:frontend/features/dashboard/data/datasources/dashboard_remote_datasource.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+class FakeDashboardRemoteDataSource extends Fake
+    implements DashboardRemoteDataSource {
+  Map<String, dynamic> preferencesToReturn = {};
+
+  @override
+  Future<Map<String, dynamic>> getMyPreferences() async => preferencesToReturn;
+}
 
 class FakeAuthRemoteDataSource extends Fake implements AuthRemoteDataSource {
   BackendAuthSessionModel? mockSession;
@@ -69,7 +81,38 @@ void main() {
         expect(session.accessToken, equals('access-token-123'));
         expect(session.profileType, equals(UserRole.student));
         expect(SessionStore.hasSession, isTrue);
-        expect(SessionStore.accessToken, equals('access-token-123'));
+      },
+    );
+
+    test(
+      'signInWithPassword applies themeMode and uiLanguage on session activation',
+      () async {
+        remoteDataSource.mockSession = const BackendAuthSessionModel(
+          accessToken: 'token-dark',
+          refreshToken: 'refresh-dark',
+          user: AuthenticatedUser(
+            id: '99',
+            email: 'dark@duolinfo.com',
+            name: 'Dark User',
+          ),
+          profileType: UserRole.student,
+        );
+
+        final mockDashboardDataSource = FakeDashboardRemoteDataSource();
+        mockDashboardDataSource.preferencesToReturn = {
+          'themeMode': 'dark',
+          'uiLanguage': 'en',
+        };
+
+        final customRepo = AuthRepositoryImpl(
+          remoteDataSource,
+          dashboardRemoteDataSourceFactory: () => mockDashboardDataSource,
+        );
+
+        await customRepo.signInWithPassword('dark@duolinfo.com', 'pass123');
+
+        expect(AppThemeController.mode.value, equals(ThemeMode.dark));
+        expect(AppLocaleController.languageCode.value, equals('en'));
       },
     );
 

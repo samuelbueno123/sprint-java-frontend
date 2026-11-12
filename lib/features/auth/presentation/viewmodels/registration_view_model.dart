@@ -1,8 +1,12 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import '../../../../core/config/app_config.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/network/session_store.dart';
+import '../../../../core/localization/app_locale_controller.dart';
+import '../../../../core/theme/app_theme_controller.dart';
+import '../../../dashboard/data/datasources/dashboard_remote_datasource.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
 import '../../data/models/institution_model.dart';
 import '../../domain/entities/auth_session.dart';
@@ -167,6 +171,25 @@ class RegistrationViewModel extends ChangeNotifier {
       accessToken: model.accessToken,
       refreshToken: model.refreshToken,
     );
+
+    try {
+      final prefs = await DashboardRemoteDataSource(
+        ApiClient().dio,
+      ).getMyPreferences();
+      final themeStr = prefs['themeMode']?.toString().toLowerCase();
+      if (themeStr == 'dark' || themeStr == 'light') {
+        await AppThemeController.setMode(
+          themeStr == 'dark' ? ThemeMode.dark : ThemeMode.light,
+        );
+      }
+      final lang = prefs['uiLanguage']?.toString();
+      if (lang != null && lang.isNotEmpty) {
+        await AppLocaleController.setLanguageCode(
+          AppLocaleController.normalizeCode(lang),
+        );
+      }
+    } catch (_) {}
+
     return model.toEntity();
   }
 
