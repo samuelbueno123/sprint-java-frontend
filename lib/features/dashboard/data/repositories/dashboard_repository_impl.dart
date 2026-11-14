@@ -9,9 +9,10 @@ import '../../domain/repositories/dashboard_repository.dart';
 import '../datasources/dashboard_remote_datasource.dart';
 
 class DashboardRepositoryImpl implements DashboardRepository {
-  const DashboardRepositoryImpl(this._remoteDataSource);
+  const DashboardRepositoryImpl(this._remoteDataSource, {this.onGoogleSignOut});
 
   final DashboardRemoteDataSource _remoteDataSource;
+  final Future<void> Function()? onGoogleSignOut;
 
   @override
   Future<DashboardData> getDashboardData() async {
@@ -136,6 +137,11 @@ class DashboardRepositoryImpl implements DashboardRepository {
       await _remoteDataSource.logout();
     } catch (_) {
       // Ignora erro do endpoint de logout para garantir que o cliente conclua o signout
+    }
+    try {
+      await onGoogleSignOut?.call();
+    } catch (_) {
+      // Não impede limpeza da sessão local caso o provedor Google falhe ou não esteja inicializado
     }
     await SessionStore.clear();
   }

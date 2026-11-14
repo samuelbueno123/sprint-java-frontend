@@ -578,7 +578,7 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
   Future<void> _pickLocalImage() async {
     try {
       final dataUrl = await LocalImagePickerHelper.pickLocalImage();
-      if (dataUrl == null) return;
+      if (!mounted || dataUrl == null) return;
 
       setState(() {
         _isLoading = true;
@@ -590,13 +590,12 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
         userId: widget.data.user.id,
         profilePicture: dataUrl,
       );
+      if (!mounted) return;
       widget.onSaved();
-      if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Foto de perfil alterada com sucesso!')),
-        );
-      }
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Foto de perfil alterada com sucesso!')),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {

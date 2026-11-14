@@ -530,7 +530,10 @@ class _AiExplanationDialogState extends State<_AiExplanationDialog> {
           'question': widget.mistake['question'],
           'wrongAnswer': widget.mistake['userWrongAnswer'],
           'correctAnswer': widget.mistake['correctAnswer'],
-          'language': 'Inglês',
+          'language':
+              widget.mistake['languageName']?.toString() ??
+              widget.mistake['language']?.toString() ??
+              'Inglês',
         },
       );
       if (mounted) {

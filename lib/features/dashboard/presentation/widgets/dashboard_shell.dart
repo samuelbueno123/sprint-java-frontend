@@ -255,18 +255,28 @@ class _DashboardShellState extends State<DashboardShell> {
                   child: reduceMotion
                       ? _buildMainContent()
                       : AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 220),
+                          duration: const Duration(milliseconds: 280),
                           switchInCurve: Curves.easeOutCubic,
                           switchOutCurve: Curves.easeInCubic,
                           transitionBuilder: (child, animation) {
+                            final curved = CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            );
                             return FadeTransition(
-                              opacity: animation,
+                              opacity: curved,
                               child: SlideTransition(
                                 position: Tween<Offset>(
-                                  begin: const Offset(0, 0.02),
+                                  begin: const Offset(0.015, 0.025),
                                   end: Offset.zero,
-                                ).animate(animation),
-                                child: child,
+                                ).animate(curved),
+                                child: ScaleTransition(
+                                  scale: Tween<double>(
+                                    begin: 0.985,
+                                    end: 1.0,
+                                  ).animate(curved),
+                                  child: child,
+                                ),
                               ),
                             );
                           },

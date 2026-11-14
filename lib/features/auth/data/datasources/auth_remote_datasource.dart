@@ -31,6 +31,17 @@ class AuthRemoteDataSource {
     return BackendAuthSessionModel.fromJson(response.data ?? const {});
   }
 
+  Future<BackendAuthSessionModel> refreshSession({String? refreshToken}) async {
+    final cleanToken = refreshToken?.trim();
+    final response = await _dio.post<Map<String, dynamic>>(
+      Uri.parse(AppConfig.apiBaseUrl).resolve('/api/auth/refresh').toString(),
+      data: (cleanToken == null || cleanToken.isEmpty)
+          ? null
+          : {'refreshToken': cleanToken},
+    );
+    return BackendAuthSessionModel.fromJson(response.data ?? const {});
+  }
+
   Future<List<InstitutionModel>> fetchInstitutions([String? query]) async {
     final trimmed = query?.trim() ?? '';
     final url = trimmed.isNotEmpty
@@ -99,7 +110,7 @@ class AuthRemoteDataSource {
       data: {
         'name': name.trim(),
         'email': email.trim().toLowerCase(),
-        'password': password,
+        'password': password.trim().isEmpty ? null : password,
         'googleId': googleId.isEmpty ? null : googleId,
         'languages': languages,
         'gender': gender,
@@ -125,7 +136,7 @@ class AuthRemoteDataSource {
       data: {
         'name': name.trim(),
         'email': email.trim().toLowerCase(),
-        'password': password,
+        'password': password.trim().isEmpty ? null : password,
         'googleId': googleId.isEmpty ? null : googleId,
         'institutionId': institutionId,
         'taughtLanguages': taughtLanguages,

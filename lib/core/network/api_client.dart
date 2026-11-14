@@ -62,8 +62,8 @@ class ApiClient {
               }
             } else {
               // Sessão expirou definitivamente e não pôde ser renovada
-              SessionStore.notifySessionExpired();
               await SessionStore.clear();
+              SessionStore.notifySessionExpired();
             }
           }
 

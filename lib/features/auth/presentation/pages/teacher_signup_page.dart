@@ -5,6 +5,9 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/supported_languages.dart';
+import '../../../../core/network/session_store.dart';
+import '../../../../core/ui/motion_kit.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../auth_dependencies.dart';
 import '../../data/models/institution_model.dart';
@@ -106,6 +109,7 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
       if (files.isNotEmpty) {
         final file = files.first;
         final fileBytes = await file.readAsBytes();
+        if (!mounted) return;
         if (fileBytes.isNotEmpty) {
           final ext = file.extension?.toLowerCase() ?? 'pdf';
           String mimeType = 'application/pdf';
@@ -120,7 +124,7 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
               _TeacherDocumentItem(
                 fileName: file.name,
                 contentType: mimeType,
-                fileSize: file.lengthSync() ?? fileBytes.length,
+                fileSize: fileBytes.length,
                 fileBytes: fileBytes,
               ),
             );
@@ -160,6 +164,10 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
         .map((item) => item.trim())
         .where((item) => item.isNotEmpty)
         .toList();
+    final isGoogleOnboarding =
+        (widget.initialEmail != null &&
+            widget.initialEmail!.trim().isNotEmpty) &&
+        SessionStore.hasSession;
     try {
       await _viewModel.registerTeacher(
         name: _nameController.text,
@@ -171,10 +179,11 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
         bibliography: _biographyController.text,
         gender: _selectedGender,
         documents: _attachedDocuments.map((doc) => doc.toJson()).toList(),
+        useExistingSession: isGoogleOnboarding,
       );
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const DashboardPage()),
+        MotionPageRoute(builder: (_) => const DashboardPage()),
         (route) => false,
       );
     } catch (_) {
@@ -182,35 +191,58 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
     }
   }
 
+  void _handleBack() {
+    if (_profileStep) {
+      setState(() => _profileStep = false);
+      return;
+    }
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEmailLocked =
         widget.initialEmail != null && widget.initialEmail!.trim().isNotEmpty;
+    final isGoogleOnboarding = isEmailLocked && SessionStore.hasSession;
     final isFemale = _selectedGender == 'FEMININO';
 
-    return AnimatedBuilder(
-      animation: _viewModel,
-      builder: (context, _) => AuthPageFrame(
-        title: _profileStep
-            ? (isFemale ? 'Perfil de professora' : 'Perfil de professor')
-            : (isFemale ? 'Cadastro de professora' : 'Cadastro de professor'),
-        subtitle: _profileStep
-            ? 'Complete os dados profissionais vinculados ao seu perfil.'
-            : 'Crie sua conta para continuar com o cadastro docente.',
-        accentColor: const Color(0xFF7651C8),
-        maxWidth: 560,
-        onBack: () => Navigator.of(context).pop(),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 180),
-          child: _profileStep
-              ? _profileForm()
-              : _identityForm(isEmailLocked: isEmailLocked),
+    return PopScope(
+      canPop: !_profileStep,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _profileStep) {
+          setState(() => _profileStep = false);
+        }
+      },
+      child: AnimatedBuilder(
+        animation: _viewModel,
+        builder: (context, _) => AuthPageFrame(
+          title: _profileStep
+              ? (isFemale ? 'Perfil de professora' : 'Perfil de professor')
+              : (isFemale ? 'Cadastro de professora' : 'Cadastro de professor'),
+          subtitle: _profileStep
+              ? 'Complete os dados profissionais vinculados ao seu perfil.'
+              : 'Crie sua conta para continuar com o cadastro docente.',
+          accentColor: const Color(0xFF7651C8),
+          maxWidth: 560,
+          onBack: _handleBack,
+          child: MotionSectionSwitcher(
+            duration: const Duration(milliseconds: 280),
+            child: _profileStep
+                ? _profileForm()
+                : _identityForm(
+                    isEmailLocked: isEmailLocked,
+                    isGoogleOnboarding: isGoogleOnboarding,
+                  ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _identityForm({required bool isEmailLocked}) => Form(
+  Widget _identityForm({
+    required bool isEmailLocked,
+    required bool isGoogleOnboarding,
+  }) => Form(
     key: _identityFormKey,
     child: Column(
       key: const ValueKey('teacher-identity'),
@@ -231,6 +263,7 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
         const SizedBox(height: 14),
         DropdownButtonFormField<String>(
           initialValue: _selectedGender,
+          isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Sexo',
             prefixIcon: Icon(Icons.wc_rounded),
@@ -274,7 +307,9 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
           textInputAction: TextInputAction.next,
           autofillHints: const [AutofillHints.newPassword],
           decoration: InputDecoration(
-            labelText: 'Senha',
+            labelText: isGoogleOnboarding
+                ? 'Senha (opcional para conta Google)'
+                : 'Senha',
             prefixIcon: const Icon(Icons.lock_outline_rounded),
             suffixIcon: IconButton(
               tooltip: _obscurePassword ? 'Mostrar senha' : 'Ocultar senha',
@@ -287,8 +322,11 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
               ),
             ),
           ),
-          validator: (value) =>
-              (value?.length ?? 0) < 6 ? 'Use pelo menos 6 caracteres.' : null,
+          validator: (value) {
+            final clean = value ?? '';
+            if (isGoogleOnboarding && clean.isEmpty) return null;
+            return clean.length < 6 ? 'Use pelo menos 6 caracteres.' : null;
+          },
         ),
         const SizedBox(height: 14),
         TextFormField(
@@ -297,7 +335,9 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
           textInputAction: TextInputAction.done,
           onFieldSubmitted: (_) => _continue(),
           decoration: InputDecoration(
-            labelText: 'Confirmar senha',
+            labelText: isGoogleOnboarding
+                ? 'Confirmar senha (opcional)'
+                : 'Confirmar senha',
             prefixIcon: const Icon(Icons.lock_reset_rounded),
             suffixIcon: IconButton(
               tooltip: _obscureConfirmation ? 'Mostrar senha' : 'Ocultar senha',
@@ -401,14 +441,25 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
           DropdownButtonFormField<String>(
             key: ValueKey(availableLanguages.join('|')),
             initialValue: dropdownValue,
+            isExpanded: true,
             decoration: const InputDecoration(
               labelText: 'Adicionar idioma lecionado',
               hintText: 'Selecione um idioma...',
               prefixIcon: Icon(Icons.language_rounded),
             ),
-            items: availableLanguages
-                .map((lang) => DropdownMenuItem(value: lang, child: Text(lang)))
-                .toList(),
+            items: availableLanguages.map((lang) {
+              final meta = SupportedLanguages.metaFor(lang);
+              return DropdownMenuItem(
+                value: lang,
+                child: Row(
+                  children: [
+                    Icon(meta.icon, size: 16, color: meta.color),
+                    const SizedBox(width: 8),
+                    Text(lang),
+                  ],
+                ),
+              );
+            }).toList(),
             onChanged:
                 _viewModel.isCatalogLoading ||
                     _viewModel.catalogErrorMessage != null
@@ -636,11 +687,11 @@ class _InstitutionSearchField extends StatefulWidget {
 class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
   late final TextEditingController _controller;
   late final FocusNode _focusNode;
-  List<InstitutionModel> _searchResults = [];
   bool _isSearching = false;
   bool _isSubmittingRequest = false;
   String? _searchError;
   Timer? _searchDebounce;
+  Completer<Iterable<InstitutionModel>>? _pendingSearchCompleter;
   int _searchRequestId = 0;
 
   @override
@@ -653,19 +704,31 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
   }
 
   @override
+  void didUpdateWidget(covariant _InstitutionSearchField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedInstitution != oldWidget.selectedInstitution &&
+        widget.selectedInstitution != null &&
+        _controller.text != widget.selectedInstitution!.name) {
+      _controller.text = widget.selectedInstitution!.name;
+    }
+  }
+
+  @override
   void dispose() {
+    if (_pendingSearchCompleter != null &&
+        !_pendingSearchCompleter!.isCompleted) {
+      _pendingSearchCompleter!.complete(const <InstitutionModel>[]);
+    }
     _controller.dispose();
     _focusNode.dispose();
     _searchDebounce?.cancel();
     super.dispose();
   }
 
-  Future<void> _performSearch() async {
-    final query = _controller.text.trim();
+  Future<List<InstitutionModel>> _executeSearchQuery(String query) async {
     final requestId = ++_searchRequestId;
     if (query.isEmpty) {
-      if (mounted) setState(() => _searchResults = []);
-      return;
+      return const [];
     }
 
     if (mounted) {
@@ -676,7 +739,7 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
     }
     try {
       final results = await widget.viewModel.searchInstitutions(query);
-      if (!mounted || requestId != _searchRequestId) return;
+      if (!mounted || requestId != _searchRequestId) return const [];
       final list = List<InstitutionModel>.from(results);
 
       if (!list.any((item) => item.name.toLowerCase() == query.toLowerCase())) {
@@ -690,23 +753,55 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
         );
       }
 
-      setState(() {
-        _searchResults = list;
-        _isSearching = false;
-      });
+      setState(() => _isSearching = false);
+      return list;
     } catch (error) {
-      if (!mounted || requestId != _searchRequestId) return;
+      if (!mounted || requestId != _searchRequestId) return const [];
       setState(() {
-        _searchResults = [];
         _isSearching = false;
         _searchError = registrationErrorMessage(error);
       });
+      return const [];
     }
   }
 
-  void _scheduleSearch(String _) {
+  Future<Iterable<InstitutionModel>> _buildOptionsAsync(
+    TextEditingValue value,
+  ) {
+    final query = value.text.trim();
     _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 300), _performSearch);
+    if (_pendingSearchCompleter != null &&
+        !_pendingSearchCompleter!.isCompleted) {
+      _pendingSearchCompleter!.complete(const <InstitutionModel>[]);
+    }
+
+    if (query.isEmpty ||
+        (widget.selectedInstitution != null &&
+            query == widget.selectedInstitution!.name.trim())) {
+      return Future.value(const <InstitutionModel>[]);
+    }
+
+    final completer = Completer<Iterable<InstitutionModel>>();
+    _pendingSearchCompleter = completer;
+    _searchDebounce = Timer(const Duration(milliseconds: 280), () async {
+      final list = await _executeSearchQuery(query);
+      if (!completer.isCompleted) {
+        completer.complete(list);
+      }
+    });
+    return completer.future;
+  }
+
+  Future<void> _performSearch() async {
+    _searchDebounce?.cancel();
+    if (!_focusNode.hasFocus) {
+      _focusNode.requestFocus();
+    }
+    final currentText = _controller.text;
+    _controller.value = TextEditingValue(
+      text: currentText,
+      selection: TextSelection.collapsed(offset: currentText.length),
+    );
   }
 
   Future<void> _handleSelectOption(InstitutionModel option) async {
@@ -717,7 +812,6 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
 
     _controller.text = option.name;
     widget.onSelected(option);
-    setState(() => _searchResults = []);
   }
 
   Future<void> _submitInstitutionRequest(String requestedName) async {
@@ -813,10 +907,12 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
                           Navigator.of(dialogContext).pop(true);
                         }
                       } catch (error) {
-                        setDialogState(() {
-                          isSubmitting = false;
-                          errorMessage = registrationErrorMessage(error);
-                        });
+                        if (dialogContext.mounted) {
+                          setDialogState(() {
+                            isSubmitting = false;
+                            errorMessage = registrationErrorMessage(error);
+                          });
+                        }
                       }
                     },
               child: isSubmitting
@@ -839,7 +935,7 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
       messageController.dispose();
     });
     if (submitted == true && mounted) {
-      setState(() => _searchResults = []);
+      _searchDebounce?.cancel();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Solicitação enviada para análise do administrador.'),
@@ -851,15 +947,14 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
         return RawAutocomplete<InstitutionModel>(
           textEditingController: _controller,
           focusNode: _focusNode,
           displayStringForOption: (option) => option.name,
-          optionsBuilder: (textEditingValue) {
-            return _searchResults;
-          },
+          optionsBuilder: _buildOptionsAsync,
           onSelected: (option) {
             _handleSelectOption(option);
           },
@@ -868,7 +963,12 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
               controller: controller,
               focusNode: focusNode,
               textInputAction: TextInputAction.search,
-              onChanged: _scheduleSearch,
+              onChanged: (value) {
+                if (widget.selectedInstitution != null &&
+                    value.trim() != widget.selectedInstitution!.name.trim()) {
+                  widget.onSelected(null);
+                }
+              },
               onFieldSubmitted: (_) => _performSearch(),
               decoration: InputDecoration(
                 labelText: 'Nome da instituição',
@@ -896,7 +996,6 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
                         onPressed: () {
                           controller.clear();
                           widget.onSelected(null);
-                          setState(() => _searchResults = []);
                         },
                       ),
                     IconButton(
@@ -922,21 +1021,21 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
               alignment: Alignment.topLeft,
               child: Material(
                 elevation: 6,
-                color: Colors.white,
+                color: colors.surfaceContainer,
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   width: constraints.maxWidth,
                   constraints: const BoxConstraints(maxHeight: 220),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE1E4EC)),
+                    border: Border.all(color: colors.outlineVariant),
                   ),
                   child: ListView.separated(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     shrinkWrap: true,
                     itemCount: options.length,
                     separatorBuilder: (_, _) =>
-                        const Divider(height: 1, color: Color(0xFFF0F2F6)),
+                        Divider(height: 1, color: colors.outlineVariant),
                     itemBuilder: (context, index) {
                       final option = options.elementAt(index);
                       final isNewOption = option.id == -1;
@@ -944,16 +1043,16 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
                       if (isNewOption) {
                         return ListTile(
                           dense: true,
-                          leading: const Icon(
+                          leading: Icon(
                             Icons.add_business_rounded,
-                            color: Color(0xFF7651C8),
+                            color: colors.primary,
                             size: 20,
                           ),
                           title: Text(
                             'Solicitar cadastro de "${option.name}"',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF7651C8),
+                              color: colors.primary,
                             ),
                           ),
                           onTap: () => _handleSelectOption(option),
@@ -964,24 +1063,24 @@ class _InstitutionSearchFieldState extends State<_InstitutionSearchField> {
 
                       return ListTile(
                         dense: true,
-                        leading: const Icon(
+                        leading: Icon(
                           Icons.school_outlined,
-                          color: Color(0xFF7651C8),
+                          color: colors.primary,
                           size: 20,
                         ),
                         title: Text(
                           option.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF252A3D),
+                            color: colors.onSurface,
                           ),
                         ),
                         subtitle: location.isNotEmpty
                             ? Text(
                                 location,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: Color(0xFF73788B),
+                                  color: colors.onSurfaceVariant,
                                 ),
                               )
                             : null,

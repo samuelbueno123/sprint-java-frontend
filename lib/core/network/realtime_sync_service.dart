@@ -49,6 +49,7 @@ class RealtimeSyncService {
   bool _isConnecting = false;
   Timer? _reconnectTimer;
   int _reconnectAttempts = 0;
+  bool _refreshedAfterUnauthorized = false;
 
   bool get isConnected => _isConnected;
 
@@ -75,29 +76,29 @@ class RealtimeSyncService {
       ).resolve('/api/realtime/stream');
       final sseUrl = uri.replace(queryParameters: {'token': token}).toString();
 
-      debugPrint('[Realtime] Conectando ao canal SSE: $sseUrl');
+      debugPrint('[Realtime] Conectando ao canal SSE: $uri');
 
       _dio ??= Dio(
         BaseOptions(
           connectTimeout: const Duration(seconds: 15),
           receiveTimeout: const Duration(minutes: 35),
-          headers: {
-            'Accept': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Authorization': 'Bearer $token',
-          },
+          headers: {'Accept': 'text/event-stream', 'Cache-Control': 'no-cache'},
         ),
       );
 
       final response = await _dio!.get<ResponseBody>(
         sseUrl,
         cancelToken: _cancelToken,
-        options: Options(responseType: ResponseType.stream),
+        options: Options(
+          responseType: ResponseType.stream,
+          headers: {'Authorization': 'Bearer $token'},
+        ),
       );
 
       _isConnected = true;
       _isConnecting = false;
       _reconnectAttempts = 0;
+      _refreshedAfterUnauthorized = false;
       debugPrint('[Realtime] Conexão SSE estabelecida com sucesso.');
 
       String currentEvent = 'MESSAGE';
@@ -105,35 +106,45 @@ class RealtimeSyncService {
 
       final stream = response.data?.stream;
       if (stream != null) {
-        await for (final chunk in stream.cast<List<int>>()) {
-          final text = utf8.decode(chunk, allowMalformed: true);
-          final lines = const LineSplitter().convert(text);
-
-          for (final line in lines) {
-            final trimmed = line.trim();
-            if (trimmed.isEmpty) {
-              if (buffer.isNotEmpty) {
-                _dispatchRaw(currentEvent, buffer.toString());
-                buffer.clear();
-                currentEvent = 'MESSAGE';
-              }
-              continue;
+        final lines = stream
+            .cast<List<int>>()
+            .transform(utf8.decoder)
+            .transform(const LineSplitter());
+        await for (final line in lines) {
+          final trimmed = line.trim();
+          if (trimmed.isEmpty) {
+            if (buffer.isNotEmpty) {
+              _dispatchRaw(currentEvent, buffer.toString());
+              buffer.clear();
+              currentEvent = 'MESSAGE';
             }
+            continue;
+          }
 
-            if (trimmed.startsWith(':')) {
-              // Comentário de keep-alive ping do servidor
-              continue;
-            }
+          if (trimmed.startsWith(':')) {
+            // Comentário de keep-alive ping do servidor
+            continue;
+          }
 
-            if (trimmed.startsWith('event:')) {
-              currentEvent = trimmed.substring(6).trim();
-            } else if (trimmed.startsWith('data:')) {
-              final dataPart = trimmed.substring(5).trim();
-              if (buffer.isNotEmpty) buffer.write('\n');
-              buffer.write(dataPart);
-            }
+          if (trimmed.startsWith('event:')) {
+            currentEvent = trimmed.substring(6).trim();
+          } else if (trimmed.startsWith('data:')) {
+            final dataPart = trimmed.substring(5).trim();
+            if (buffer.isNotEmpty) buffer.write('\n');
+            buffer.write(dataPart);
           }
         }
+      }
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      if ((status == 401 || status == 403) && !_refreshedAfterUnauthorized) {
+        _refreshedAfterUnauthorized = true;
+        final nextToken = await SessionStore.refreshAccessToken();
+        if (nextToken != null && nextToken.isNotEmpty) {
+          debugPrint('[Realtime] Token renovado após $status SSE.');
+        }
+      } else {
+        debugPrint('[Realtime] Conexão SSE finalizada ou com erro: $e');
       }
     } catch (e) {
       debugPrint('[Realtime] Conexão SSE finalizada ou com erro: $e');

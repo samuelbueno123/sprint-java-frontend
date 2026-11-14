@@ -1,14 +1,50 @@
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import 'core/localization/app_locale_controller.dart';
+import 'core/network/realtime_sync_service.dart';
+import 'core/network/session_store.dart';
 import 'core/theme/app_theme_controller.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/dashboard/presentation/pages/dashboard_page.dart';
-import 'core/network/session_store.dart';
 
-class App extends StatelessWidget {
+class App extends StatefulWidget {
   const App({super.key});
+
+  @override
+  State<App> createState() => _AppState();
+}
+
+class _AppState extends State<App> {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  void initState() {
+    super.initState();
+    SessionStore.sessionExpiredNotifier.addListener(_onSessionExpired);
+  }
+
+  @override
+  void dispose() {
+    SessionStore.sessionExpiredNotifier.removeListener(_onSessionExpired);
+    super.dispose();
+  }
+
+  void _onSessionExpired() {
+    if (!SessionStore.sessionExpiredNotifier.value) return;
+    SessionStore.resetSessionExpiredNotification();
+    RealtimeSyncService.instance.disconnect();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final navigator = _navigatorKey.currentState;
+      if (navigator == null || !navigator.mounted) return;
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+        (route) => false,
+      );
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
 
   @override
   Widget build(BuildContext context) => ValueListenableBuilder<ThemeMode>(
@@ -16,6 +52,7 @@ class App extends StatelessWidget {
     builder: (context, themeMode, _) => ValueListenableBuilder<String>(
       valueListenable: AppLocaleController.languageCode,
       builder: (context, langCode, _) => ShadApp(
+        navigatorKey: _navigatorKey,
         debugShowCheckedModeBanner: false,
         title: 'Duolinfo',
         themeMode: themeMode,
@@ -56,6 +93,20 @@ class App extends StatelessWidget {
                         onSecondaryContainer: Colors.white,
                       ),
                   useMaterial3: true,
+                  pageTransitionsTheme: const PageTransitionsTheme(
+                    builders: {
+                      TargetPlatform.android: SharedAxisPageTransitionsBuilder(
+                        transitionType: SharedAxisTransitionType.horizontal,
+                      ),
+                      TargetPlatform.iOS: SharedAxisPageTransitionsBuilder(
+                        transitionType: SharedAxisTransitionType.horizontal,
+                      ),
+                      TargetPlatform.windows:
+                          FadeThroughPageTransitionsBuilder(),
+                      TargetPlatform.macOS: FadeThroughPageTransitionsBuilder(),
+                      TargetPlatform.linux: FadeThroughPageTransitionsBuilder(),
+                    },
+                  ),
                   scaffoldBackgroundColor: const Color(0xFF10131A),
                   cardTheme: const CardThemeData(color: Color(0xFF1B202A)),
                   dividerColor: const Color(0xFF343B49),
@@ -151,6 +202,20 @@ class App extends StatelessWidget {
                     seedColor: const Color(0xFF3579E8),
                   ),
                   useMaterial3: true,
+                  pageTransitionsTheme: const PageTransitionsTheme(
+                    builders: {
+                      TargetPlatform.android: SharedAxisPageTransitionsBuilder(
+                        transitionType: SharedAxisTransitionType.horizontal,
+                      ),
+                      TargetPlatform.iOS: SharedAxisPageTransitionsBuilder(
+                        transitionType: SharedAxisTransitionType.horizontal,
+                      ),
+                      TargetPlatform.windows:
+                          FadeThroughPageTransitionsBuilder(),
+                      TargetPlatform.macOS: FadeThroughPageTransitionsBuilder(),
+                      TargetPlatform.linux: FadeThroughPageTransitionsBuilder(),
+                    },
+                  ),
                   scaffoldBackgroundColor: const Color(0xFFF7F8FC),
                   cardTheme: const CardThemeData(color: Colors.white),
                   filledButtonTheme: FilledButtonThemeData(

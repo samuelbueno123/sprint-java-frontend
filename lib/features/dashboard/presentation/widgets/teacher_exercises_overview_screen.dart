@@ -6,6 +6,108 @@ import '../../domain/entities/dashboard_data.dart';
 import 'responsive_layout.dart';
 import 'teacher_exercise_preview_screen.dart';
 
+class _CloneExerciseDialog extends StatefulWidget {
+  const _CloneExerciseDialog({
+    required this.initialTitle,
+    required this.classes,
+  });
+
+  final String initialTitle;
+  final List<_ClassOption> classes;
+
+  @override
+  State<_CloneExerciseDialog> createState() => _CloneExerciseDialogState();
+}
+
+class _CloneExerciseDialogState extends State<_CloneExerciseDialog> {
+  late final TextEditingController _titleCtrl;
+  late int _targetClassId;
+  String? _validationError;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleCtrl = TextEditingController(text: widget.initialTitle);
+    _targetClassId = widget.classes.first.id;
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final title = _titleCtrl.text.trim();
+    if (title.isEmpty) {
+      setState(() => _validationError = 'Informe o título da nova atividade.');
+      return;
+    }
+    Navigator.of(context).pop(<String, dynamic>{
+      'targetSchoolClassId': _targetClassId,
+      'newTitle': title,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Clonar Atividade'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Duplique todas as questões e conteúdos desta atividade para outra turma:',
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _titleCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Título da Nova Atividade',
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<int>(
+            initialValue: _targetClassId,
+            decoration: const InputDecoration(
+              labelText: 'Turma de Destino',
+              isDense: true,
+            ),
+            items: widget.classes
+                .map(
+                  (c) =>
+                      DropdownMenuItem<int>(value: c.id, child: Text(c.name)),
+                )
+                .toList(),
+            onChanged: (val) {
+              if (val != null) setState(() => _targetClassId = val);
+            },
+          ),
+          if (_validationError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _validationError!,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.error,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(null),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Clonar Agora')),
+      ],
+    );
+  }
+}
+
 class TeacherExercisesOverviewScreen extends StatefulWidget {
   const TeacherExercisesOverviewScreen({
     super.key,
@@ -647,90 +749,33 @@ class _TeacherExercisesOverviewScreenState
       return;
     }
 
-    int targetClassId = availableClasses.first.id;
-    final titleCtrl = TextEditingController(
-      text: '${exercise['title'] ?? 'Atividade'} (Cópia)',
-    );
-
-    final confirmed = await showDialog<bool>(
+    final payload = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Clonar Atividade'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Duplique todas as questões e conteúdos desta atividade para outra turma:',
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: titleCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Título da Nova Atividade',
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<int>(
-                initialValue: targetClassId,
-                decoration: const InputDecoration(
-                  labelText: 'Turma de Destino',
-                  isDense: true,
-                ),
-                items: availableClasses.map((c) {
-                  return DropdownMenuItem<int>(
-                    value: c.id,
-                    child: Text(c.name),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) setDialogState(() => targetClassId = val);
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Clonar Agora'),
-            ),
-          ],
-        ),
+      builder: (ctx) => _CloneExerciseDialog(
+        initialTitle: '${exercise['title'] ?? 'Atividade'} (Cópia)',
+        classes: availableClasses,
       ),
     );
 
-    if (confirmed == true && titleCtrl.text.trim().isNotEmpty) {
-      try {
-        final exerciseId = exercise['id'];
-        await _dio.post(
-          '/api/exercises/$exerciseId/clone',
-          data: {
-            'targetSchoolClassId': targetClassId,
-            'newTitle': titleCtrl.text.trim(),
-          },
-        );
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Atividade clonada com sucesso para a turma selecionada!',
-              ),
+    if (payload == null) return;
+    try {
+      final exerciseId = exercise['id'];
+      await _dio.post('/api/exercises/$exerciseId/clone', data: payload);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Atividade clonada com sucesso para a turma selecionada!',
             ),
-          );
-          widget.onRefresh();
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erro ao clonar atividade: $e')),
-          );
-        }
+          ),
+        );
+        widget.onRefresh();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao clonar atividade: $e')));
       }
     }
   }

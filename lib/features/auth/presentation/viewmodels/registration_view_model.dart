@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/config/app_config.dart';
+import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/session_store.dart';
 import '../../../../core/localization/app_locale_controller.dart';
@@ -20,14 +21,7 @@ class RegistrationViewModel extends ChangeNotifier {
 
   final AuthRemoteDataSource _remote;
 
-  static const List<String> _defaultLanguages = [
-    'Alemão',
-    'Espanhol',
-    'Francês',
-    'Inglês',
-    'Italiano',
-    'Japonês',
-  ];
+  static const List<String> _defaultLanguages = kSupportedLanguages;
 
   static const List<String> _defaultProficiencyLevels = [
     'Básico',
@@ -38,6 +32,7 @@ class RegistrationViewModel extends ChangeNotifier {
   bool _isLoading = false;
   bool _isCatalogLoading = false;
   bool _isCatalogLoaded = false;
+  bool _disposed = false;
   String? _errorMessage;
   String? _catalogErrorMessage;
   List<String> _availableLanguages = _defaultLanguages;
@@ -51,21 +46,28 @@ class RegistrationViewModel extends ChangeNotifier {
   List<String> get availableLanguages => _availableLanguages;
   List<String> get proficiencyLevels => _proficiencyLevels;
 
+  void _notifySafely() {
+    if (!_disposed) {
+      notifyListeners();
+    }
+  }
+
   Future<void> loadCatalog({bool forceRefresh = false}) async {
     if (_isCatalogLoading) return;
     if (_isCatalogLoaded && !forceRefresh) return;
     _isCatalogLoading = true;
     _catalogErrorMessage = null;
-    notifyListeners();
+    _notifySafely();
     try {
       final langs = await _remote.fetchLanguages();
-      _availableLanguages = langs.isEmpty ? _defaultLanguages : langs;
+      final sanitized = SupportedLanguages.sanitizeCatalogList(langs);
+      _availableLanguages = sanitized.isEmpty ? _defaultLanguages : sanitized;
       _isCatalogLoaded = true;
     } catch (_) {
       _availableLanguages = _defaultLanguages;
     } finally {
       _isCatalogLoading = false;
-      notifyListeners();
+      _notifySafely();
     }
   }
 
@@ -100,6 +102,7 @@ class RegistrationViewModel extends ChangeNotifier {
     required List<dynamic> languages,
     String gender = 'MASCULINO',
     int? institutionId,
+    bool useExistingSession = false,
   }) async {
     late AuthSession result;
     await _run(() async {
@@ -113,7 +116,12 @@ class RegistrationViewModel extends ChangeNotifier {
         gender: gender,
         institutionId: institutionId,
       );
-      result = await _authenticate(email, password);
+      final shouldRefreshSession =
+          useExistingSession ||
+          (password.trim().isEmpty && SessionStore.hasSession);
+      result = shouldRefreshSession
+          ? await _refreshExistingSession()
+          : await _authenticate(email, password);
       if (result.profileType != UserRole.student) {
         throw const RegistrationException(
           'O perfil foi criado, mas o backend não confirmou o acesso de aluno. Entre novamente.',
@@ -133,6 +141,7 @@ class RegistrationViewModel extends ChangeNotifier {
     required String bibliography,
     String gender = 'MASCULINO',
     List<dynamic>? documents,
+    bool useExistingSession = false,
   }) async {
     late AuthSession result;
     await _run(() async {
@@ -149,7 +158,12 @@ class RegistrationViewModel extends ChangeNotifier {
         gender: gender,
         documents: documents,
       );
-      result = await _authenticate(email, password);
+      final shouldRefreshSession =
+          useExistingSession ||
+          (password.trim().isEmpty && SessionStore.hasSession);
+      result = shouldRefreshSession
+          ? await _refreshExistingSession()
+          : await _authenticate(email, password);
     });
     return result;
   }
@@ -193,6 +207,25 @@ class RegistrationViewModel extends ChangeNotifier {
     return model.toEntity();
   }
 
+  Future<AuthSession> _refreshExistingSession() async {
+    _requireApiConfiguration();
+    final model = await _remote.refreshSession(
+      refreshToken: kIsWeb ? null : SessionStore.refreshToken,
+    );
+    if (model.accessToken.isEmpty ||
+        model.refreshToken.isEmpty ||
+        model.user.id.isEmpty) {
+      throw const RegistrationException(
+        'O backend retornou uma sessão inválida.',
+      );
+    }
+    await SessionStore.setSession(
+      accessToken: model.accessToken,
+      refreshToken: model.refreshToken,
+    );
+    return model.toEntity();
+  }
+
   void _requireApiConfiguration() {
     if (!AppConfig.hasValidApiBaseUrl) {
       throw const RegistrationException(
@@ -205,7 +238,7 @@ class RegistrationViewModel extends ChangeNotifier {
     if (_isLoading) return;
     _isLoading = true;
     _errorMessage = null;
-    notifyListeners();
+    _notifySafely();
     try {
       await action();
     } catch (error) {
@@ -213,8 +246,14 @@ class RegistrationViewModel extends ChangeNotifier {
       rethrow;
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _notifySafely();
     }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }
 

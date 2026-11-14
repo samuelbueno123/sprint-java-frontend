@@ -8,8 +8,11 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/realtime_sync_service.dart';
 import '../../domain/entities/dashboard_data.dart';
+import '../../../../core/constants/supported_languages.dart';
+import '../../../../core/ui/motion_kit.dart';
 import 'admin/admin_audit_logs_view.dart';
 import 'admin/admin_catalog_management_view.dart';
+import 'admin/admin_performance_dashboard_view.dart';
 import 'admin/admin_system_health_view.dart';
 import 'admin/admin_teacher_documents_view.dart';
 import 'app_user_avatar.dart';
@@ -647,6 +650,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         return _buildUsersAdminSection(context);
       case 'auditLogs':
         return const AdminAuditLogsView();
+      case 'systemPerformance':
+        return AdminPerformanceDashboardView(
+          onOpenSystemHealth: () => widget.onSectionSelected('systemHealth'),
+        );
       case 'systemHealth':
         return const AdminSystemHealthView();
       case 'catalogManagement':
@@ -1528,15 +1535,50 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       icon: const Icon(Icons.security_rounded, size: 18),
                       label: const Text('Logs & Auditoria'),
                     ),
-                    OutlinedButton.icon(
-                      onPressed: () => widget.onSectionSelected('systemHealth'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white, width: 1.4),
-                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                    StaggeredReveal(
+                      index: 1,
+                      child: Wrap(
+                        spacing: 10,
+                        runSpacing: 8,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: () =>
+                                widget.onSectionSelected('systemPerformance'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF4338CA),
+                              elevation: 0,
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.query_stats_rounded,
+                              size: 18,
+                            ),
+                            label: const Text('Performance & FLChart'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () =>
+                                widget.onSectionSelected('systemHealth'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: const BorderSide(
+                                color: Colors.white,
+                                width: 1.4,
+                              ),
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.monitor_heart_rounded,
+                              size: 18,
+                            ),
+                            label: const Text('Saúde & Diagnóstico'),
+                          ),
+                        ],
                       ),
-                      icon: const Icon(Icons.monitor_heart_rounded, size: 18),
-                      label: const Text('Saúde & Diagnóstico'),
                     ),
                     OutlinedButton.icon(
                       onPressed: () =>
@@ -5108,6 +5150,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     );
     final gradeCtrl = TextEditingController(text: 'Geral');
     String shift = 'MANHÃ';
+    String languageName = kDefaultSupportedLanguage;
     int? schoolId = (availableSchools.first['id'] as num?)?.toInt();
 
     final ok = await showDialog<bool>(
@@ -5117,66 +5160,92 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           title: const Text('Criar Nova Turma'),
           content: SizedBox(
             width: 440,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<int>(
-                  isExpanded: true,
-                  initialValue: schoolId,
-                  decoration: const InputDecoration(
-                    labelText: 'Escola vinculada *',
-                  ),
-                  items: availableSchools
-                      .map(
-                        (s) => DropdownMenuItem<int>(
-                          value: (s['id'] as num?)?.toInt(),
-                          child: Text(
-                            '${s['name'] ?? ''}',
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) => setDialogState(() => schoolId = v),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Nome da turma *',
-                    hintText: 'Ex: 1º Ano A',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: yearCtrl,
-                  decoration: const InputDecoration(labelText: 'Ano letivo *'),
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  initialValue: shift,
-                  decoration: const InputDecoration(labelText: 'Turno'),
-                  items: const [
-                    DropdownMenuItem(value: 'MANHÃ', child: Text('Manhã')),
-                    DropdownMenuItem(value: 'TARDE', child: Text('Tarde')),
-                    DropdownMenuItem(value: 'NOITE', child: Text('Noite')),
-                    DropdownMenuItem(
-                      value: 'INTEGRAL',
-                      child: Text('Integral'),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<int>(
+                    isExpanded: true,
+                    initialValue: schoolId,
+                    decoration: const InputDecoration(
+                      labelText: 'Escola vinculada *',
                     ),
-                  ],
-                  onChanged: (v) => setDialogState(() => shift = v ?? shift),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: gradeCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Nível / Série',
-                    hintText: 'Ex: 1º Ano ou Intermediário',
+                    items: availableSchools
+                        .map(
+                          (s) => DropdownMenuItem<int>(
+                            value: (s['id'] as num?)?.toInt(),
+                            child: Text(
+                              '${s['name'] ?? ''}',
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setDialogState(() => schoolId = v),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nome da turma *',
+                      hintText: 'Ex: 1º Ano A',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    initialValue: languageName,
+                    decoration: const InputDecoration(
+                      labelText: 'Idioma oficial da turma *',
+                    ),
+                    items: kSupportedLanguages.map((lang) {
+                      final meta = SupportedLanguages.metaFor(lang);
+                      return DropdownMenuItem(
+                        value: lang,
+                        child: Row(
+                          children: [
+                            Icon(meta.icon, size: 16, color: meta.color),
+                            const SizedBox(width: 8),
+                            Text(lang),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (v) =>
+                        setDialogState(() => languageName = v ?? languageName),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: yearCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Ano letivo *',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    initialValue: shift,
+                    decoration: const InputDecoration(labelText: 'Turno'),
+                    items: const [
+                      DropdownMenuItem(value: 'MANHÃ', child: Text('Manhã')),
+                      DropdownMenuItem(value: 'TARDE', child: Text('Tarde')),
+                      DropdownMenuItem(value: 'NOITE', child: Text('Noite')),
+                      DropdownMenuItem(
+                        value: 'INTEGRAL',
+                        child: Text('Integral'),
+                      ),
+                    ],
+                    onChanged: (v) => setDialogState(() => shift = v ?? shift),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: gradeCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nível / Série',
+                      hintText: 'Ex: 1º Ano ou Intermediário',
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -5211,6 +5280,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           'schoolYear': year.isEmpty ? DateTime.now().year.toString() : year,
           'shift': shift,
           'gradeLevel': grade.isEmpty ? 'Geral' : grade,
+          'languageName': languageName,
           'active': true,
         },
       );
@@ -5238,7 +5308,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final passCtrl = TextEditingController();
-    final langsCtrl = TextEditingController(text: 'Inglês');
+    final selectedLanguages = <String>{kDefaultSupportedLanguage};
     final specsCtrl = TextEditingController(text: 'Geral');
     final bioCtrl = TextEditingController();
     String gender = 'NÃO_INFORMADO';
@@ -5253,6 +5323,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   TextField(
                     controller: nameCtrl,
@@ -5301,13 +5372,35 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     onChanged: (v) =>
                         setDialogState(() => gender = v ?? gender),
                   ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: langsCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Idiomas lecionados (separados por vírgula)',
-                      hintText: 'Ex: Inglês, Espanhol',
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Idiomas oficiais lecionados *',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
                     ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: kSupportedLanguages.map((lang) {
+                      final meta = SupportedLanguages.metaFor(lang);
+                      final selected = selectedLanguages.contains(lang);
+                      return FilterChip(
+                        selected: selected,
+                        label: Text('${meta.shortCode} · $lang'),
+                        onSelected: (checked) {
+                          setDialogState(() {
+                            if (checked) {
+                              selectedLanguages.add(lang);
+                            } else if (selectedLanguages.length > 1) {
+                              selectedLanguages.remove(lang);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
                   ),
                   const SizedBox(height: 10),
                   TextField(
@@ -5348,10 +5441,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final name = nameCtrl.text.trim();
     final email = emailCtrl.text.trim();
     final pass = passCtrl.text.trim();
-    final langs = langsCtrl.text
-        .split(',')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
+    final langs = kSupportedLanguages
+        .where(selectedLanguages.contains)
         .toList();
     final specs = specsCtrl.text
         .split(',')
@@ -5364,7 +5455,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       nameCtrl.dispose();
       emailCtrl.dispose();
       passCtrl.dispose();
-      langsCtrl.dispose();
       specsCtrl.dispose();
       bioCtrl.dispose();
     });
@@ -5415,7 +5505,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final passCtrl = TextEditingController();
-    final langCtrl = TextEditingController(text: 'Inglês');
+    String selectedLanguage = kDefaultSupportedLanguage;
+    String selectedLevel = 'Básico';
     String gender = 'NÃO_INFORMADO';
 
     final ok = await showDialog<bool>(
@@ -5477,11 +5568,47 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         setDialogState(() => gender = v ?? gender),
                   ),
                   const SizedBox(height: 10),
-                  TextField(
-                    controller: langCtrl,
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedLanguage,
                     decoration: const InputDecoration(
-                      labelText: 'Idioma inicial de estudo',
-                      hintText: 'Ex: Inglês',
+                      labelText: 'Idioma oficial inicial *',
+                    ),
+                    items: kSupportedLanguages.map((lang) {
+                      final meta = SupportedLanguages.metaFor(lang);
+                      return DropdownMenuItem(
+                        value: lang,
+                        child: Row(
+                          children: [
+                            Icon(meta.icon, size: 16, color: meta.color),
+                            const SizedBox(width: 8),
+                            Text(lang),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (v) => setDialogState(
+                      () => selectedLanguage = v ?? selectedLanguage,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedLevel,
+                    decoration: const InputDecoration(
+                      labelText: 'Nível inicial',
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'Básico', child: Text('Básico')),
+                      DropdownMenuItem(
+                        value: 'Intermediário',
+                        child: Text('Intermediário'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Avançado',
+                        child: Text('Avançado'),
+                      ),
+                    ],
+                    onChanged: (v) => setDialogState(
+                      () => selectedLevel = v ?? selectedLevel,
                     ),
                   ),
                 ],
@@ -5505,13 +5632,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final name = nameCtrl.text.trim();
     final email = emailCtrl.text.trim();
     final pass = passCtrl.text.trim();
-    final lang = langCtrl.text.trim();
 
     Future.delayed(const Duration(milliseconds: 400), () {
       nameCtrl.dispose();
       emailCtrl.dispose();
       passCtrl.dispose();
-      langCtrl.dispose();
     });
 
     if (ok != true || name.isEmpty || email.isEmpty || pass.length < 6) {
@@ -5533,10 +5658,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           'password': pass,
           'gender': gender,
           'institutionId': myInstId,
-          if (lang.isNotEmpty)
-            'languages': [
-              {'language': lang, 'proficiencyLevel': 'Básico', 'active': true},
-            ],
+          'languages': [
+            {
+              'languageName': selectedLanguage,
+              'level': selectedLevel,
+              'score': 0,
+            },
+          ],
         },
       );
       _showSnack('Aluno "$name" cadastrado com sucesso!');
@@ -5744,81 +5872,159 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       text: DateTime.now().toIso8601String().substring(0, 10),
     );
 
+    String resolveClassLang(int? targetClassId) {
+      final cls = availableClasses.firstWhere(
+        (c) => (c['id'] as num?)?.toInt() == targetClassId,
+        orElse: () => availableClasses.first,
+      );
+      return SupportedLanguages.normalizeOrDefault(
+        cls['languageName']?.toString(),
+        SupportedLanguages.inferFromClassName(cls['name']?.toString()),
+      );
+    }
+
+    bool studentHasLang(Map<String, dynamic> s, String targetLang) {
+      final list = s['languages'] as List? ?? const [];
+      for (final item in list) {
+        if (item is Map) {
+          final name =
+              item['languageName']?.toString() ??
+              item['language']?.toString() ??
+              '';
+          if (SupportedLanguages.matches(name, targetLang)) return true;
+        } else if (item != null &&
+            SupportedLanguages.matches(item.toString(), targetLang)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Matricular Aluno na Turma'),
-          content: SizedBox(
-            width: 440,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<int>(
-                  isExpanded: true,
-                  initialValue: classId,
-                  decoration: const InputDecoration(labelText: 'Turma *'),
-                  items: availableClasses
-                      .map(
-                        (c) => DropdownMenuItem<int>(
+        builder: (ctx, setDialogState) {
+          final classLang = resolveClassLang(classId);
+          final selectedStudent = availableStudents.firstWhere(
+            (s) => (s['id'] as num?)?.toInt() == studentId,
+            orElse: () => availableStudents.first,
+          );
+          final studentMatches = studentHasLang(selectedStudent, classLang);
+
+          return AlertDialog(
+            title: const Text('Matricular Aluno na Turma'),
+            content: SizedBox(
+              width: 440,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DropdownButtonFormField<int>(
+                      isExpanded: true,
+                      initialValue: classId,
+                      decoration: const InputDecoration(labelText: 'Turma *'),
+                      items: availableClasses.map((c) {
+                        final lang = SupportedLanguages.normalizeOrDefault(
+                          c['languageName']?.toString(),
+                          SupportedLanguages.inferFromClassName(
+                            c['name']?.toString(),
+                          ),
+                        );
+                        final code = SupportedLanguages.metaFor(lang).shortCode;
+                        return DropdownMenuItem<int>(
                           value: (c['id'] as num?)?.toInt(),
                           child: Text(
-                            '${c['name'] ?? ''}',
+                            '[$code] ${c['name'] ?? ''} ($lang)',
                             overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) => setDialogState(() => classId = v),
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<int>(
-                  isExpanded: true,
-                  initialValue: studentId,
-                  decoration: const InputDecoration(labelText: 'Aluno *'),
-                  items: availableStudents
-                      .map(
-                        (s) => DropdownMenuItem<int>(
+                        );
+                      }).toList(),
+                      onChanged: (v) => setDialogState(() => classId = v),
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<int>(
+                      isExpanded: true,
+                      initialValue: studentId,
+                      decoration: const InputDecoration(labelText: 'Aluno *'),
+                      items: availableStudents.map((s) {
+                        final okLang = studentHasLang(s, classLang);
+                        return DropdownMenuItem<int>(
                           value: (s['id'] as num?)?.toInt(),
                           child: Text(
-                            '${s['name'] ?? ''} (${s['email'] ?? ''})',
+                            '${okLang ? '✓' : '⚠'} ${s['name'] ?? ''} (${s['email'] ?? ''})',
                             overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) => setDialogState(() => studentId = v),
+                        );
+                      }).toList(),
+                      onChanged: (v) => setDialogState(() => studentId = v),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color:
+                            (studentMatches
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFFD97706))
+                                .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          LanguageBadgePill(language: classLang, compact: true),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              studentMatches
+                                  ? 'Aluno compatível com $classLang.'
+                                  : 'Atenção: o aluno não possui $classLang no perfil.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: studentMatches
+                                    ? const Color(0xFF059669)
+                                    : const Color(0xFFB45309),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: enrollDateCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Data da matrícula (AAAA-MM-DD) *',
+                        hintText: '2026-02-01',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: notesCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Observações da matrícula',
+                        hintText: 'Ex: Matrícula regular ou bolsista',
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: enrollDateCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Data da matrícula (AAAA-MM-DD) *',
-                    hintText: '2026-02-01',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: notesCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Observações da matrícula',
-                    hintText: 'Ex: Matrícula regular ou bolsista',
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Efetivar Matrícula'),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: studentMatches
+                    ? () => Navigator.pop(ctx, true)
+                    : null,
+                child: const Text('Efetivar Matrícula'),
+              ),
+            ],
+          );
+        },
       ),
     );
 

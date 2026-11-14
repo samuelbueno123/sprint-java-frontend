@@ -9,7 +9,9 @@ import 'info_stat_card.dart';
 import 'responsive_layout.dart';
 import 'teacher_settings_view.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/ui/motion_kit.dart';
 import 'learning_features.dart';
 
 class TeacherDashboardView extends StatelessWidget {
@@ -106,56 +108,111 @@ class TeacherDashboardView extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: FilledButton.icon(
                 onPressed: () async {
-                  final languages = TextEditingController(
-                    text: teacher.taughtLanguages.join(', '),
-                  );
+                  final selectedLanguages =
+                      SupportedLanguages.sanitizeCatalogList(
+                        teacher.taughtLanguages,
+                      ).toSet();
                   final areas = TextEditingController(
                     text: teacher.specializationAreas.join(', '),
                   );
                   final ok = await showDialog<bool>(
                     context: context,
-                    builder: (ctx) => AlertDialog(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(22),
-                      ),
-                      title: const Text('Gerenciar idiomas e especializações'),
-                      content: SizedBox(
-                        width: 460,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextField(
-                              controller: languages,
-                              decoration: const InputDecoration(
-                                labelText:
-                                    'Idiomas lecionados (separados por vírgula)',
-                              ),
+                    builder: (ctx) => StatefulBuilder(
+                      builder: (ctx, setDialogState) => AlertDialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        title: const Text(
+                          'Gerenciar idiomas e especializações',
+                        ),
+                        content: SizedBox(
+                          width: 480,
+                          child: SingleChildScrollView(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Idiomas oficiais lecionados',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: kSupportedLanguages.map((lang) {
+                                    final meta = SupportedLanguages.metaFor(
+                                      lang,
+                                    );
+                                    final selected = selectedLanguages.contains(
+                                      lang,
+                                    );
+                                    return FilterChip(
+                                      selected: selected,
+                                      avatar: Icon(
+                                        meta.icon,
+                                        size: 15,
+                                        color: meta.color,
+                                      ),
+                                      label: Text(lang),
+                                      onSelected: (value) {
+                                        setDialogState(() {
+                                          if (value) {
+                                            selectedLanguages.add(lang);
+                                          } else if (selectedLanguages.length >
+                                              1) {
+                                            selectedLanguages.remove(lang);
+                                          }
+                                        });
+                                      },
+                                    );
+                                  }).toList(),
+                                ),
+                                const SizedBox(height: 14),
+                                TextField(
+                                  controller: areas,
+                                  decoration: const InputDecoration(
+                                    labelText:
+                                        'Especializações (separadas por vírgula)',
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: areas,
-                              decoration: const InputDecoration(
-                                labelText:
-                                    'Especializações (separadas por vírgula)',
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Cancelar'),
+                          ),
+                          FilledButton(
+                            onPressed: () {
+                              if (selectedLanguages.isEmpty) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Selecione ao menos um idioma oficial.',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              Navigator.pop(ctx, true);
+                            },
+                            child: const Text('Salvar'),
+                          ),
+                        ],
                       ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Cancelar'),
-                        ),
-                        FilledButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('Salvar'),
-                        ),
-                      ],
                     ),
                   );
                   if (ok == true && teacher.id != null) {
                     try {
+                      final orderedLangs = kSupportedLanguages
+                          .where(selectedLanguages.contains)
+                          .toList();
                       await ApiClient().dio.put(
                         '${AppConfig.teachersEndpoint}/${teacher.id}',
                         data: {
@@ -163,11 +220,7 @@ class TeacherDashboardView extends StatelessWidget {
                           'email': teacher.email,
                           'googleId': teacher.googleId,
                           'institutionId': teacher.institutionId,
-                          'taughtLanguages': languages.text
-                              .split(',')
-                              .map((v) => v.trim())
-                              .where((v) => v.isNotEmpty)
-                              .toList(),
+                          'taughtLanguages': orderedLangs,
                           'specializationAreas': areas.text
                               .split(',')
                               .map((v) => v.trim())
@@ -181,10 +234,10 @@ class TeacherDashboardView extends StatelessWidget {
                       if (context.mounted) showLearningError(context, e);
                     }
                   }
-                  Future.delayed(const Duration(milliseconds: 400), () {
-                    languages.dispose();
-                    areas.dispose();
-                  });
+                  Future.delayed(
+                    const Duration(milliseconds: 400),
+                    areas.dispose,
+                  );
                 },
                 icon: const Icon(Icons.edit),
                 label: const Text(
@@ -428,159 +481,169 @@ class TeacherDashboardView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Banner do Perfil do Professor
-          Container(
-            padding: responsiveBannerPadding(context),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF7651C8), Color(0xFF5B3BA6)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          StaggeredReveal(
+            index: 0,
+            child: Container(
+              padding: responsiveBannerPadding(context),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF7651C8), Color(0xFF5B3BA6)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF7651C8).withValues(alpha: .22),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF7651C8).withValues(alpha: .22),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      isFemale ? 'Painel da Professora' : 'Painel do Professor',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Configurações',
-                      onPressed: () => onSectionSelected?.call('settings'),
-                      icon: const Icon(
-                        Icons.settings_rounded,
-                        color: Colors.white,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Sair da conta',
-                      onPressed: onLogout,
-                      icon: const Icon(
-                        Icons.logout_rounded,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isMobile = constraints.maxWidth < 500;
-                    final avatar = AppUserAvatar(
-                      name: teacher.name,
-                      pictureUrl: data.user.picture,
-                      radius: 42,
-                      backgroundColor: Colors.white.withValues(alpha: 0.25),
-                      textColor: Colors.white,
-                    );
-                    final details = Column(
-                      crossAxisAlignment: isMobile
-                          ? CrossAxisAlignment.center
-                          : CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          teacher.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                          ),
-                          textAlign: isMobile
-                              ? TextAlign.center
-                              : TextAlign.start,
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        isFemale
+                            ? 'Painel da Professora'
+                            : 'Painel do Professor',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '$primarySubject • $instName',
-                          style: const TextStyle(
-                            color: Color(0xEFFFFFFF),
-                            fontSize: 14,
-                          ),
-                          textAlign: isMobile
-                              ? TextAlign.center
-                              : TextAlign.start,
+                      ),
+                      IconButton(
+                        tooltip: 'Configurações',
+                        onPressed: () => onSectionSelected?.call('settings'),
+                        icon: const Icon(
+                          Icons.settings_rounded,
+                          color: Colors.white,
                         ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          alignment: isMobile
-                              ? WrapAlignment.center
-                              : WrapAlignment.start,
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: [
-                            InkWell(
-                              onTap: () => onSectionSelected?.call('classes'),
-                              borderRadius: BorderRadius.circular(20),
-                              child: _HeaderBadge(
-                                label: '$activeAssignments Turmas ativas',
-                                icon: Icons.groups_rounded,
-                                backgroundColor: Colors.white,
-                                textColor: _purple,
-                              ),
+                      ),
+                      IconButton(
+                        tooltip: 'Sair da conta',
+                        onPressed: onLogout,
+                        icon: const Icon(
+                          Icons.logout_rounded,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isMobile = constraints.maxWidth < 500;
+                      final avatar = AppUserAvatar(
+                        name: teacher.name,
+                        pictureUrl: data.user.picture,
+                        radius: 42,
+                        backgroundColor: Colors.white.withValues(alpha: 0.25),
+                        textColor: Colors.white,
+                      );
+                      final details = Column(
+                        crossAxisAlignment: isMobile
+                            ? CrossAxisAlignment.center
+                            : CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            teacher.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
                             ),
-                            InkWell(
-                              onTap: () => onSectionSelected?.call('languages'),
-                              borderRadius: BorderRadius.circular(20),
-                              child: _HeaderBadge(
-                                label:
-                                    '${teacher.taughtLanguages.length} Idiomas',
-                                icon: Icons.record_voice_over_rounded,
-                                backgroundColor: Colors.white.withValues(
-                                  alpha: 0.2,
+                            textAlign: isMobile
+                                ? TextAlign.center
+                                : TextAlign.start,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '$primarySubject • $instName',
+                            style: const TextStyle(
+                              color: Color(0xEFFFFFFF),
+                              fontSize: 14,
+                            ),
+                            textAlign: isMobile
+                                ? TextAlign.center
+                                : TextAlign.start,
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            alignment: isMobile
+                                ? WrapAlignment.center
+                                : WrapAlignment.start,
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              InkWell(
+                                onTap: () => onSectionSelected?.call('classes'),
+                                borderRadius: BorderRadius.circular(20),
+                                child: _HeaderBadge(
+                                  label: '$activeAssignments Turmas ativas',
+                                  icon: Icons.groups_rounded,
+                                  backgroundColor: Colors.white,
+                                  textColor: _purple,
                                 ),
-                                textColor: Colors.white,
                               ),
-                            ),
-                            if (teacher.specializationAreas.isNotEmpty)
                               InkWell(
                                 onTap: () =>
                                     onSectionSelected?.call('languages'),
                                 borderRadius: BorderRadius.circular(20),
                                 child: _HeaderBadge(
                                   label:
-                                      '${teacher.specializationAreas.length} Especializações',
-                                  icon: Icons.workspace_premium_outlined,
+                                      '${teacher.taughtLanguages.length} Idiomas',
+                                  icon: Icons.record_voice_over_rounded,
                                   backgroundColor: Colors.white.withValues(
                                     alpha: 0.2,
                                   ),
                                   textColor: Colors.white,
                                 ),
                               ),
-                          ],
-                        ),
-                      ],
-                    );
-                    if (isMobile) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [avatar, const SizedBox(height: 16), details],
+                              if (teacher.specializationAreas.isNotEmpty)
+                                InkWell(
+                                  onTap: () =>
+                                      onSectionSelected?.call('languages'),
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: _HeaderBadge(
+                                    label:
+                                        '${teacher.specializationAreas.length} Especializações',
+                                    icon: Icons.workspace_premium_outlined,
+                                    backgroundColor: Colors.white.withValues(
+                                      alpha: 0.2,
+                                    ),
+                                    textColor: Colors.white,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
                       );
-                    }
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        avatar,
-                        const SizedBox(width: 20),
-                        Expanded(child: details),
-                      ],
-                    );
-                  },
-                ),
-              ],
+                      if (isMobile) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            avatar,
+                            const SizedBox(height: 16),
+                            details,
+                          ],
+                        );
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          avatar,
+                          const SizedBox(width: 20),
+                          Expanded(child: details),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 20),

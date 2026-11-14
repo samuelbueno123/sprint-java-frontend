@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/ui/motion_kit.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/student_enrollment.dart';
 import 'app_user_avatar.dart';
@@ -177,57 +178,69 @@ class StudentDashboardView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _WelcomeBanner(
-            name: name,
-            subtitle:
-                'Seu perfil de aprendizado começa com os idiomas que você escolheu.',
+          StaggeredReveal(
+            index: 0,
+            child: _WelcomeBanner(
+              name: name,
+              subtitle:
+                  'Seu perfil de aprendizado começa com os idiomas que você escolheu.',
+            ),
           ),
           const SizedBox(height: 20),
-          ResponsiveCardGrid(
-            cards: [
-              InfoStatCard(
-                title: 'Total de Idiomas',
-                value: languages.length.toString(),
-                icon: Icons.language_rounded,
-                accentColor: _blue,
-                onTap: () => onSectionSelected?.call('languages'),
-              ),
-              InfoStatCard(
-                title: 'Turmas Ativas',
-                value: data.studentEnrollments.length.toString(),
-                icon: Icons.groups_rounded,
-                accentColor: const Color(0xFF58CC02),
-                onTap: () => onSectionSelected?.call('classes'),
-              ),
-              InfoStatCard(
-                title: data.isFemale ? 'Status da Aluna' : 'Status do Aluno',
-                value: data.studentEnrollments.isEmpty
-                    ? 'Sem matrícula'
-                    : data.studentEnrollments.first.status,
-                icon: Icons.verified_user_rounded,
-                accentColor: const Color(0xFFE5902D),
-                onTap: () => onSectionSelected?.call('classes'),
-              ),
-              InfoStatCard(
-                title: 'Matrículas',
-                value: data.studentEnrollments.length.toString(),
-                icon: Icons.insights_rounded,
-                accentColor: const Color(0xFF7651C8),
-                onTap: () => onSectionSelected?.call('classes'),
-              ),
-            ],
+          StaggeredReveal(
+            index: 1,
+            child: ResponsiveCardGrid(
+              cards: [
+                InfoStatCard(
+                  title: 'Total de Idiomas',
+                  value: languages.length.toString(),
+                  icon: Icons.language_rounded,
+                  accentColor: _blue,
+                  onTap: () => onSectionSelected?.call('languages'),
+                ),
+                InfoStatCard(
+                  title: 'Turmas Ativas',
+                  value: data.studentEnrollments.length.toString(),
+                  icon: Icons.groups_rounded,
+                  accentColor: const Color(0xFF58CC02),
+                  onTap: () => onSectionSelected?.call('classes'),
+                ),
+                InfoStatCard(
+                  title: data.isFemale ? 'Status da Aluna' : 'Status do Aluno',
+                  value: data.studentEnrollments.isEmpty
+                      ? 'Sem matrícula'
+                      : data.studentEnrollments.first.status,
+                  icon: Icons.verified_user_rounded,
+                  accentColor: const Color(0xFFE5902D),
+                  onTap: () => onSectionSelected?.call('classes'),
+                ),
+                InfoStatCard(
+                  title: 'Matrículas',
+                  value: data.studentEnrollments.length.toString(),
+                  icon: Icons.insights_rounded,
+                  accentColor: const Color(0xFF7651C8),
+                  onTap: () => onSectionSelected?.call('classes'),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 20),
-          _ProfileCard(
-            icon: Icons.translate_rounded,
-            title: 'Idiomas no seu perfil',
-            children: [_languageContent(languages, context)],
+          StaggeredReveal(
+            index: 2,
+            child: _ProfileCard(
+              icon: Icons.translate_rounded,
+              title: 'Idiomas no seu perfil',
+              children: [_languageContent(languages, context)],
+            ),
           ),
           const SizedBox(height: 16),
-          _ProfileCard(
-            icon: Icons.groups_rounded,
-            title: 'Turmas ativas',
-            children: [_enrollmentContent(data.studentEnrollments, context)],
+          StaggeredReveal(
+            index: 3,
+            child: _ProfileCard(
+              icon: Icons.groups_rounded,
+              title: 'Turmas ativas',
+              children: [_enrollmentContent(data.studentEnrollments, context)],
+            ),
           ),
         ],
       ),

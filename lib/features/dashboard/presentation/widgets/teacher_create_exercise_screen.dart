@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/teacher_class_assignment.dart';
@@ -33,9 +34,14 @@ class TeacherCreateExerciseScreen extends StatefulWidget {
 }
 
 class _ClassOption {
-  const _ClassOption({required this.id, required this.name});
+  const _ClassOption({
+    required this.id,
+    required this.name,
+    this.languageName = '',
+  });
   final int id;
   final String name;
+  final String languageName;
 
   @override
   bool operator ==(Object other) =>
@@ -115,16 +121,10 @@ class _TeacherCreateExerciseScreenState
       .toList();
 
   List<String> get _effectiveLanguages {
-    final taught = _teacher?.taughtLanguages ?? const [];
-    final defaults = [
-      'Inglês',
-      'Espanhol',
-      'Francês',
-      'Alemão',
-      'Italiano',
-      'Japonês',
-    ];
-    return <String>{...taught, ...defaults}.toList();
+    final taught = SupportedLanguages.sanitizeCatalogList(
+      _teacher?.taughtLanguages ?? const [],
+    );
+    return <String>{...taught, ...kSupportedLanguages}.toList();
   }
 
   List<String> get _effectiveLevels {
@@ -141,7 +141,11 @@ class _TeacherCreateExerciseScreenState
     for (final a in _activeAssignments) {
       if (a.schoolClassId != null) {
         _availableClasses.add(
-          _ClassOption(id: a.schoolClassId!, name: a.schoolClassName),
+          _ClassOption(
+            id: a.schoolClassId!,
+            name: a.schoolClassName,
+            languageName: a.resolvedLanguage,
+          ),
         );
       }
     }
@@ -149,8 +153,11 @@ class _TeacherCreateExerciseScreenState
       _classId = _availableClasses.first.id;
     }
 
-    // 2. Initial language (guaranteed non-null)
-    _language = _effectiveLanguages.first;
+    // 2. Initial language (synced with first class or preferred taught language)
+    final firstClassLang = _availableClasses.isNotEmpty
+        ? SupportedLanguages.normalize(_availableClasses.first.languageName)
+        : null;
+    _language = firstClassLang ?? _effectiveLanguages.first;
 
     // 3. Initial level (guaranteed non-null)
     final levels = _effectiveLevels;
@@ -173,8 +180,12 @@ class _TeacherCreateExerciseScreenState
       for (final c in list) {
         final id = (c['id'] as num?)?.toInt();
         final name = (c['name'] ?? 'Turma $id').toString();
+        final lang = SupportedLanguages.normalizeOrDefault(
+          c['languageName']?.toString(),
+          SupportedLanguages.inferFromClassName(name),
+        );
         if (id != null) {
-          newOptions.add(_ClassOption(id: id, name: name));
+          newOptions.add(_ClassOption(id: id, name: name, languageName: lang));
         }
       }
       if (mounted && newOptions.isNotEmpty) {
@@ -823,7 +834,25 @@ class _TeacherCreateExerciseScreenState
                             ),
                           )
                           .toList(),
-                      onChanged: (value) => setState(() => _classId = value),
+                      onChanged: (value) {
+                        setState(() {
+                          _classId = value;
+                          if (value != null) {
+                            final matched = _availableClasses
+                                .where((c) => c.id == value)
+                                .firstOrNull;
+                            final classLang = matched != null
+                                ? SupportedLanguages.normalize(
+                                    matched.languageName,
+                                  )
+                                : null;
+                            if (classLang != null &&
+                                _effectiveLanguages.contains(classLang)) {
+                              _language = classLang;
+                            }
+                          }
+                        });
+                      },
                     ),
                   ),
                   SizedBox(
@@ -1059,6 +1088,7 @@ class _TeacherCreateExerciseScreenState
       final items = (response.data ?? const [])
           .whereType<Map<String, dynamic>>()
           .toList();
+      if (!mounted) return;
       if (items.isEmpty) {
         setState(() {
           _aiStatusIsError = true;
@@ -1106,20 +1136,27 @@ class _TeacherCreateExerciseScreenState
         generated.add(q);
       }
 
-      if (!_aiAppendMode) {
-        for (final old in _questions) {
-          old.dispose();
-        }
-        _questions.clear();
-      }
+      final oldQuestions = !_aiAppendMode
+          ? List<_ComposerQuestion>.from(_questions)
+          : const <_ComposerQuestion>[];
 
       setState(() {
+        if (!_aiAppendMode) {
+          _questions.clear();
+        }
         _questions.addAll(generated);
         _aiStatusIsError = false;
         _aiStatusMessage = _aiAppendMode
             ? '${generated.length} novas questões foram adicionadas à lista (Total: ${_questions.length})!'
             : '${generated.length} questões geradas com sucesso! Revise e ajuste cada uma abaixo.';
       });
+      if (oldQuestions.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          for (final old in oldQuestions) {
+            old.dispose();
+          }
+        });
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -1150,6 +1187,7 @@ class _TeacherCreateExerciseScreenState
         },
       );
       final rawList = response.data as List<dynamic>? ?? const [];
+      if (!mounted) return;
       final distractors = rawList
           .map((e) => e.toString().trim())
           .where((e) => e.isNotEmpty)
@@ -1186,7 +1224,9 @@ class _TeacherCreateExerciseScreenState
         _showMessage('A IA não retornou opções adicionais.');
       }
     } catch (e) {
-      _showMessage('Erro ao gerar alternativas: ${_errorMessage(e)}');
+      if (mounted) {
+        _showMessage('Erro ao gerar alternativas: ${_errorMessage(e)}');
+      }
     } finally {
       if (mounted) setState(() => question.generatingOptions = false);
     }
@@ -1211,12 +1251,15 @@ class _TeacherCreateExerciseScreenState
         },
       );
       final expl = response.data?['explanation']?.toString();
+      if (!mounted) return;
       if (expl != null && expl.isNotEmpty) {
         setState(() => question.aiExplanation = expl);
         _showMessage('Explicação pedagógica gerada pela IA!');
       }
     } catch (e) {
-      _showMessage('Erro ao obter explicação: ${_errorMessage(e)}');
+      if (mounted) {
+        _showMessage('Erro ao obter explicação: ${_errorMessage(e)}');
+      }
     } finally {
       if (mounted) setState(() => question.generatingExplanation = false);
     }
@@ -1638,9 +1681,15 @@ class _TeacherCreateExerciseScreenState
               if (_questions.length > 1)
                 IconButton(
                   tooltip: 'Remover questão',
-                  onPressed: () => setState(() {
-                    _questions.removeAt(index).dispose();
-                  }),
+                  onPressed: () {
+                    late final _ComposerQuestion removed;
+                    setState(() {
+                      removed = _questions.removeAt(index);
+                    });
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      removed.dispose();
+                    });
+                  },
                   icon: Icon(Icons.delete_outline_rounded, color: colors.error),
                 ),
             ],

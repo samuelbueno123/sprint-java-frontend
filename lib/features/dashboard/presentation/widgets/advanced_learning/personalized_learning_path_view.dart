@@ -57,16 +57,13 @@ class _PersonalizedLearningPathViewState
         },
       );
       final data = Map<String, dynamic>.from(res.data as Map);
+      if (!mounted) return;
       setState(() {
         _pathData = data;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Meta diária ajustada para $minutes minutos.'),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Meta diária ajustada para $minutes minutos.')),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -84,6 +81,7 @@ class _PersonalizedLearningPathViewState
         queryParameters: {'scorePercent': 100.0},
       );
       final data = Map<String, dynamic>.from(res.data as Map);
+      if (!mounted) return;
       setState(() {
         _pathData = data;
         _modules = ((data['modules'] as List?) ?? [])
@@ -91,17 +89,17 @@ class _PersonalizedLearningPathViewState
             .toList();
         _submitting = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Módulo concluído com sucesso! Próxima etapa desbloqueada.',
-            ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Módulo concluído com sucesso! Próxima etapa desbloqueada.',
           ),
-        );
-      }
+        ),
+      );
     } catch (e) {
-      setState(() => _submitting = false);
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
     }
   }
 

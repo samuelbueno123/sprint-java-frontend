@@ -8,12 +8,12 @@ import 'core/theme/app_theme_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SessionStore.initialize();
   try {
     await dotenv.load(fileName: '.env');
   } catch (_) {
     // `--dart-define` remains available for builds that do not ship a .env.
   }
+  await SessionStore.initialize();
   try {
     await AppThemeController.load();
     await AppLocaleController.load();

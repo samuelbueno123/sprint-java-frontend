@@ -3,6 +3,116 @@ import 'package:flutter/material.dart';
 
 import 'package:frontend/core/network/api_client.dart';
 
+class _NewAnnouncementDialog extends StatefulWidget {
+  const _NewAnnouncementDialog();
+
+  @override
+  State<_NewAnnouncementDialog> createState() => _NewAnnouncementDialogState();
+}
+
+class _NewAnnouncementDialogState extends State<_NewAnnouncementDialog> {
+  final TextEditingController _titleCtrl = TextEditingController();
+  final TextEditingController _contentCtrl = TextEditingController();
+  String _priority = 'NORMAL';
+  bool _pinned = false;
+  String? _validationError;
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _contentCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final title = _titleCtrl.text.trim();
+    final content = _contentCtrl.text.trim();
+    if (title.isEmpty || content.isEmpty) {
+      setState(
+        () => _validationError =
+            'Preencha o título e a mensagem antes de publicar.',
+      );
+      return;
+    }
+    Navigator.of(context).pop(<String, dynamic>{
+      'title': title,
+      'content': content,
+      'priority': _priority,
+      'pinned': _pinned,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Novo Comunicado para a Turma'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _titleCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Título do Aviso',
+                hintText: 'Ex: Data da Prova Semestral',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _contentCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Mensagem / Instruções',
+                hintText: 'Digite o conteúdo detalhado do aviso...',
+              ),
+              maxLines: 4,
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _priority,
+              decoration: const InputDecoration(labelText: 'Prioridade'),
+              items: const [
+                DropdownMenuItem(value: 'NORMAL', child: Text('Normal')),
+                DropdownMenuItem(
+                  value: 'HIGH',
+                  child: Text('Alta (Destaque Vermelho)'),
+                ),
+              ],
+              onChanged: (val) {
+                if (val != null) setState(() => _priority = val);
+              },
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Fixar no topo do mural'),
+              value: _pinned,
+              onChanged: (val) => setState(() => _pinned = val),
+            ),
+            if (_validationError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _validationError!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(null),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Publicar')),
+      ],
+    );
+  }
+}
+
 class ClassAnnouncementsView extends StatefulWidget {
   const ClassAnnouncementsView({
     super.key,
@@ -70,108 +180,36 @@ class _ClassAnnouncementsViewState extends State<ClassAnnouncementsView> {
   }
 
   Future<void> _showNewAnnouncementDialog() async {
-    final titleCtrl = TextEditingController();
-    final contentCtrl = TextEditingController();
-    String priority = 'NORMAL';
-    bool pinned = false;
-
-    final result = await showDialog<bool>(
+    final payload = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Novo Comunicado para a Turma'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: titleCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Título do Aviso',
-                    hintText: 'Ex: Data da Prova Semestral',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: contentCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Mensagem / Instruções',
-                    hintText: 'Digite o conteúdo detalhado do aviso...',
-                  ),
-                  maxLines: 4,
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: priority,
-                  decoration: const InputDecoration(labelText: 'Prioridade'),
-                  items: const [
-                    DropdownMenuItem(value: 'NORMAL', child: Text('Normal')),
-                    DropdownMenuItem(
-                      value: 'HIGH',
-                      child: Text('Alta (Destaque Vermelho)'),
-                    ),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) setDialogState(() => priority = val);
-                  },
-                ),
-                const SizedBox(height: 12),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Fixar no topo do mural'),
-                  value: pinned,
-                  onChanged: (val) => setDialogState(() => pinned = val),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Publicar'),
-            ),
-          ],
-        ),
-      ),
+      builder: (ctx) => const _NewAnnouncementDialog(),
     );
 
-    if (result == true &&
-        titleCtrl.text.trim().isNotEmpty &&
-        contentCtrl.text.trim().isNotEmpty) {
-      setState(() => _isPublishing = true);
-      try {
-        await _dio.post(
-          '/api/classes/${widget.classId}/announcements',
-          data: {
-            'title': titleCtrl.text.trim(),
-            'content': contentCtrl.text.trim(),
-            'priority': priority,
-            'pinned': pinned,
-          },
-        );
-        _fetchAnnouncements();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Comunicado publicado com notificação para todos os estudantes!',
-              ),
+    if (!mounted || payload == null) return;
+    setState(() => _isPublishing = true);
+    try {
+      await _dio.post(
+        '/api/classes/${widget.classId}/announcements',
+        data: payload,
+      );
+      await _fetchAnnouncements();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Comunicado publicado com notificação para todos os estudantes!',
             ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erro ao publicar comunicado: $e')),
-          );
-        }
-      } finally {
-        if (mounted) setState(() => _isPublishing = false);
+          ),
+        );
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao publicar comunicado: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPublishing = false);
     }
   }
 

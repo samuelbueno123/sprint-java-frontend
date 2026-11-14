@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
 import '../audio_speech_helper.dart';
 
@@ -21,6 +22,7 @@ class _AiConversationViewState extends State<AiConversationView> {
   Map<String, dynamic>? _currentSession;
   List<Map<String, dynamic>> _messages = [];
   List<Map<String, dynamic>> _mistakes = [];
+  String _selectedLanguage = kDefaultSupportedLanguage;
 
   bool _loading = false;
   bool _sending = false;
@@ -67,12 +69,13 @@ class _AiConversationViewState extends State<AiConversationView> {
         '/api/ai/conversations/start',
         data: {
           'scenarioCode': scenario['code'],
-          'targetLanguage': 'Inglês',
+          'targetLanguage': _selectedLanguage,
           'cefrLevel': scenario['cefrLevel'],
         },
       );
 
       final sessionData = Map<String, dynamic>.from(res.data as Map);
+      if (!mounted) return;
       setState(() {
         _currentSession = sessionData;
         _messages = ((sessionData['messages'] as List?) ?? [])
@@ -115,6 +118,7 @@ class _AiConversationViewState extends State<AiConversationView> {
       );
 
       final updatedSession = Map<String, dynamic>.from(res.data as Map);
+      if (!mounted) return;
       setState(() {
         _currentSession = updatedSession;
         _messages = ((updatedSession['messages'] as List?) ?? [])
@@ -124,20 +128,20 @@ class _AiConversationViewState extends State<AiConversationView> {
       });
       _scrollToBottom();
     } catch (e) {
+      if (!mounted) return;
       setState(() => _sending = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erro ao enviar mensagem. Tente novamente.'),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Erro ao enviar mensagem. Tente novamente.'),
+        ),
+      );
     }
   }
 
   Future<void> _loadMistakes() async {
     try {
       final res = await _dio.get('/api/ai/conversations/my-mistakes');
+      if (!mounted) return;
       setState(() {
         _mistakes = (res.data as List)
             .map((e) => Map<String, dynamic>.from(e as Map))
@@ -225,7 +229,36 @@ class _AiConversationViewState extends State<AiConversationView> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                'Idioma da prática:',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              ...kSupportedLanguages.map((lang) {
+                final meta = SupportedLanguages.metaFor(lang);
+                return ChoiceChip(
+                  selected: _selectedLanguage == lang,
+                  avatar: Icon(meta.icon, size: 15, color: meta.color),
+                  label: Text(lang),
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() => _selectedLanguage = lang);
+                    }
+                  },
+                );
+              }),
+            ],
+          ),
+          const SizedBox(height: 20),
           const Text(
             'Escolha um cenário para iniciar:',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -412,11 +445,15 @@ class _AiConversationViewState extends State<AiConversationView> {
               OutlinedButton(
                 onPressed: () async {
                   if (_currentSession != null) {
-                    await _dio.post(
-                      '/api/ai/conversations/${_currentSession!['id']}/end',
-                    );
+                    try {
+                      await _dio.post(
+                        '/api/ai/conversations/${_currentSession!['id']}/end',
+                      );
+                    } catch (_) {}
                   }
-                  setState(() => _currentSession = null);
+                  if (mounted) {
+                    setState(() => _currentSession = null);
+                  }
                 },
                 child: const Text('Encerrar'),
               ),
@@ -478,9 +515,14 @@ class _AiConversationViewState extends State<AiConversationView> {
                 tooltip: 'Falar por áudio (Speech to text)',
                 onPressed: () async {
                   setState(() => _listening = true);
-                  final text = await AudioSpeechHelper.recognizeSpeech(
-                    languageName: 'Inglês',
+                  final activeLang = SupportedLanguages.normalizeOrDefault(
+                    _currentSession?['targetLanguage']?.toString(),
+                    _selectedLanguage,
                   );
+                  final text = await AudioSpeechHelper.recognizeSpeech(
+                    languageName: activeLang,
+                  );
+                  if (!mounted) return;
                   setState(() {
                     _listening = false;
                     if (text != null && text.isNotEmpty) {

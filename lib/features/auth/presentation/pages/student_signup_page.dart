@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/supported_languages.dart';
+import '../../../../core/network/session_store.dart';
+import '../../../../core/ui/motion_kit.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../auth_dependencies.dart';
 import '../viewmodels/registration_view_model.dart';
@@ -69,6 +72,10 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
       );
       return;
     }
+    final isGoogleOnboarding =
+        (widget.initialEmail != null &&
+            widget.initialEmail!.trim().isNotEmpty) &&
+        SessionStore.hasSession;
     try {
       await _viewModel.registerStudent(
         name: _nameController.text,
@@ -76,10 +83,11 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
         password: _passwordController.text,
         gender: _selectedGender,
         languages: _selectedLanguages.map((item) => item.toJson()).toList(),
+        useExistingSession: isGoogleOnboarding,
       );
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const DashboardPage()),
+        MotionPageRoute(builder: (_) => const DashboardPage()),
         (route) => false,
       );
     } catch (_) {
@@ -91,6 +99,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
   Widget build(BuildContext context) {
     final isEmailLocked =
         widget.initialEmail != null && widget.initialEmail!.trim().isNotEmpty;
+    final isGoogleOnboarding = isEmailLocked && SessionStore.hasSession;
 
     return AnimatedBuilder(
       animation: _viewModel,
@@ -136,6 +145,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
                   initialValue: _selectedGender,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Sexo',
                     prefixIcon: Icon(Icons.wc_rounded),
@@ -187,7 +197,9 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                   textInputAction: TextInputAction.next,
                   autofillHints: const [AutofillHints.newPassword],
                   decoration: InputDecoration(
-                    labelText: 'Senha',
+                    labelText: isGoogleOnboarding
+                        ? 'Senha (opcional para conta Google)'
+                        : 'Senha',
                     prefixIcon: const Icon(Icons.lock_outline_rounded),
                     suffixIcon: IconButton(
                       tooltip: _obscurePassword
@@ -202,9 +214,12 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                       ),
                     ),
                   ),
-                  validator: (value) => (value?.length ?? 0) < 6
-                      ? 'Use pelo menos 6 caracteres.'
-                      : null,
+                  validator: (value) {
+                    final clean = value ?? '';
+                    if (isGoogleOnboarding && clean.isEmpty) return null;
+                    if (clean.length < 6) return 'Use pelo menos 6 caracteres.';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
@@ -213,7 +228,9 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _submit(),
                   decoration: InputDecoration(
-                    labelText: 'Confirmar senha',
+                    labelText: isGoogleOnboarding
+                        ? 'Confirmar senha (opcional)'
+                        : 'Confirmar senha',
                     prefixIcon: const Icon(Icons.lock_reset_rounded),
                     suffixIcon: IconButton(
                       tooltip: _obscureConfirmation
@@ -251,19 +268,25 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                 DropdownButtonFormField<String>(
                   key: ValueKey(availableLanguages.join('|')),
                   initialValue: dropdownValue,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Adicionar idioma com proficiência',
                     hintText: 'Selecione um idioma...',
                     prefixIcon: Icon(Icons.language_rounded),
                   ),
-                  items: availableLanguages
-                      .map(
-                        (lang) => DropdownMenuItem<String>(
-                          value: lang,
-                          child: Text(lang),
-                        ),
-                      )
-                      .toList(),
+                  items: availableLanguages.map((lang) {
+                    final meta = SupportedLanguages.metaFor(lang);
+                    return DropdownMenuItem<String>(
+                      value: lang,
+                      child: Row(
+                        children: [
+                          Icon(meta.icon, size: 16, color: meta.color),
+                          const SizedBox(width: 8),
+                          Text(lang),
+                        ],
+                      ),
+                    );
+                  }).toList(),
                   onChanged:
                       _viewModel.isCatalogLoading || availableLanguages.isEmpty
                       ? null
@@ -355,6 +378,7 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                           const SizedBox(height: 6),
                           DropdownButtonFormField<String>(
                             initialValue: item.level,
+                            isExpanded: true,
                             decoration: const InputDecoration(
                               labelText: 'Nível de proficiência',
                               contentPadding: EdgeInsets.symmetric(

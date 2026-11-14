@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
 import '../audio_speech_helper.dart';
 
@@ -20,6 +21,7 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
   List<Map<String, dynamic>> _challenges = [];
   Map<String, dynamic>? _selectedChallenge;
   Map<String, dynamic>? _evaluationResult;
+  String _selectedLanguage = kDefaultSupportedLanguage;
   bool _evaluating = false;
   bool _isListening = false;
   String _spokenText = '';
@@ -34,15 +36,16 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
   Future<void> _loadChallenges() async {
     setState(() => _error = null);
     try {
-      final res = await _dio.get('/api/pronunciation/challenges');
+      final res = await _dio.get(
+        '/api/pronunciation/challenges',
+        queryParameters: {'language': _selectedLanguage},
+      );
       if (!mounted) return;
       setState(() {
         _challenges = (res.data as List)
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
-        if (_challenges.isNotEmpty) {
-          _selectedChallenge = _challenges.first;
-        }
+        _selectedChallenge = _challenges.isNotEmpty ? _challenges.first : null;
       });
     } catch (e) {
       if (!mounted) return;
@@ -60,9 +63,15 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
     });
 
     try {
-      final recognized = await AudioSpeechHelper.recognizeSpeech(
-        languageName: 'Inglês',
+      final challengeLang = SupportedLanguages.normalizeOrDefault(
+        _selectedChallenge?['languageName']?.toString() ??
+            _selectedChallenge?['language']?.toString(),
+        _selectedLanguage,
       );
+      final recognized = await AudioSpeechHelper.recognizeSpeech(
+        languageName: challengeLang,
+      );
+      if (!mounted) return;
       setState(() {
         _isListening = false;
         _spokenText = recognized ?? '';
@@ -74,7 +83,7 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
         _evaluateSpeech(recognized.trim());
       }
     } catch (e) {
-      setState(() => _isListening = false);
+      if (mounted) setState(() => _isListening = false);
     }
   }
 
@@ -89,19 +98,19 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
         data: {'challengeId': _selectedChallenge!['id'], 'spokenText': spoken},
       );
 
+      if (!mounted) return;
       setState(() {
         _evaluationResult = Map<String, dynamic>.from(res.data as Map);
         _evaluating = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _evaluating = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Falha ao avaliar pronúncia. Tente novamente.'),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Falha ao avaliar pronúncia. Tente novamente.'),
+        ),
+      );
     }
   }
 
@@ -170,7 +179,30 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: kSupportedLanguages.map((lang) {
+                  final meta = SupportedLanguages.metaFor(lang);
+                  return ChoiceChip(
+                    selected: _selectedLanguage == lang,
+                    avatar: Icon(meta.icon, size: 15, color: meta.color),
+                    label: Text(lang),
+                    onSelected: (selected) {
+                      if (selected && _selectedLanguage != lang) {
+                        setState(() {
+                          _selectedLanguage = lang;
+                          _evaluationResult = null;
+                          _spokenText = '';
+                          _loadFuture = _loadChallenges();
+                        });
+                      }
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
 
               // Horizontal challenge selector
               SizedBox(
@@ -258,10 +290,18 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
                           color: Color(0xFF3579E8),
                         ),
                         tooltip: 'Ouvir pronúncia nativa (TTS)',
-                        onPressed: () => AudioSpeechHelper.speak(
-                          phrase,
-                          languageName: 'Inglês',
-                        ),
+                        onPressed: () {
+                          final challengeLang =
+                              SupportedLanguages.normalizeOrDefault(
+                                c['languageName']?.toString() ??
+                                    c['language']?.toString(),
+                                _selectedLanguage,
+                              );
+                          AudioSpeechHelper.speak(
+                            phrase,
+                            languageName: challengeLang,
+                          );
+                        },
                       ),
                     ],
                   ),

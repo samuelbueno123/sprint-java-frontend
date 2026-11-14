@@ -26,10 +26,17 @@ class DashboardViewModel extends ChangeNotifier {
   String _activeSection = 'profile';
   UserProfileType? _activeProfileType;
   StreamSubscription<RealtimeSyncEvent>? _realtimeSubscription;
+  bool _disposed = false;
 
   DashboardState get state => _state;
   String get activeSection => _activeSection;
   UserProfileType? get activeProfileType => _activeProfileType;
+
+  void _notifySafely() {
+    if (!_disposed) {
+      notifyListeners();
+    }
+  }
 
   void _initRealtimeSync() {
     RealtimeSyncService.instance.connect();
@@ -59,7 +66,7 @@ class DashboardViewModel extends ChangeNotifier {
   void setActiveSection(String section) {
     if (_activeSection != section) {
       _activeSection = section;
-      notifyListeners();
+      _notifySafely();
     }
   }
 
@@ -72,13 +79,13 @@ class DashboardViewModel extends ChangeNotifier {
     if (_activeProfileType == profileType) return;
     _activeProfileType = profileType;
     _activeSection = 'profile';
-    notifyListeners();
+    _notifySafely();
   }
 
   Future<void> loadDashboardData({bool silent = false}) async {
     if (!silent) {
       _state = const DashboardLoading();
-      notifyListeners();
+      _notifySafely();
     }
 
     try {
@@ -108,7 +115,7 @@ class DashboardViewModel extends ChangeNotifier {
         _state = DashboardError('Erro ao carregar dashboard: $e');
       }
     } finally {
-      notifyListeners();
+      _notifySafely();
     }
   }
 
@@ -145,6 +152,7 @@ class DashboardViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _realtimeSubscription?.cancel();
     super.dispose();
   }

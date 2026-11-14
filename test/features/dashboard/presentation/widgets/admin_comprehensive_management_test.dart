@@ -28,21 +28,32 @@ void main() {
         );
         await tester.pumpAndSettle();
 
+        expect(find.text('Performance & FLChart'), findsOneWidget);
         expect(find.text('Logs & Auditoria'), findsOneWidget);
         expect(find.text('Monitoramento & Saúde'), findsOneWidget);
         expect(find.text('Catálogo & Idiomas'), findsOneWidget);
         expect(find.text('Documentos Docentes'), findsOneWidget);
 
-        await tester.tap(find.text('Logs & Auditoria'));
+        Future<void> tapNavItem(String label) async {
+          final finder = find.text(label);
+          await tester.ensureVisible(finder);
+          await tester.pumpAndSettle();
+          await tester.tap(finder);
+        }
+
+        await tapNavItem('Performance & FLChart');
+        expect(selectedSection, equals('systemPerformance'));
+
+        await tapNavItem('Logs & Auditoria');
         expect(selectedSection, equals('auditLogs'));
 
-        await tester.tap(find.text('Monitoramento & Saúde'));
+        await tapNavItem('Monitoramento & Saúde');
         expect(selectedSection, equals('systemHealth'));
 
-        await tester.tap(find.text('Catálogo & Idiomas'));
+        await tapNavItem('Catálogo & Idiomas');
         expect(selectedSection, equals('catalogManagement'));
 
-        await tester.tap(find.text('Documentos Docentes'));
+        await tapNavItem('Documentos Docentes');
         expect(selectedSection, equals('teacherDocuments'));
       },
     );

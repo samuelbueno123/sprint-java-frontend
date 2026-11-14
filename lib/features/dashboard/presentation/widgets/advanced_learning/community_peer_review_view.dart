@@ -1,6 +1,358 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
+
+class _CommunitySubmissionDialog extends StatefulWidget {
+  const _CommunitySubmissionDialog({required this.onSubmit});
+
+  final Future<void> Function(Map<String, dynamic> payload) onSubmit;
+
+  @override
+  State<_CommunitySubmissionDialog> createState() =>
+      _CommunitySubmissionDialogState();
+}
+
+class _CommunitySubmissionDialogState
+    extends State<_CommunitySubmissionDialog> {
+  final TextEditingController _titleCtrl = TextEditingController();
+  final TextEditingController _contentCtrl = TextEditingController();
+  String _language = 'Inglês';
+  String _targetLevel = 'A2';
+  bool _saving = false;
+  String? _validationError;
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _contentCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final title = _titleCtrl.text.trim();
+    final content = _contentCtrl.text.trim();
+    if (title.isEmpty || content.isEmpty) {
+      setState(
+        () =>
+            _validationError = 'Preencha o título e o texto antes de publicar.',
+      );
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _validationError = null;
+    });
+    try {
+      await widget.onSubmit(<String, dynamic>{
+        'language': _language,
+        'promptTitle': title,
+        'content': content,
+        'targetLevel': _targetLevel,
+        'isPublic': true,
+      });
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao publicar exercício: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text('Enviar Exercício para Revisão Comunitária'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _language,
+              decoration: const InputDecoration(
+                labelText: 'Idioma',
+                border: OutlineInputBorder(),
+              ),
+              items: kSupportedLanguages
+                  .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+                  .toList(),
+              onChanged: (v) => setState(() => _language = v ?? 'Inglês'),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _targetLevel,
+              decoration: const InputDecoration(
+                labelText: 'Nível Pretendido',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                'A1',
+                'A2',
+                'B1',
+                'B2',
+                'C1',
+              ].map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
+              onChanged: (v) => setState(() => _targetLevel = v ?? 'A2'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _titleCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Título / Tema do Texto *',
+                hintText: 'ex: O que eu fiz no final de semana',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _contentCtrl,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Seu Texto no Idioma Estudado *',
+                hintText:
+                    'Escreva sua resposta para outros estudantes revisarem...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            if (_validationError != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _validationError!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('Publicar'),
+        ),
+      ],
+    );
+  }
+}
+
+class _CommunityReviewDialog extends StatefulWidget {
+  const _CommunityReviewDialog({
+    required this.submission,
+    required this.onSubmit,
+  });
+
+  final Map<String, dynamic> submission;
+  final Future<void> Function(Map<String, dynamic> payload) onSubmit;
+
+  @override
+  State<_CommunityReviewDialog> createState() => _CommunityReviewDialogState();
+}
+
+class _CommunityReviewDialogState extends State<_CommunityReviewDialog> {
+  final TextEditingController _feedbackCtrl = TextEditingController();
+  late final TextEditingController _correctionCtrl;
+  final TextEditingController _nativeTipsCtrl = TextEditingController();
+  int _rating = 5;
+  bool _saving = false;
+  String? _validationError;
+
+  @override
+  void initState() {
+    super.initState();
+    _correctionCtrl = TextEditingController(
+      text: widget.submission['content']?.toString() ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _feedbackCtrl.dispose();
+    _correctionCtrl.dispose();
+    _nativeTipsCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final feedback = _feedbackCtrl.text.trim();
+    final correction = _correctionCtrl.text.trim();
+    if (feedback.isEmpty || correction.isEmpty) {
+      setState(
+        () => _validationError =
+            'Preencha o texto corrigido e o feedback antes de enviar.',
+      );
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _validationError = null;
+    });
+    try {
+      await widget.onSubmit(<String, dynamic>{
+        'submissionId': widget.submission['id'],
+        'overallFeedback': feedback,
+        'correctedContent': correction,
+        'nativeSpeakerTips': _nativeTipsCtrl.text.trim(),
+        'rating': _rating,
+      });
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Você não tem permissão para avaliar este exercício.'),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text(
+        'Avaliar Texto de ${widget.submission['authorName'] ?? 'Estudante'}',
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tema: ${widget.submission['promptTitle'] ?? ''}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '"${widget.submission['content'] ?? ''}"',
+                    style: const TextStyle(
+                      fontStyle: FontStyle.italic,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _correctionCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Texto Corrigido *',
+                helperText: 'Reescreva ajustando gramática e ortografia',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _feedbackCtrl,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Feedback e Comentários *',
+                hintText: 'Explique com gentileza o que pode melhorar',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _nativeTipsCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Como um nativo diria (opcional)',
+                hintText: 'Sugira expressões idiomáticas mais naturais',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Text(
+                  'Nota: ',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                ...List.generate(5, (index) {
+                  final star = index + 1;
+                  return IconButton(
+                    icon: Icon(
+                      star <= _rating
+                          ? Icons.star_rounded
+                          : Icons.star_border_rounded,
+                      color: Colors.amber,
+                    ),
+                    onPressed: () => setState(() => _rating = star),
+                  );
+                }),
+              ],
+            ),
+            if (_validationError != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                _validationError!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('Enviar Avaliação (+25 XP)'),
+        ),
+      ],
+    );
+  }
+}
 
 class CommunityPeerReviewView extends StatefulWidget {
   const CommunityPeerReviewView({super.key, required this.onBack});
@@ -63,298 +415,41 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView>
     }
   }
 
-  void _showNewSubmissionDialog() {
-    final titleCtrl = TextEditingController();
-    final contentCtrl = TextEditingController();
-    String language = 'Inglês';
-    String targetLevel = 'A2';
-    bool saving = false;
-
-    showDialog(
+  Future<void> _showNewSubmissionDialog() async {
+    final published = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text('Enviar Exercício para Revisão Comunitária'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: language,
-                  decoration: const InputDecoration(
-                    labelText: 'Idioma',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: ['Inglês', 'Espanhol', 'Francês']
-                      .map((l) => DropdownMenuItem(value: l, child: Text(l)))
-                      .toList(),
-                  onChanged: (v) =>
-                      setDialogState(() => language = v ?? 'Inglês'),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: targetLevel,
-                  decoration: const InputDecoration(
-                    labelText: 'Nível Pretendido',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: ['A1', 'A2', 'B1', 'B2', 'C1']
-                      .map((l) => DropdownMenuItem(value: l, child: Text(l)))
-                      .toList(),
-                  onChanged: (v) =>
-                      setDialogState(() => targetLevel = v ?? 'A2'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: titleCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Título / Tema do Texto *',
-                    hintText: 'ex: O que eu fiz no final de semana',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: contentCtrl,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Seu Texto no Idioma Estudado *',
-                    hintText:
-                        'Escreva sua resposta para outros estudantes revisarem...',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: saving
-                  ? null
-                  : () async {
-                      if (titleCtrl.text.trim().isEmpty ||
-                          contentCtrl.text.trim().isEmpty) {
-                        return;
-                      }
-                      setDialogState(() => saving = true);
-                      try {
-                        await _dio.post(
-                          '/api/community/submissions',
-                          data: {
-                            'language': language,
-                            'promptTitle': titleCtrl.text.trim(),
-                            'content': contentCtrl.text.trim(),
-                            'targetLevel': targetLevel,
-                            'isPublic': true,
-                          },
-                        );
-                        if (ctx.mounted) Navigator.of(ctx).pop();
-                        _loadAll();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Exercício enviado com sucesso para a comunidade!',
-                              ),
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        setDialogState(() => saving = false);
-                      }
-                    },
-              child: saving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Publicar'),
-            ),
-          ],
-        ),
+      builder: (ctx) => _CommunitySubmissionDialog(
+        onSubmit: (payload) =>
+            _dio.post('/api/community/submissions', data: payload),
       ),
     );
+    if (!mounted || published != true) return;
+    await _loadAll();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Exercício enviado com sucesso para a comunidade!'),
+        ),
+      );
+    }
   }
 
-  void _showReviewDialog(Map<String, dynamic> submission) {
-    final feedbackCtrl = TextEditingController();
-    final correctionCtrl = TextEditingController(
-      text: submission['content'] ?? '',
-    );
-    final nativeTipsCtrl = TextEditingController();
-    int rating = 5;
-    bool saving = false;
-
-    showDialog(
+  Future<void> _showReviewDialog(Map<String, dynamic> submission) async {
+    final submitted = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(
-            'Avaliar Texto de ${submission['authorName'] ?? 'Estudante'}',
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Tema: ${submission['promptTitle'] ?? ''}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '"${submission['content'] ?? ''}"',
-                        style: const TextStyle(
-                          fontStyle: FontStyle.italic,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: correctionCtrl,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Texto Corrigido *',
-                    helperText: 'Reescreva ajustando gramática e ortografia',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: feedbackCtrl,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Feedback e Comentários *',
-                    hintText: 'Explique com gentileza o que pode melhorar',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: nativeTipsCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Como um nativo diria (opcional)',
-                    hintText: 'Sugira expressões idiomáticas mais naturais',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const Text(
-                      'Nota: ',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    ...List.generate(5, (index) {
-                      final star = index + 1;
-                      return IconButton(
-                        icon: Icon(
-                          star <= rating
-                              ? Icons.star_rounded
-                              : Icons.star_border_rounded,
-                          color: Colors.amber,
-                        ),
-                        onPressed: () => setDialogState(() => rating = star),
-                      );
-                    }),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: saving
-                  ? null
-                  : () async {
-                      if (feedbackCtrl.text.trim().isEmpty ||
-                          correctionCtrl.text.trim().isEmpty) {
-                        return;
-                      }
-                      setDialogState(() => saving = true);
-                      try {
-                        await _dio.post(
-                          '/api/community/reviews',
-                          data: {
-                            'submissionId': submission['id'],
-                            'overallFeedback': feedbackCtrl.text.trim(),
-                            'correctedContent': correctionCtrl.text.trim(),
-                            'nativeSpeakerTips': nativeTipsCtrl.text.trim(),
-                            'rating': rating,
-                          },
-                        );
-                        if (ctx.mounted) Navigator.of(ctx).pop();
-                        _loadAll();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Avaliação enviada! Você ganhou +25 XP.',
-                              ),
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        setDialogState(() => saving = false);
-                        if (ctx.mounted) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Você não tem permissão para avaliar este exercício.',
-                              ),
-                            ),
-                          );
-                        }
-                      }
-                    },
-              child: saving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Enviar Avaliação (+25 XP)'),
-            ),
-          ],
-        ),
+      builder: (ctx) => _CommunityReviewDialog(
+        submission: submission,
+        onSubmit: (payload) =>
+            _dio.post('/api/community/reviews', data: payload),
       ),
     );
+    if (!mounted || submitted != true) return;
+    await _loadAll();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Avaliação enviada! Você ganhou +25 XP.')),
+      );
+    }
   }
 
   @override

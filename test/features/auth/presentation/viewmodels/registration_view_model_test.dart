@@ -102,16 +102,16 @@ void main() {
     });
 
     test(
-      'loadCatalog caches languages and avoids redundant fetch unless forced',
+      'loadCatalog caches and sanitizes languages to supported canonical values unless forced',
       () async {
         await viewModel.loadCatalog();
         expect(viewModel.isCatalogLoaded, isTrue);
-        fakeRemote.mockLanguages = ['Russo', 'Coreano'];
+        fakeRemote.mockLanguages = ['Alemão', 'Esperanto', 'Francês'];
         await viewModel.loadCatalog();
         expect(viewModel.availableLanguages, equals(['Inglês', 'Japonês']));
 
         await viewModel.loadCatalog(forceRefresh: true);
-        expect(viewModel.availableLanguages, equals(['Russo', 'Coreano']));
+        expect(viewModel.availableLanguages, equals(['Alemão', 'Francês']));
       },
     );
 

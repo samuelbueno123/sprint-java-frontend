@@ -2,8 +2,200 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../../../core/constants/supported_languages.dart';
 import '../../../../../core/network/api_client.dart';
+import '../../../../../core/ui/motion_kit.dart';
 import '../responsive_layout.dart';
+
+class _AddCatalogOptionDialog extends StatefulWidget {
+  const _AddCatalogOptionDialog({
+    required this.initialType,
+    required this.onCreateOption,
+  });
+
+  final String initialType;
+  final Future<Map<String, dynamic>> Function(Map<String, dynamic> payload)
+  onCreateOption;
+
+  @override
+  State<_AddCatalogOptionDialog> createState() =>
+      _AddCatalogOptionDialogState();
+}
+
+class _AddCatalogOptionDialogState extends State<_AddCatalogOptionDialog> {
+  final TextEditingController _valueCtrl = TextEditingController();
+  final TextEditingController _codeCtrl = TextEditingController();
+  late String _type;
+  bool _active = true;
+  bool _saving = false;
+  String? _validationError;
+
+  @override
+  void initState() {
+    super.initState();
+    _type = 'PROFICIENCY_LEVEL';
+  }
+
+  @override
+  void dispose() {
+    _valueCtrl.dispose();
+    _codeCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final val = _valueCtrl.text.trim();
+    if (val.isEmpty) {
+      setState(() => _validationError = 'Informe o valor da opção.');
+      return;
+    }
+    if (_type == 'LANGUAGE' && !SupportedLanguages.isSupported(val)) {
+      setState(
+        () => _validationError =
+            'Apenas os 6 idiomas oficiais (${kSupportedLanguages.join(', ')}) são permitidos.',
+      );
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _validationError = null;
+    });
+    final cd = _codeCtrl.text.trim();
+    try {
+      final created = await widget.onCreateOption(<String, dynamic>{
+        'catalogType': _type,
+        'value': _type == 'LANGUAGE'
+            ? (SupportedLanguages.normalize(val) ?? val)
+            : val,
+        'code': cd.isNotEmpty ? cd : null,
+        'active': _active,
+      });
+      if (mounted) {
+        Navigator.of(context).pop(created);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao salvar opção: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.add_circle_outline_rounded, color: Color(0xFFD97706)),
+          SizedBox(width: 8),
+          Text('Nova Opção de Catálogo'),
+        ],
+      ),
+      content: SizedBox(
+        width: 440,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D9488).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFF0D9488).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Text(
+                  'Os 6 idiomas base (${kSupportedLanguages.join(', ')}) são estruturais e imutáveis. Adicione abaixo novos Níveis de Proficiência.',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0F766E),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _type,
+                decoration: const InputDecoration(
+                  labelText: 'Tipo de Entrada',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'PROFICIENCY_LEVEL',
+                    child: Text('Nível de Proficiência (PROFICIENCY_LEVEL)'),
+                  ),
+                ],
+                onChanged: null,
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _valueCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Nome do nível (ex: Intermediário Plus, C1)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _codeCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Código / Sigla (ex: B2, C1)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 14),
+              SwitchListTile(
+                title: const Text('Disponível Imediatamente (Ativo)'),
+                value: _active,
+                onChanged: (val) => setState(() => _active = val),
+              ),
+              if (_validationError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _validationError!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(null),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFD97706),
+          ),
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('Salvar Opção'),
+        ),
+      ],
+    );
+  }
+}
 
 class AdminCatalogManagementView extends StatefulWidget {
   const AdminCatalogManagementView({super.key});
@@ -155,154 +347,45 @@ class _AdminCatalogManagementViewState
     }
   }
 
-  void _showAddOptionDialog() {
-    final valueCtrl = TextEditingController();
-    final codeCtrl = TextEditingController();
-    String type = _selectedType == 'PROFICIENCY_LEVEL'
+  Future<void> _showAddOptionDialog() async {
+    final initialType = _selectedType == 'PROFICIENCY_LEVEL'
         ? 'PROFICIENCY_LEVEL'
         : 'LANGUAGE';
-    bool active = true;
-
-    showDialog(
+    final created = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            title: const Row(
-              children: [
-                Icon(
-                  Icons.add_circle_outline_rounded,
-                  color: Color(0xFFD97706),
-                ),
-                SizedBox(width: 8),
-                Text('Nova Opção de Catálogo'),
-              ],
-            ),
-            content: SizedBox(
-              width: 420,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    DropdownButtonFormField<String>(
-                      initialValue: type,
-                      decoration: const InputDecoration(
-                        labelText: 'Tipo de Entrada',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'LANGUAGE',
-                          child: Text('Idioma (LANGUAGE)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'PROFICIENCY_LEVEL',
-                          child: Text(
-                            'Nível de Proficiência (PROFICIENCY_LEVEL)',
-                          ),
-                        ),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          setDialogState(() => type = val);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: valueCtrl,
-                      decoration: const InputDecoration(
-                        labelText:
-                            'Valor / Nome (ex: Italiano, Intermediário 1)',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: codeCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Código / Sigla (ex: IT, B1)',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    SwitchListTile(
-                      title: const Text('Disponível Imediatamente (Ativo)'),
-                      value: active,
-                      onChanged: (val) => setDialogState(() => active = val),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Cancelar'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFD97706),
-                ),
-                onPressed: () async {
-                  final messenger = ScaffoldMessenger.of(context);
-                  final nav = Navigator.of(ctx);
-                  final val = valueCtrl.text.trim();
-                  if (val.isEmpty) {
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text('Informe o valor da opção.'),
-                      ),
-                    );
-                    return;
-                  }
-                  final cd = codeCtrl.text.trim();
-                  try {
-                    final resp = await _dio.post(
-                      '/api/admin/catalog',
-                      data: {
-                        'catalogType': type,
-                        'value': val,
-                        'code': cd.isNotEmpty ? cd : null,
-                        'active': active,
-                      },
-                    );
-                    if (!mounted) return;
-                    nav.pop();
-                    final created = Map<String, dynamic>.from(resp.data);
-                    setState(() {
-                      _catalogOptions.insert(0, created);
-                    });
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text('Opção "$val" adicionada com sucesso!'),
-                        backgroundColor: const Color(0xFF059669),
-                      ),
-                    );
-                  } catch (e) {
-                    if (!mounted) return;
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text('Erro ao salvar opção: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Salvar Opção'),
-              ),
-            ],
-          );
+      builder: (ctx) => _AddCatalogOptionDialog(
+        initialType: initialType,
+        onCreateOption: (payload) async {
+          final resp = await _dio.post('/api/admin/catalog', data: payload);
+          return Map<String, dynamic>.from(resp.data as Map);
         },
+      ),
+    );
+    if (!mounted || created == null) return;
+    setState(() {
+      _catalogOptions.insert(0, created);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Opção "${created['value'] ?? ''}" adicionada com sucesso!',
+        ),
+        backgroundColor: const Color(0xFF059669),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final visibleOptions = _catalogOptions.where((opt) {
+      if (opt['catalogType'] == 'LANGUAGE') {
+        return SupportedLanguages.isSupported(opt['value']?.toString());
+      }
+      return true;
+    }).toList();
+
     final query = _searchController.text.trim().toLowerCase();
-    final filtered = _catalogOptions.where((opt) {
+    final filtered = visibleOptions.where((opt) {
       if (query.isNotEmpty) {
         final val = (opt['value'] ?? '').toString().toLowerCase();
         final code = (opt['code'] ?? '').toString().toLowerCase();
@@ -313,11 +396,9 @@ class _AdminCatalogManagementViewState
       return true;
     }).toList();
 
-    final totalCount = _catalogOptions.length;
-    final totalActive = _catalogOptions
-        .where((o) => o['active'] == true)
-        .length;
-    final totalLanguages = _catalogOptions
+    final totalCount = visibleOptions.length;
+    final totalActive = visibleOptions.where((o) => o['active'] == true).length;
+    final totalLanguages = visibleOptions
         .where((o) => o['catalogType'] == 'LANGUAGE')
         .length;
 
@@ -737,44 +818,90 @@ class _AdminCatalogManagementViewState
                             ],
                           ),
                         ),
-                        // Status badge & Toggle
-                        FilterChip(
-                          selected: isActive,
-                          selectedColor: const Color(
-                            0xFF059669,
-                          ).withValues(alpha: 0.18),
-                          checkmarkColor: const Color(0xFF059669),
-                          avatar: Icon(
-                            isActive
-                                ? Icons.check_circle_rounded
-                                : Icons.pause_circle_rounded,
-                            size: 16,
-                            color: isActive
-                                ? const Color(0xFF059669)
-                                : Colors.grey,
-                          ),
-                          label: Text(
-                            isActive ? 'Ativo' : 'Inativo',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
+                        // Status badge & Toggle (protegido para os 6 idiomas oficiais)
+                        if (isLanguage &&
+                            SupportedLanguages.isSupported(
+                              item['value']?.toString(),
+                            ))
+                          Tooltip(
+                            message:
+                                'Os 6 idiomas base do aplicativo são estruturais e permanentes.',
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(
+                                  0xFF0D9488,
+                                ).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: const Color(
+                                    0xFF0D9488,
+                                  ).withValues(alpha: 0.35),
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.lock_rounded,
+                                    size: 14,
+                                    color: Color(0xFF0F766E),
+                                  ),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Idioma Oficial Fixo',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF0F766E),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else ...[
+                          FilterChip(
+                            selected: isActive,
+                            selectedColor: const Color(
+                              0xFF059669,
+                            ).withValues(alpha: 0.18),
+                            checkmarkColor: const Color(0xFF059669),
+                            avatar: Icon(
+                              isActive
+                                  ? Icons.check_circle_rounded
+                                  : Icons.pause_circle_rounded,
+                              size: 16,
                               color: isActive
                                   ? const Color(0xFF059669)
                                   : Colors.grey,
                             ),
+                            label: Text(
+                              isActive ? 'Ativo' : 'Inativo',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                                color: isActive
+                                    ? const Color(0xFF059669)
+                                    : Colors.grey,
+                              ),
+                            ),
+                            onSelected: (_) => _toggleOptionActive(item),
                           ),
-                          onSelected: (_) => _toggleOptionActive(item),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          tooltip: 'Excluir opção',
-                          icon: const Icon(
-                            Icons.delete_outline_rounded,
-                            color: Color(0xFFB42318),
-                            size: 20,
+                          const SizedBox(width: 8),
+                          IconButton(
+                            tooltip: 'Excluir opção',
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              color: Color(0xFFB42318),
+                              size: 20,
+                            ),
+                            onPressed: () => _deleteOption(item),
                           ),
-                          onPressed: () => _deleteOption(item),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -792,49 +919,63 @@ class _AdminCatalogManagementViewState
     required IconData icon,
     required Color color,
   }) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
+    final numeric = double.tryParse(value.trim());
+    return InteractiveMotionCard(
+      borderRadius: BorderRadius.circular(16),
+      child: Card(
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 22),
               ),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    if (numeric != null)
+                      AnimatedMetricCounter(
+                        value: numeric,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      )
+                    else
+                      Text(
+                        value,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

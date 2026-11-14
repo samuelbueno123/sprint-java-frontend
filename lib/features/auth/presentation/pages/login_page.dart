@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../../../core/config/app_config.dart';
+import '../../../../core/ui/motion_kit.dart';
 import '../../auth_dependencies.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/user_role.dart';
@@ -76,7 +77,7 @@ class _LoginPageState extends State<LoginPage> {
     if (session.profileType == UserRole.user) {
       final navigator = Navigator.of(context);
       navigator.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const DashboardPage()),
+        MotionPageRoute(builder: (_) => const DashboardPage()),
         (route) => false,
       );
       Future.microtask(() {
@@ -90,7 +91,7 @@ class _LoginPageState extends State<LoginPage> {
       });
     } else {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const DashboardPage()),
+        MotionPageRoute(builder: (_) => const DashboardPage()),
         (route) => false,
       );
     }
@@ -303,7 +304,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     TextButton(
                       onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
+                        MotionPageRoute(
                           builder: (_) => const RegistrationChoicePage(),
                         ),
                       ),

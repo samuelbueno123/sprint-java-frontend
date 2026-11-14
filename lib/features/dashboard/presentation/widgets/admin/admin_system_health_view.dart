@@ -444,18 +444,25 @@ class _AdminSystemHealthViewState extends State<AdminSystemHealthView> {
                 ),
                 const SizedBox(height: 4),
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: memFraction,
-                    minHeight: 8,
-                    backgroundColor: Colors.grey.shade200,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      usedPct > 85
-                          ? Colors.red
-                          : (usedPct > 70
-                                ? Colors.amber
-                                : const Color(0xFF8B5CF6)),
-                    ),
+                  borderRadius: BorderRadius.circular(8),
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween<double>(begin: 0, end: memFraction),
+                    duration: const Duration(milliseconds: 650),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, animatedValue, _) {
+                      return LinearProgressIndicator(
+                        value: animatedValue.clamp(0.0, 1.0),
+                        minHeight: 10,
+                        backgroundColor: Colors.grey.shade200,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          usedPct > 85
+                              ? Colors.red
+                              : (usedPct > 70
+                                    ? Colors.amber
+                                    : const Color(0xFF8B5CF6)),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],

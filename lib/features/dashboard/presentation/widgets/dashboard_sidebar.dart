@@ -135,6 +135,32 @@ class DashboardSidebar extends StatelessWidget {
                   isCollapsed: isCollapsed,
                   onTap: () => onSectionSelected('auditLogs'),
                 ),
+                if (!isCollapsed)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: Text(
+                      'OBSERVABILIDADE & GRÁFICOS',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.9,
+                        color: _accentColor.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  )
+                else
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    child: Divider(height: 1),
+                  ),
+                _NavItem(
+                  icon: Icons.query_stats_rounded,
+                  label: 'Performance & FLChart',
+                  isSelected: activeSection == 'systemPerformance',
+                  accentColor: _accentColor,
+                  isCollapsed: isCollapsed,
+                  onTap: () => onSectionSelected('systemPerformance'),
+                ),
                 _NavItem(
                   icon: Icons.monitor_heart_rounded,
                   label: 'Monitoramento & Saúde',
@@ -429,12 +455,23 @@ class _NavItemState extends State<_NavItem> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: widget.isSelected
-              ? widget.accentColor.withValues(alpha: 0.5)
+              ? widget.accentColor.withValues(alpha: 0.55)
               : (_isHovered
-                    ? widget.accentColor.withValues(alpha: 0.25)
+                    ? widget.accentColor.withValues(alpha: 0.28)
                     : Colors.transparent),
           width: 1.0,
         ),
+        boxShadow: widget.isSelected
+            ? [
+                BoxShadow(
+                  color: widget.accentColor.withValues(
+                    alpha: isDark ? 0.22 : 0.14,
+                  ),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {

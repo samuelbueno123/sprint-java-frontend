@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/ui/motion_kit.dart';
 import 'login_page.dart';
 import '../widgets/auth_page_frame.dart';
 import 'student_signup_page.dart';
@@ -23,31 +24,43 @@ class RegistrationChoicePage extends StatelessWidget {
     onBack: () => _openLogin(context),
     child: Column(
       children: [
-        _RoleCard(
-          title: 'Sou estudante',
-          description: 'Cadastre os idiomas que deseja estudar.',
-          icon: Icons.school_rounded,
-          color: const Color(0xFF3579E8),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => StudentSignupPage(
-                initialEmail: initialEmail,
-                initialName: initialName,
+        StaggeredReveal(
+          index: 0,
+          child: InteractiveMotionCard(
+            borderRadius: BorderRadius.circular(16),
+            child: _RoleCard(
+              title: 'Sou estudante',
+              description: 'Cadastre os idiomas que deseja estudar.',
+              icon: Icons.school_rounded,
+              color: const Color(0xFF3579E8),
+              onTap: () => Navigator.of(context).push(
+                MotionPageRoute(
+                  builder: (_) => StudentSignupPage(
+                    initialEmail: initialEmail,
+                    initialName: initialName,
+                  ),
+                ),
               ),
             ),
           ),
         ),
         const SizedBox(height: 12),
-        _RoleCard(
-          title: 'Sou professor',
-          description: 'Informe sua instituição e as áreas que leciona.',
-          icon: Icons.co_present_rounded,
-          color: const Color(0xFF7651C8),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => TeacherSignupPage(
-                initialEmail: initialEmail,
-                initialName: initialName,
+        StaggeredReveal(
+          index: 1,
+          child: InteractiveMotionCard(
+            borderRadius: BorderRadius.circular(16),
+            child: _RoleCard(
+              title: 'Sou professor',
+              description: 'Informe sua instituição e as áreas que leciona.',
+              icon: Icons.co_present_rounded,
+              color: const Color(0xFF7651C8),
+              onTap: () => Navigator.of(context).push(
+                MotionPageRoute(
+                  builder: (_) => TeacherSignupPage(
+                    initialEmail: initialEmail,
+                    initialName: initialName,
+                  ),
+                ),
               ),
             ),
           ),
@@ -63,7 +76,7 @@ class RegistrationChoicePage extends StatelessWidget {
 
   void _openLogin(BuildContext context) {
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginPage()),
+      MotionPageRoute(builder: (_) => const LoginPage()),
       (route) => false,
     );
   }

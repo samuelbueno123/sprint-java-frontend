@@ -1,7 +1,8 @@
 # Multi-stage Dockerfile para Frontend Flutter Web em Produção
 
 # Estágio 1: Build da aplicação Flutter Web
-FROM ghcr.io/cirruslabs/flutter:3.24.5 AS build
+FROM ghcr.io/cirruslabs/flutter:3.44.0 AS build
+#NÃO MUDAR IMAGEM
 
 WORKDIR /app
 
@@ -11,6 +12,9 @@ RUN flutter pub get
 
 # Copia o código-fonte
 COPY . .
+
+# Garante a existência do arquivo .env exigido como asset no pubspec.yaml
+RUN if [ ! -f .env ]; then cp .env.example .env 2>/dev/null || touch .env; fi
 
 # Argumentos de compilação para injeção de ambiente
 ARG API_BASE_URL=http://localhost:8080

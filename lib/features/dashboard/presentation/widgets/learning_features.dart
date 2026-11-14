@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../core/config/app_config.dart';
+import '../../../../core/constants/supported_languages.dart';
 import 'dart:async';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/realtime_sync_service.dart';
+import '../../../../core/ui/motion_kit.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/student_enrollment.dart';
 import '../../domain/entities/student_profile.dart';
@@ -169,6 +171,7 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
       _levels = const ['Fácil', 'Médio', 'Difícil'];
     }
     if (errors.isNotEmpty) _dataLoadError = errors.toSet().join('\n');
+    _syncActiveReviewSelection();
   }
 
   Future<void> _refresh() async {
@@ -245,19 +248,11 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
         )
         .toList();
 
-    if (submissions.isNotEmpty) {
-      if (_selectedSubmissionId == null ||
-          !submissions.any((s) => s['id'] == _selectedSubmissionId)) {
-        final initial = pending.isNotEmpty ? pending.first : submissions.first;
-        _selectedSubmissionId = initial['id'] as int?;
-        _packageFeedbackCtrl.text = initial['feedback']?.toString() ?? '';
-      }
-    }
-
     final selectedItem = submissions.firstWhere(
       (s) => s['id'] == _selectedSubmissionId,
-      orElse: () =>
-          submissions.isNotEmpty ? submissions.first : <String, dynamic>{},
+      orElse: () => pending.isNotEmpty
+          ? pending.first
+          : (submissions.isNotEmpty ? submissions.first : <String, dynamic>{}),
     );
 
     return ListView(
@@ -367,6 +362,7 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
               onChanged: (value) => setState(() {
                 _reviewClassKey = value ?? 'all';
                 _selectedSubmissionId = null;
+                _syncActiveReviewSelection();
               }),
             ),
           ),
@@ -552,8 +548,7 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
       child: InkWell(
         onTap: () {
           setState(() {
-            _selectedSubmissionId = item['id'] as int?;
-            _packageFeedbackCtrl.text = item['feedback']?.toString() ?? '';
+            _applySelectedSubmission(item);
           });
         },
         borderRadius: BorderRadius.circular(12),
@@ -684,21 +679,74 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
     return list;
   }
 
-  void _syncSubmissionReviewState(
-    Map<String, dynamic> item,
-    List<Map<String, dynamic>> questions,
-  ) {
-    final subId = item['id'] as int?;
-    if (subId == null || subId == _loadedFeedbackSubmissionId) return;
-    _loadedFeedbackSubmissionId = subId;
-    _packageFeedbackCtrl.text = item['feedback']?.toString() ?? '';
+  void _disposeControllersPostFrame(List<TextEditingController> controllers) {
+    if (controllers.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final ctrl in controllers) {
+        ctrl.dispose();
+      }
+    });
+  }
 
-    for (final ctrl in _questionFeedbackCtrls.values) {
-      ctrl.dispose();
+  void _syncActiveReviewSelection() {
+    final selectedClassId = int.tryParse(_reviewClassKey);
+    final submissions = _submissions.where((item) {
+      if (selectedClassId == null) return true;
+      return _submissionClassId(item) == selectedClassId;
+    }).toList();
+    if (submissions.isEmpty) {
+      _applySelectedSubmission(null);
+      return;
     }
+    final existing = submissions.firstWhere(
+      (s) => s['id'] == _selectedSubmissionId,
+      orElse: () => <String, dynamic>{},
+    );
+    if (existing.isNotEmpty) {
+      _applySelectedSubmission(
+        existing,
+        syncPackageFeedback: _loadedFeedbackSubmissionId != existing['id'],
+      );
+      return;
+    }
+    final pending = submissions
+        .where(
+          (item) =>
+              item['reviewedAt'] == null &&
+              '${item['reviewStatus']}'.toUpperCase() != 'REVIEWED',
+        )
+        .toList();
+    _applySelectedSubmission(
+      pending.isNotEmpty ? pending.first : submissions.first,
+    );
+  }
+
+  void _applySelectedSubmission(
+    Map<String, dynamic>? item, {
+    bool syncPackageFeedback = true,
+  }) {
+    final oldCtrls = _questionFeedbackCtrls.values.toList();
     _questionFeedbackCtrls.clear();
     _questionCorrectMap.clear();
 
+    if (item == null || item.isEmpty) {
+      _selectedSubmissionId = null;
+      _loadedFeedbackSubmissionId = null;
+      if (syncPackageFeedback) {
+        _packageFeedbackCtrl.clear();
+      }
+      _disposeControllersPostFrame(oldCtrls);
+      return;
+    }
+
+    final subId = item['id'] as int?;
+    _selectedSubmissionId = subId;
+    _loadedFeedbackSubmissionId = subId;
+    if (syncPackageFeedback) {
+      _packageFeedbackCtrl.text = item['feedback']?.toString() ?? '';
+    }
+
+    final questions = _extractSubmissionQuestions(item);
     for (var i = 0; i < questions.length; i++) {
       final q = questions[i];
       final isCor =
@@ -708,6 +756,8 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
         text: q['message']?.toString() ?? '',
       );
     }
+
+    _disposeControllersPostFrame(oldCtrls);
   }
 
   Future<void> _saveAllQuestionReviews(
@@ -813,7 +863,13 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
     }
 
     final questions = _extractSubmissionQuestions(item);
-    _syncSubmissionReviewState(item, questions);
+    final subId = item['id'] as int?;
+    if (subId != null && subId != _loadedFeedbackSubmissionId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _loadedFeedbackSubmissionId == subId) return;
+        setState(() => _applySelectedSubmission(item));
+      });
+    }
 
     final int total = questions.isNotEmpty
         ? questions.length
@@ -826,6 +882,7 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
     final int awardedXp = correct * 10;
 
     return Column(
+      key: ValueKey('review-right-pane-$subId'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Card 1: Student Header Card with Profile Picture
@@ -3429,11 +3486,23 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
   }
 
   void _next() {
+    if (widget.exercise.questions.isEmpty) return;
     final q = widget.exercise.questions[_index];
     final answer = q.options.isEmpty
         ? _text.text.trim()
         : (_selected[_index] ?? _text.text.trim());
-    if (answer.isEmpty) return;
+    if (answer.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Selecione ou informe uma resposta antes de continuar.',
+            ),
+          ),
+        );
+      return;
+    }
     _answers[_index] = answer;
     if (_index < widget.exercise.questions.length - 1) {
       setState(() {
@@ -4173,6 +4242,11 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                     autofocus: q.options.isEmpty,
                     maxLines: isOpenEnded ? 4 : 2,
                     minLines: isOpenEnded ? 3 : 1,
+                    onChanged: (_) {
+                      if (q.options.isNotEmpty && _selected[_index] != null) {
+                        setState(() => _selected[_index] = null);
+                      }
+                    },
                     decoration: InputDecoration(
                       labelText: isAudio
                           ? 'Transcrição da sua fala ou resposta escrita'
@@ -4187,7 +4261,10 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: OutlinedButton(
-                    onPressed: () => setState(() => _selected[_index] = option),
+                    onPressed: () => setState(() {
+                      _selected[_index] = option;
+                      _text.clear();
+                    }),
                     style: OutlinedButton.styleFrom(
                       backgroundColor: _selected[_index] == option
                           ? Theme.of(context).colorScheme.primaryContainer
@@ -5413,9 +5490,21 @@ class _StudentLanguageManagerState extends State<StudentLanguageManager> {
 
   Future<void> _openEditorDialog(BuildContext context) async {
     final profile = _profile;
-    if (profile?.id == null) return;
-    final nameCtrl = TextEditingController();
-    String selectedLevel = _levels.first;
+    if (profile == null || profile.id == null) return;
+    final existingLevels = <String, String>{};
+    for (final v in profile.languages) {
+      final parts = v.split(':');
+      final canon = SupportedLanguages.normalize(parts.first);
+      if (canon != null) {
+        final rawLvl = parts.length > 1 ? parts.last.trim() : 'Básico';
+        existingLevels[canon] = _levels.contains(rawLvl) ? rawLvl : 'Básico';
+      }
+    }
+    String selectedLanguage = kSupportedLanguages.firstWhere(
+      (lang) => !existingLevels.containsKey(lang),
+      orElse: () => kDefaultSupportedLanguage,
+    );
+    String selectedLevel = existingLevels[selectedLanguage] ?? _levels.first;
     bool busy = false;
 
     final saved = await showDialog<bool>(
@@ -5428,10 +5517,32 @@ class _StudentLanguageManagerState extends State<StudentLanguageManager> {
           title: const Text('Adicionar ou editar idioma'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Idioma'),
+              DropdownButtonFormField<String>(
+                initialValue: selectedLanguage,
+                decoration: const InputDecoration(labelText: 'Idioma oficial'),
+                items: kSupportedLanguages.map((lang) {
+                  final meta = SupportedLanguages.metaFor(lang);
+                  final alreadyInProfile = existingLevels.containsKey(lang);
+                  return DropdownMenuItem(
+                    value: lang,
+                    child: Text(
+                      alreadyInProfile
+                          ? '${meta.shortCode} · $lang (no perfil)'
+                          : '${meta.shortCode} · $lang',
+                    ),
+                  );
+                }).toList(),
+                onChanged: busy
+                    ? null
+                    : (v) {
+                        if (v == null) return;
+                        setDialogState(() {
+                          selectedLanguage = v;
+                          selectedLevel = existingLevels[v] ?? _levels.first;
+                        });
+                      },
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -5440,8 +5551,19 @@ class _StudentLanguageManagerState extends State<StudentLanguageManager> {
                 items: _levels
                     .map((v) => DropdownMenuItem(value: v, child: Text(v)))
                     .toList(),
-                onChanged: (v) =>
-                    setDialogState(() => selectedLevel = v ?? selectedLevel),
+                onChanged: busy
+                    ? null
+                    : (v) => setDialogState(
+                        () => selectedLevel = v ?? selectedLevel,
+                      ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Disponíveis no Duolinfo: ${kSupportedLanguages.join(', ')}.',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -5456,33 +5578,35 @@ class _StudentLanguageManagerState extends State<StudentLanguageManager> {
               onPressed: busy
                   ? null
                   : () async {
-                      if (nameCtrl.text.trim().isEmpty) return;
                       setDialogState(() => busy = true);
                       try {
-                        final languages = [
-                          ...profile!.languages.map((v) {
-                            final parts = v.split(':');
-                            final rawLvl = parts.length > 1
-                                ? parts.last.trim()
-                                : 'Básico';
-                            return {
-                              'languageName': parts.first.trim(),
-                              'level': _levels.contains(rawLvl)
-                                  ? rawLvl
-                                  : 'Básico',
-                              'score': 0,
-                            };
-                          }),
-                        ];
+                        int scoreForLanguage(String name) {
+                          for (final entry in profile.languageScores.entries) {
+                            if (SupportedLanguages.matches(entry.key, name)) {
+                              return entry.value;
+                            }
+                          }
+                          return 0;
+                        }
+
+                        final languages = <Map<String, dynamic>>[];
+                        for (final entry in existingLevels.entries) {
+                          languages.add({
+                            'languageName': entry.key,
+                            'level': entry.value,
+                            'score': scoreForLanguage(entry.key),
+                          });
+                        }
                         final existing = languages.indexWhere(
-                          (v) =>
-                              (v['languageName'] as String).toLowerCase() ==
-                              nameCtrl.text.trim().toLowerCase(),
+                          (v) => SupportedLanguages.matches(
+                            v['languageName']?.toString(),
+                            selectedLanguage,
+                          ),
                         );
                         final item = {
-                          'languageName': nameCtrl.text.trim(),
+                          'languageName': selectedLanguage,
                           'level': selectedLevel,
-                          'score': 0,
+                          'score': scoreForLanguage(selectedLanguage),
                         };
                         if (existing >= 0) {
                           languages[existing] = item;
@@ -5514,8 +5638,6 @@ class _StudentLanguageManagerState extends State<StudentLanguageManager> {
         ),
       ),
     );
-
-    Future.delayed(const Duration(milliseconds: 400), nameCtrl.dispose);
 
     if (saved == true) {
       widget.onChanged?.call();
@@ -5567,6 +5689,75 @@ class StudentClassesView extends StatefulWidget {
 
 class _StudentClassesViewState extends State<StudentClassesView> {
   StudentEnrollment? _selectedEnrollment;
+  List<Map<String, dynamic>> _availableClasses = const [];
+  bool _loadingAvailable = false;
+  int? _joiningClassId;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadAvailableClasses());
+  }
+
+  List<String> get _studentCanonicalLanguages {
+    final raw = widget.data.studentProfile?.languages ?? const [];
+    final resolved = <String>{};
+    for (final entry in raw) {
+      final canon = SupportedLanguages.normalize(entry.split(':').first);
+      if (canon != null) resolved.add(canon);
+    }
+    return kSupportedLanguages.where(resolved.contains).toList();
+  }
+
+  Future<void> _loadAvailableClasses() async {
+    if (!AppConfig.hasValidApiBaseUrl || widget.data.studentProfile == null) {
+      return;
+    }
+    setState(() => _loadingAvailable = true);
+    try {
+      final response = await ApiClient().dio.get<List<dynamic>>(
+        '${AppConfig.apiBaseUrl}/api/students/me/available-classes',
+        queryParameters: const {'includeIneligible': true},
+      );
+      if (!mounted) return;
+      final list = (response.data ?? const [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+      setState(() => _availableClasses = list);
+    } catch (_) {
+      // Silencioso em modo offline/teste sem servidor backend conectado.
+    } finally {
+      if (mounted) setState(() => _loadingAvailable = false);
+    }
+  }
+
+  Future<void> _joinAvailableClass(
+    BuildContext context,
+    int classId,
+    String className,
+  ) async {
+    setState(() => _joiningClassId = classId);
+    try {
+      await ApiClient().dio.post(
+        '${AppConfig.apiBaseUrl}/api/students/me/enrollments',
+        data: {'schoolClassId': classId},
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Você ingressou na turma "$className" com sucesso!'),
+          ),
+        );
+      }
+      widget.onRefresh();
+      await _loadAvailableClasses();
+    } catch (e) {
+      if (context.mounted) showLearningError(context, e);
+    } finally {
+      if (mounted) setState(() => _joiningClassId = null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -5586,35 +5777,69 @@ class _StudentClassesViewState extends State<StudentClassesView> {
     final pastEnrollments = widget.data.studentEnrollments
         .where((e) => !e.isActive)
         .toList();
+    final activeClassIds = activeEnrollments
+        .map((e) => e.schoolClassId)
+        .whereType<int>()
+        .toSet();
+    final studentLangs = _studentCanonicalLanguages;
+    final discoverable = _availableClasses
+        .where((c) => !activeClassIds.contains((c['id'] as num?)?.toInt()))
+        .toList();
 
     return ListView(
       padding: responsivePagePadding(context),
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Minhas turmas',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+        StaggeredReveal(
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Minhas turmas',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+                ),
               ),
-            ),
-            OutlinedButton.icon(
-              onPressed: widget.onRefresh,
-              icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Atualizar'),
-            ),
-          ],
+              OutlinedButton.icon(
+                onPressed: () {
+                  widget.onRefresh();
+                  unawaited(_loadAvailableClasses());
+                },
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('Atualizar'),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Acesse o painel completo da sua turma para ver seu rendimento, colegas de classe e atividades com prazos.',
+          'Acesse o painel da sua turma ou ingresse em novas turmas compatíveis com os idiomas do seu perfil.',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontSize: 13,
           ),
         ),
+        if (studentLangs.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                'Seus idiomas escolhidos:',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              ...studentLangs.map(
+                (lang) => LanguageBadgePill(language: lang, compact: true),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 20),
-        if (widget.data.studentEnrollments.isEmpty)
+        if (widget.data.studentEnrollments.isEmpty && discoverable.isEmpty)
           const Card(
             child: Padding(
               padding: EdgeInsets.all(24),
@@ -5629,13 +5854,191 @@ class _StudentClassesViewState extends State<StudentClassesView> {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 10),
-          ...activeEnrollments.map(
-            (e) => _DetailedEnrollmentCard(
-              enrollment: e,
-              onTap: () => setState(() => _selectedEnrollment = e),
-              onRefresh: widget.onRefresh,
+          ...activeEnrollments.asMap().entries.map(
+            (entry) => StaggeredReveal(
+              index: entry.key,
+              child: _DetailedEnrollmentCard(
+                enrollment: entry.value,
+                onTap: () => setState(() => _selectedEnrollment = entry.value),
+                onRefresh: widget.onRefresh,
+              ),
             ),
           ),
+          const SizedBox(height: 20),
+        ],
+        if (_loadingAvailable || discoverable.isNotEmpty) ...[
+          const Text(
+            'Turmas Disponíveis para Ingressar',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Por regra de consistência, apenas turmas do mesmo idioma que você estuda ficam liberadas para ingresso imediato.',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (_loadingAvailable)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: AppShimmerSkeleton(height: 74, borderRadius: 16),
+            )
+          else
+            ...discoverable.asMap().entries.map((entry) {
+              final c = entry.value;
+              final classId = (c['id'] as num?)?.toInt();
+              final className = c['name']?.toString() ?? 'Turma';
+              final classLang = SupportedLanguages.normalizeOrDefault(
+                c['languageName']?.toString(),
+                SupportedLanguages.inferFromClassName(className),
+              );
+              final isCompatible = studentLangs.any(
+                (lang) => SupportedLanguages.matches(lang, classLang),
+              );
+              final shift = c['shift']?.toString() ?? '';
+              final year = c['schoolYear']?.toString() ?? '';
+              final grade = c['gradeLevel']?.toString() ?? '';
+              final subtitleParts = [
+                if (year.isNotEmpty) 'Ano $year',
+                if (shift.isNotEmpty) shift,
+                if (grade.isNotEmpty) grade,
+              ].join(' • ');
+
+              return StaggeredReveal(
+                index: entry.key,
+                child: Card(
+                  elevation: 0,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: isCompatible
+                          ? const Color(0xFF10B981).withValues(alpha: 0.45)
+                          : Theme.of(
+                              context,
+                            ).colorScheme.outlineVariant.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 10,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color:
+                                    (isCompatible
+                                            ? const Color(0xFF10B981)
+                                            : Colors.grey)
+                                        .withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                isCompatible
+                                    ? Icons.lock_open_rounded
+                                    : Icons.lock_outline_rounded,
+                                color: isCompatible
+                                    ? const Color(0xFF059669)
+                                    : Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 360),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      Text(
+                                        className,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      LanguageBadgePill(
+                                        language: classLang,
+                                        compact: true,
+                                      ),
+                                    ],
+                                  ),
+                                  if (subtitleParts.isNotEmpty) ...[
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      subtitleParts,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (isCompatible && classId != null)
+                          FilledButton.icon(
+                            onPressed: _joiningClassId != null
+                                ? null
+                                : () => _joinAvailableClass(
+                                    context,
+                                    classId,
+                                    className,
+                                  ),
+                            icon: _joiningClassId == classId
+                                ? const SizedBox.square(
+                                    dimension: 15,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.login_rounded, size: 17),
+                            label: const Text('Participar'),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              'Requer $classLang em Meus Idiomas',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.amber.shade900,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
           const SizedBox(height: 20),
         ],
         if (pastEnrollments.isNotEmpty) ...[
@@ -5717,20 +6120,24 @@ class _DetailedEnrollmentCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Flexible(
-                          child: Text(
-                            enrollment.schoolClassName,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        Text(
+                          enrollment.schoolClassName,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 8),
+                        LanguageBadgePill(
+                          language: enrollment.resolvedLanguage,
+                          compact: true,
+                        ),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -7132,6 +7539,12 @@ class _TeacherClassManagementViewState
     final name = TextEditingController();
     final year = TextEditingController(text: DateTime.now().year.toString());
     String shift = 'MANHÃ';
+    final preferredLangs = SupportedLanguages.sanitizeCatalogList(
+      widget.data.teacherProfile?.taughtLanguages ?? const [],
+    );
+    String languageName = preferredLangs.isNotEmpty
+        ? preferredLangs.first
+        : kDefaultSupportedLanguage;
     final gradeCtrl = TextEditingController(text: 'Geral');
 
     final result = await showDialog<bool>(
@@ -7181,6 +7594,28 @@ class _TeacherClassManagementViewState
                 TextField(
                   controller: name,
                   decoration: const InputDecoration(labelText: 'Nome da turma'),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  initialValue: languageName,
+                  decoration: const InputDecoration(
+                    labelText: 'Idioma oficial da turma *',
+                  ),
+                  items: kSupportedLanguages.map((lang) {
+                    final meta = SupportedLanguages.metaFor(lang);
+                    return DropdownMenuItem(
+                      value: lang,
+                      child: Row(
+                        children: [
+                          Icon(meta.icon, size: 16, color: meta.color),
+                          const SizedBox(width: 8),
+                          Text(lang),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (v) =>
+                      setDialogState(() => languageName = v ?? languageName),
                 ),
                 const SizedBox(height: 10),
                 TextField(
@@ -7248,6 +7683,7 @@ class _TeacherClassManagementViewState
               : schoolYear,
           'shift': shift,
           'gradeLevel': gradeLevel,
+          'languageName': languageName,
           'active': true,
         },
       );
@@ -7295,14 +7731,43 @@ class _TeacherClassManagementViewState
 
   Future<void> _addStudentToClass(BuildContext context, int classId) async {
     final searchCtrl = TextEditingController();
+    final classLanguage = SupportedLanguages.normalizeOrDefault(
+      _classDashboard?['languageName']?.toString(),
+      SupportedLanguages.inferFromClassName(_selectedClassName),
+    );
+    bool studentHasClassLanguage(Map<String, dynamic> student) {
+      final raw = student['languages'] as List? ?? const [];
+      for (final item in raw) {
+        if (item is Map) {
+          final langName =
+              item['languageName']?.toString() ??
+              item['language']?.toString() ??
+              '';
+          if (SupportedLanguages.matches(langName, classLanguage)) return true;
+        } else if (item != null) {
+          if (SupportedLanguages.matches(item.toString(), classLanguage)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
     try {
       final response = await ApiClient().dio.get<List<dynamic>>(
         '${AppConfig.apiBaseUrl}/api/students',
       );
-      final allStudents = (response.data ?? const [])
-          .whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList();
+      final allStudents =
+          (response.data ?? const [])
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList()
+            ..sort((a, b) {
+              final aOk = studentHasClassLanguage(a) ? 0 : 1;
+              final bOk = studentHasClassLanguage(b) ? 0 : 1;
+              if (aOk != bOk) return aOk.compareTo(bOk);
+              return '${a['name'] ?? ''}'.compareTo('${b['name'] ?? ''}');
+            });
 
       if (!context.mounted) return;
 
@@ -7328,6 +7793,32 @@ class _TeacherClassManagementViewState
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF3579E8).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          LanguageBadgePill(
+                            language: classLanguage,
+                            compact: true,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Apenas estudantes que estudam $classLanguage podem entrar nesta turma.',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: searchCtrl,
                       decoration: const InputDecoration(
@@ -7347,16 +7838,54 @@ class _TeacherClassManagementViewState
                               itemCount: filtered.length,
                               itemBuilder: (_, idx) {
                                 final s = filtered[idx];
+                                final eligible = studentHasClassLanguage(s);
                                 return ListTile(
-                                  leading: const CircleAvatar(
-                                    child: Icon(Icons.person_rounded),
+                                  enabled: eligible,
+                                  leading: CircleAvatar(
+                                    backgroundColor: eligible
+                                        ? const Color(
+                                            0xFF10B981,
+                                          ).withValues(alpha: 0.16)
+                                        : Colors.grey.withValues(alpha: 0.16),
+                                    child: Icon(
+                                      eligible
+                                          ? Icons.person_rounded
+                                          : Icons.lock_outline_rounded,
+                                      color: eligible
+                                          ? const Color(0xFF059669)
+                                          : Colors.grey,
+                                    ),
                                   ),
                                   title: Text('${s['name'] ?? 'Estudante'}'),
-                                  subtitle: Text('${s['email'] ?? ''}'),
-                                  trailing: const Icon(
-                                    Icons.person_add_alt_1_rounded,
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text('${s['email'] ?? ''}'),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        eligible
+                                            ? 'Elegível para $classLanguage'
+                                            : 'Não possui $classLanguage no perfil',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: eligible
+                                              ? const Color(0xFF059669)
+                                              : Colors.amber.shade900,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  onTap: () => Navigator.pop(ctx, s),
+                                  trailing: Icon(
+                                    eligible
+                                        ? Icons.person_add_alt_1_rounded
+                                        : Icons.block_rounded,
+                                    color: eligible ? null : Colors.grey,
+                                  ),
+                                  onTap: eligible
+                                      ? () => Navigator.pop(ctx, s)
+                                      : null,
                                 );
                               },
                             ),
@@ -7471,14 +8000,29 @@ class _TeacherClassManagementViewState
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      dash?['name']?.toString() ??
-                          _selectedClassName ??
-                          'Dashboard da Turma',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          dash?['name']?.toString() ??
+                              _selectedClassName ??
+                              'Dashboard da Turma',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        LanguageBadgePill(
+                          language: SupportedLanguages.normalizeOrDefault(
+                            dash?['languageName']?.toString(),
+                            SupportedLanguages.inferFromClassName(
+                              dash?['name']?.toString() ?? _selectedClassName,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     Text(
                       [
@@ -7797,37 +8341,52 @@ class _TeacherClassManagementViewState
               ),
             ),
           ),
-        ...widget.data.teacherAssignments.map(
-          (a) => Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            child: ListTile(
-              onTap: a.schoolClassId == null
-                  ? null
-                  : () => _openClassDashboard(
-                      a.schoolClassId!,
-                      a.schoolClassName,
-                    ),
-              leading: const CircleAvatar(child: Icon(Icons.class_rounded)),
-              title: Text(
-                a.schoolClassName,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              subtitle: Text(
-                'Desde ${a.startDate} • Toque para abrir o Dashboard da Turma',
-              ),
-              trailing: FilledButton.tonalIcon(
-                onPressed: a.schoolClassId == null
+        ...widget.data.teacherAssignments.asMap().entries.map((entry) {
+          final a = entry.value;
+          return StaggeredReveal(
+            index: entry.key,
+            child: Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                onTap: a.schoolClassId == null
                     ? null
                     : () => _openClassDashboard(
                         a.schoolClassId!,
                         a.schoolClassName,
                       ),
-                icon: const Icon(Icons.analytics_outlined, size: 18),
-                label: const Text('Dashboard'),
+                leading: const CircleAvatar(child: Icon(Icons.class_rounded)),
+                title: Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      a.schoolClassName,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    LanguageBadgePill(
+                      language: a.resolvedLanguage,
+                      compact: true,
+                    ),
+                  ],
+                ),
+                subtitle: Text(
+                  'Desde ${a.startDate} • Toque para abrir o Dashboard da Turma',
+                ),
+                trailing: FilledButton.tonalIcon(
+                  onPressed: a.schoolClassId == null
+                      ? null
+                      : () => _openClassDashboard(
+                          a.schoolClassId!,
+                          a.schoolClassName,
+                        ),
+                  icon: const Icon(Icons.analytics_outlined, size: 18),
+                  label: const Text('Dashboard'),
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        }),
       ],
     );
   }

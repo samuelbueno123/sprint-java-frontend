@@ -1,8 +1,159 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
+import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
 import '../audio_speech_helper.dart';
+
+class _AddVocabularyWordDialog extends StatefulWidget {
+  const _AddVocabularyWordDialog({
+    required this.initialLanguage,
+    required this.languages,
+  });
+
+  final String initialLanguage;
+  final List<String> languages;
+
+  @override
+  State<_AddVocabularyWordDialog> createState() =>
+      _AddVocabularyWordDialogState();
+}
+
+class _AddVocabularyWordDialogState extends State<_AddVocabularyWordDialog> {
+  final TextEditingController _termCtrl = TextEditingController();
+  final TextEditingController _transCtrl = TextEditingController();
+  final TextEditingController _exampleCtrl = TextEditingController();
+  late String _language;
+  String _partOfSpeech = 'SUBSTANTIVO';
+  String? _validationError;
+
+  @override
+  void initState() {
+    super.initState();
+    _language = widget.languages.contains(widget.initialLanguage)
+        ? widget.initialLanguage
+        : widget.languages.first;
+  }
+
+  @override
+  void dispose() {
+    _termCtrl.dispose();
+    _transCtrl.dispose();
+    _exampleCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final term = _termCtrl.text.trim();
+    final translation = _transCtrl.text.trim();
+    if (term.isEmpty || translation.isEmpty) {
+      setState(
+        () =>
+            _validationError = 'Preencha o termo e a tradução antes de salvar.',
+      );
+      return;
+    }
+    final example = _exampleCtrl.text.trim();
+    Navigator.of(context).pop(<String, dynamic>{
+      'language': _language,
+      'term': term,
+      'translation': translation,
+      'partOfSpeech': _partOfSpeech,
+      'exampleSentence': example.isEmpty ? null : example,
+      'masteryLevel': 'LEARNING',
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Adicionar Nova Palavra ao Cofre'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _language,
+              decoration: const InputDecoration(labelText: 'Idioma'),
+              items: widget.languages
+                  .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+                  .toList(),
+              onChanged: (val) {
+                if (val != null) setState(() => _language = val);
+              },
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _termCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Termo / Expressão',
+                hintText: 'Ex: resilient',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _transCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Tradução / Significado',
+                hintText: 'Ex: resiliente, resistente',
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _partOfSpeech,
+              decoration: const InputDecoration(labelText: 'Classe Gramatical'),
+              items: const [
+                DropdownMenuItem(
+                  value: 'SUBSTANTIVO',
+                  child: Text('Substantivo'),
+                ),
+                DropdownMenuItem(value: 'VERBO', child: Text('Verbo')),
+                DropdownMenuItem(value: 'ADJETIVO', child: Text('Adjetivo')),
+                DropdownMenuItem(value: 'ADVERBIO', child: Text('Advérbio')),
+                DropdownMenuItem(
+                  value: 'EXPRESSAO',
+                  child: Text('Expressão Idiomática'),
+                ),
+              ],
+              onChanged: (val) {
+                if (val != null) setState(() => _partOfSpeech = val);
+              },
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _exampleCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Frase de Exemplo (Opcional)',
+                hintText: 'Ex: She proved to be very resilient.',
+              ),
+              maxLines: 2,
+            ),
+            if (_validationError != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _validationError!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(null),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Salvar')),
+      ],
+    );
+  }
+}
 
 class StudentVocabularyView extends StatefulWidget {
   const StudentVocabularyView({super.key, required this.onBack});
@@ -22,15 +173,10 @@ class _StudentVocabularyViewState extends State<StudentVocabularyView> {
   String _selectedMastery = 'TODOS';
   String _searchQuery = '';
   final TextEditingController _searchCtrl = TextEditingController();
+  Timer? _searchDebounce;
+  int _fetchRequestId = 0;
 
-  final List<String> _languages = [
-    'Todos',
-    'Inglês',
-    'Espanhol',
-    'Francês',
-    'Alemão',
-    'Italiano',
-  ];
+  final List<String> _languages = ['Todos', ...kSupportedLanguages];
 
   @override
   void initState() {
@@ -40,11 +186,13 @@ class _StudentVocabularyViewState extends State<StudentVocabularyView> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _fetchVocabulary() async {
+    final requestId = ++_fetchRequestId;
     try {
       final queryParams = <String, dynamic>{};
       if (_selectedLanguage != 'Todos') {
@@ -61,13 +209,12 @@ class _StudentVocabularyViewState extends State<StudentVocabularyView> {
         '/api/students/me/vocabulary',
         queryParameters: queryParams,
       );
-      if (mounted) {
-        setState(() {
-          _vocabulary = List<Map<String, dynamic>>.from(res.data ?? []);
-        });
-      }
+      if (!mounted || requestId != _fetchRequestId) return;
+      setState(() {
+        _vocabulary = List<Map<String, dynamic>>.from(res.data ?? []);
+      });
     } catch (e) {
-      if (mounted) {
+      if (mounted && requestId == _fetchRequestId) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erro ao carregar vocabulário: $e')),
         );
@@ -76,135 +223,33 @@ class _StudentVocabularyViewState extends State<StudentVocabularyView> {
   }
 
   Future<void> _addWordDialog() async {
-    final termCtrl = TextEditingController();
-    final transCtrl = TextEditingController();
-    final exampleCtrl = TextEditingController();
-    String language = _selectedLanguage != 'Todos'
+    final initialLanguage = _selectedLanguage != 'Todos'
         ? _selectedLanguage
         : 'Inglês';
-    String partOfSpeech = 'SUBSTANTIVO';
+    final dialogLanguages = _languages.where((l) => l != 'Todos').toList();
 
-    final result = await showDialog<bool>(
+    final payload = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Adicionar Nova Palavra ao Cofre'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: language,
-                  decoration: const InputDecoration(labelText: 'Idioma'),
-                  items: _languages.where((l) => l != 'Todos').map((l) {
-                    return DropdownMenuItem(value: l, child: Text(l));
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) setDialogState(() => language = val);
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: termCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Termo / Expressão',
-                    hintText: 'Ex: resilient',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: transCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Tradução / Significado',
-                    hintText: 'Ex: resiliente, resistente',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: partOfSpeech,
-                  decoration: const InputDecoration(
-                    labelText: 'Classe Gramatical',
-                  ),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'SUBSTANTIVO',
-                      child: Text('Substantivo'),
-                    ),
-                    DropdownMenuItem(value: 'VERBO', child: Text('Verbo')),
-                    DropdownMenuItem(
-                      value: 'ADJETIVO',
-                      child: Text('Adjetivo'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'ADVERBIO',
-                      child: Text('Advérbio'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'EXPRESSAO',
-                      child: Text('Expressão Idiomática'),
-                    ),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) setDialogState(() => partOfSpeech = val);
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: exampleCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Frase de Exemplo (Opcional)',
-                    hintText: 'Ex: She proved to be very resilient.',
-                  ),
-                  maxLines: 2,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Salvar'),
-            ),
-          ],
-        ),
+      builder: (ctx) => _AddVocabularyWordDialog(
+        initialLanguage: initialLanguage,
+        languages: dialogLanguages,
       ),
     );
 
-    if (result == true &&
-        termCtrl.text.trim().isNotEmpty &&
-        transCtrl.text.trim().isNotEmpty) {
-      try {
-        await _dio.post(
-          '/api/students/me/vocabulary',
-          data: {
-            'language': language,
-            'term': termCtrl.text.trim(),
-            'translation': transCtrl.text.trim(),
-            'partOfSpeech': partOfSpeech,
-            'exampleSentence': exampleCtrl.text.trim().isEmpty
-                ? null
-                : exampleCtrl.text.trim(),
-            'masteryLevel': 'LEARNING',
-          },
+    if (!mounted || payload == null) return;
+    try {
+      await _dio.post('/api/students/me/vocabulary', data: payload);
+      await _fetchVocabulary();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Palavra salva no seu cofre pessoal!')),
         );
-        _fetchVocabulary();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Palavra salva no seu cofre pessoal!'),
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Erro ao salvar palavra: $e')));
-        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao salvar palavra: $e')));
       }
     }
   }
@@ -296,6 +341,7 @@ class _StudentVocabularyViewState extends State<StudentVocabularyView> {
                         ? IconButton(
                             icon: const Icon(Icons.clear_rounded),
                             onPressed: () {
+                              _searchDebounce?.cancel();
                               _searchCtrl.clear();
                               setState(() => _searchQuery = '');
                               _fetchVocabulary();
@@ -309,7 +355,13 @@ class _StudentVocabularyViewState extends State<StudentVocabularyView> {
                   ),
                   onChanged: (val) {
                     setState(() => _searchQuery = val);
-                    _fetchVocabulary();
+                    _searchDebounce?.cancel();
+                    _searchDebounce = Timer(
+                      const Duration(milliseconds: 300),
+                      () {
+                        if (mounted) _fetchVocabulary();
+                      },
+                    );
                   },
                 ),
                 const SizedBox(height: 10),

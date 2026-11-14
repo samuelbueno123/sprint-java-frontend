@@ -1,6 +1,214 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
+
+class _AddSrsCardDialog extends StatefulWidget {
+  const _AddSrsCardDialog({required this.onSave});
+
+  final Future<void> Function(Map<String, dynamic> payload) onSave;
+
+  @override
+  State<_AddSrsCardDialog> createState() => _AddSrsCardDialogState();
+}
+
+class _AddSrsCardDialogState extends State<_AddSrsCardDialog> {
+  final TextEditingController _termCtrl = TextEditingController();
+  final TextEditingController _translationCtrl = TextEditingController();
+  final TextEditingController _exampleCtrl = TextEditingController();
+  final TextEditingController _exampleTranslationCtrl = TextEditingController();
+  String _language = kDefaultSupportedLanguage;
+  String _category = 'geral';
+  String _cefrLevel = 'B1';
+  bool _saving = false;
+  String? _validationError;
+
+  @override
+  void dispose() {
+    _termCtrl.dispose();
+    _translationCtrl.dispose();
+    _exampleCtrl.dispose();
+    _exampleTranslationCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final term = _termCtrl.text.trim();
+    final translation = _translationCtrl.text.trim();
+    if (term.isEmpty || translation.isEmpty) {
+      setState(
+        () => _validationError =
+            'Preencha o termo e a tradução antes de salvar o flashcard.',
+      );
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _validationError = null;
+    });
+    try {
+      await widget.onSave(<String, dynamic>{
+        'languageName': _language,
+        'term': term,
+        'translation': translation,
+        'exampleSentence': _exampleCtrl.text.trim(),
+        'exampleTranslation': _exampleTranslationCtrl.text.trim(),
+        'category': _category,
+        'cefrLevel': _cefrLevel,
+      });
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao adicionar flashcard: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Row(
+        children: [
+          Icon(Icons.add_card_rounded, color: Color(0xFF3579E8)),
+          SizedBox(width: 8),
+          Text('Novo Flashcard'),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _language,
+              decoration: const InputDecoration(
+                labelText: 'Idioma',
+                border: OutlineInputBorder(),
+              ),
+              items: kSupportedLanguages
+                  .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+                  .toList(),
+              onChanged: (v) =>
+                  setState(() => _language = v ?? kDefaultSupportedLanguage),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _termCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Termo / Expressão *',
+                hintText: 'ex: overwhelmed',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _translationCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Tradução / Significado *',
+                hintText: 'ex: sobrecarregado(a)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _exampleCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Frase de Exemplo',
+                hintText: 'ex: She felt overwhelmed by the work.',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _exampleTranslationCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Tradução do Exemplo',
+                hintText: 'ex: Ela se sentiu sobrecarregada com o trabalho.',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _cefrLevel,
+                    decoration: const InputDecoration(
+                      labelText: 'Nível CEFR',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: ['A1', 'A2', 'B1', 'B2', 'C1']
+                        .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _cefrLevel = v ?? 'B1'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _category,
+                    decoration: const InputDecoration(
+                      labelText: 'Categoria',
+                      border: OutlineInputBorder(),
+                    ),
+                    items:
+                        [
+                              'geral',
+                              'adjetivo',
+                              'verbo',
+                              'substantivo',
+                              'phrasal verb',
+                              'expressão',
+                            ]
+                            .map(
+                              (c) => DropdownMenuItem(value: c, child: Text(c)),
+                            )
+                            .toList(),
+                    onChanged: (v) => setState(() => _category = v ?? 'geral'),
+                  ),
+                ),
+              ],
+            ),
+            if (_validationError != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _validationError!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('Salvar'),
+        ),
+      ],
+    );
+  }
+}
 
 class SrsReviewView extends StatefulWidget {
   const SrsReviewView({super.key, required this.onBack});
@@ -75,6 +283,7 @@ class _SrsReviewViewState extends State<SrsReviewView> {
         '/api/srs/review/$itemId',
         data: {'rating': rating},
       );
+      if (!mounted) return;
 
       final updated = Map<String, dynamic>.from(response.data as Map);
       final xpGained = (updated['xpEarned'] as num?)?.toInt() ?? 5;
@@ -110,170 +319,15 @@ class _SrsReviewViewState extends State<SrsReviewView> {
     }
   }
 
-  void _showAddCardDialog() {
-    final termCtrl = TextEditingController();
-    final translationCtrl = TextEditingController();
-    final exampleCtrl = TextEditingController();
-    final exampleTranslationCtrl = TextEditingController();
-    String category = 'geral';
-    String cefrLevel = 'B1';
-    bool saving = false;
-
-    showDialog(
+  Future<void> _showAddCardDialog() async {
+    final saved = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Row(
-            children: [
-              Icon(Icons.add_card_rounded, color: Color(0xFF3579E8)),
-              SizedBox(width: 8),
-              Text('Novo Flashcard'),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: termCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Termo / Expressão *',
-                    hintText: 'ex: overwhelmed',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: translationCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Tradução / Significado *',
-                    hintText: 'ex: sobrecarregado(a)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: exampleCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Frase de Exemplo',
-                    hintText: 'ex: She felt overwhelmed by the work.',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: exampleTranslationCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Tradução do Exemplo',
-                    hintText:
-                        'ex: Ela se sentiu sobrecarregada com o trabalho.',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: cefrLevel,
-                        decoration: const InputDecoration(
-                          labelText: 'Nível CEFR',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: ['A1', 'A2', 'B1', 'B2', 'C1']
-                            .map(
-                              (l) => DropdownMenuItem(value: l, child: Text(l)),
-                            )
-                            .toList(),
-                        onChanged: (v) =>
-                            setDialogState(() => cefrLevel = v ?? 'B1'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: category,
-                        decoration: const InputDecoration(
-                          labelText: 'Categoria',
-                          border: OutlineInputBorder(),
-                        ),
-                        items:
-                            [
-                                  'geral',
-                                  'adjetivo',
-                                  'verbo',
-                                  'substantivo',
-                                  'phrasal verb',
-                                  'expressão',
-                                ]
-                                .map(
-                                  (c) => DropdownMenuItem(
-                                    value: c,
-                                    child: Text(c),
-                                  ),
-                                )
-                                .toList(),
-                        onChanged: (v) =>
-                            setDialogState(() => category = v ?? 'geral'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: saving
-                  ? null
-                  : () async {
-                      if (termCtrl.text.trim().isEmpty ||
-                          translationCtrl.text.trim().isEmpty) {
-                        return;
-                      }
-                      setDialogState(() => saving = true);
-                      try {
-                        await _dio.post(
-                          '/api/srs/items',
-                          data: {
-                            'languageName': 'Inglês',
-                            'term': termCtrl.text.trim(),
-                            'translation': translationCtrl.text.trim(),
-                            'exampleSentence': exampleCtrl.text.trim(),
-                            'exampleTranslation': exampleTranslationCtrl.text
-                                .trim(),
-                            'category': category,
-                            'cefrLevel': cefrLevel,
-                          },
-                        );
-                        if (ctx.mounted) Navigator.of(ctx).pop();
-                        _loadData();
-                      } catch (e) {
-                        setDialogState(() => saving = false);
-                      }
-                    },
-              child: saving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Salvar'),
-            ),
-          ],
-        ),
+      builder: (ctx) => _AddSrsCardDialog(
+        onSave: (payload) => _dio.post('/api/srs/items', data: payload),
       ),
     );
+    if (!mounted || saved != true) return;
+    await _loadData();
   }
 
   @override

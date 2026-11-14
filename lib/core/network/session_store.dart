@@ -22,6 +22,7 @@ class SessionStore {
   static Future<String?>? _refreshInFlight;
 
   static String? get accessToken => _accessToken;
+  static String? get refreshToken => _refreshToken;
   static bool get hasSession => _hasSession;
 
   /// Notificador reativo disparado quando a sessão expira e não pode ser renovada
@@ -46,6 +47,9 @@ class SessionStore {
       // Web refresh tokens stay in the HttpOnly cookie instead of localStorage.
       _accessToken = null;
       _refreshToken = null;
+      if (_hasSession && AppConfig.hasValidApiBaseUrl) {
+        await refreshAccessToken();
+      }
       return;
     }
     _accessToken = preferences.getString(_accessTokenKey);
@@ -95,8 +99,12 @@ class SessionStore {
   static Future<String?> _requestNewTokens() async {
     final refreshToken = _refreshToken;
     if (!AppConfig.hasValidApiBaseUrl ||
-        (!_hasSession && (refreshToken == null || refreshToken.isEmpty)) ||
-        (!kIsWeb && (refreshToken == null || refreshToken.isEmpty))) {
+        (!_hasSession && (refreshToken == null || refreshToken.isEmpty))) {
+      return null;
+    }
+    if (!kIsWeb && (refreshToken == null || refreshToken.isEmpty)) {
+      await clear();
+      notifySessionExpired();
       return null;
     }
 

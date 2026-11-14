@@ -16,6 +16,7 @@ class LoginViewModel extends ChangeNotifier {
   final SignInWithGoogle _signInWithGoogle;
 
   bool _isLoading = false;
+  bool _disposed = false;
   String? _errorMessage;
   AuthSession? _session;
   StreamSubscription<GoogleSignInAccount?>? _googleUserSubscription;
@@ -23,6 +24,12 @@ class LoginViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   AuthSession? get session => _session;
+
+  void _notifySafely() {
+    if (!_disposed) {
+      notifyListeners();
+    }
+  }
 
   /// The GIS button owns the web popup, so web sign-in completes through this
   /// account stream instead of calling GoogleSignIn.signIn().
@@ -41,7 +48,7 @@ class LoginViewModel extends ChangeNotifier {
   Future<void> _exchangeGoogleIdToken(GoogleSignInAccount account) async {
     _isLoading = true;
     _errorMessage = null;
-    notifyListeners();
+    _notifySafely();
 
     try {
       final idToken = (await account.authentication).idToken;
@@ -55,21 +62,21 @@ class LoginViewModel extends ChangeNotifier {
       _errorMessage = authenticationErrorMessage(error);
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _notifySafely();
     }
   }
 
   void _onGoogleSignInError(Object error) {
     _errorMessage = authenticationErrorMessage(error);
     _isLoading = false;
-    notifyListeners();
+    _notifySafely();
   }
 
   Future<void> signInWithPassword(String email, String password) async {
     if (_isLoading || _session != null) return;
     _isLoading = true;
     _errorMessage = null;
-    notifyListeners();
+    _notifySafely();
 
     try {
       _session = await _signInWithPassword(email, password);
@@ -77,7 +84,7 @@ class LoginViewModel extends ChangeNotifier {
       _errorMessage = authenticationErrorMessage(error);
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _notifySafely();
     }
   }
 
@@ -85,7 +92,7 @@ class LoginViewModel extends ChangeNotifier {
     if (_isLoading || _session != null) return;
     _isLoading = true;
     _errorMessage = null;
-    notifyListeners();
+    _notifySafely();
 
     try {
       _session = await _signInWithGoogle();
@@ -93,12 +100,13 @@ class LoginViewModel extends ChangeNotifier {
       _errorMessage = authenticationErrorMessage(error);
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _notifySafely();
     }
   }
 
   @override
   void dispose() {
+    _disposed = true;
     final subscription = _googleUserSubscription;
     if (subscription != null) unawaited(subscription.cancel());
     super.dispose();
