@@ -1689,8 +1689,8 @@ class _StudentProfileBanner extends StatefulWidget {
 }
 
 class _StudentProfileBannerState extends State<_StudentProfileBanner> {
-  int _currentStreak = 1;
-  int _bestStreak = 1;
+  int _currentStreak = 0;
+  int _bestStreak = 0;
   int _dailyXp = 0;
   int _dailyGoalXp = 50;
 
@@ -1710,7 +1710,7 @@ class _StudentProfileBannerState extends State<_StudentProfileBanner> {
       final d = response.data ?? {};
       if (!mounted) return;
       setState(() {
-        _currentStreak = (d['currentStreakDays'] as num?)?.toInt() ?? 1;
+        _currentStreak = (d['currentStreakDays'] as num?)?.toInt() ?? 0;
         _bestStreak = (d['bestStreakDays'] as num?)?.toInt() ?? _currentStreak;
         _dailyXp = (d['dailyXp'] as num?)?.toInt() ?? 0;
         _dailyGoalXp = (d['dailyGoalXp'] as num?)?.toInt() ?? 50;
@@ -2336,7 +2336,7 @@ class _StudentStreakDialogState extends State<_StudentStreakDialog>
                                                 student['streak'] ??
                                                 (isMe
                                                     ? widget.currentStreak
-                                                    : (10 - i).clamp(1, 20)))
+                                                    : 0))
                                             as num;
 
                                     return Container(

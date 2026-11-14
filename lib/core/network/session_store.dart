@@ -128,6 +128,7 @@ class SessionStore {
       if (exception.response?.statusCode == 401 ||
           exception.response?.statusCode == 403) {
         await clear();
+        notifySessionExpired();
       }
       return null;
     } finally {

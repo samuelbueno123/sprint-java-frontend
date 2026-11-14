@@ -260,7 +260,7 @@ class _TeacherExercisesOverviewScreenState
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${_classes.firstWhere((item) => item.id == _selectedClassId).name} · ${classSize == null ? (_loadingStudents ? 'Carregando estudantes…' : 'estudantes não carregados') : '$classSize estudantes'}',
+                    '${_classes.firstWhere((item) => item.id == _selectedClassId, orElse: () => _classes.first).name} · ${classSize == null ? (_loadingStudents ? 'Carregando estudantes…' : 'estudantes não carregados') : '$classSize estudantes'}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: colors.onSurfaceVariant,
                     ),

@@ -418,6 +418,7 @@ class _AdminTeacherDocumentsViewState extends State<AdminTeacherDocumentsView> {
                                 icon: const Icon(Icons.clear_rounded),
                                 onPressed: () {
                                   _searchController.clear();
+                                  _currentPage = 0;
                                   _loadDocuments();
                                 },
                               )

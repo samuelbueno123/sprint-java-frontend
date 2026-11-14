@@ -16,7 +16,6 @@ class App extends StatelessWidget {
     builder: (context, themeMode, _) => ValueListenableBuilder<String>(
       valueListenable: AppLocaleController.languageCode,
       builder: (context, langCode, _) => ShadApp(
-        key: ValueKey<String>('app_locale_$langCode'),
         debugShowCheckedModeBanner: false,
         title: 'Duolinfo',
         themeMode: themeMode,

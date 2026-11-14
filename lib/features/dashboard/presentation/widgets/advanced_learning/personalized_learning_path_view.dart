@@ -240,7 +240,13 @@ class _PersonalizedLearningPathViewState
                           try {
                             final submitRes = await _dio.post(
                               '/api/learning-path/diagnostic',
-                              data: {'language': 'Inglês', 'answers': answers},
+                              data: {
+                                'language': _pathData?['language'] ?? 'Inglês',
+                                'answers': answers.map(
+                                  (key, value) =>
+                                      MapEntry(key.toString(), value),
+                                ),
+                              },
                             );
                             final result = Map<String, dynamic>.from(
                               submitRes.data as Map,
@@ -251,7 +257,18 @@ class _PersonalizedLearningPathViewState
                               _showResultModal(result);
                             }
                           } catch (e) {
-                            setDialogState(() => saving = false);
+                            if (ctx.mounted) {
+                              setDialogState(() => saving = false);
+                            }
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Erro ao enviar teste diagnóstico.',
+                                  ),
+                                ),
+                              );
+                            }
                           }
                         }
                       },
