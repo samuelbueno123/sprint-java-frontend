@@ -24,48 +24,64 @@ void main() {
   });
 
   group('MascotAssets & MascotSpriteCache (duo_goat_spritesheet)', () {
-    test('all declared duo_goat_spritesheet assets load from AssetBundle', () async {
-      final paths = MascotAssets.allDeclaredAssetPaths;
-      expect(paths.length, 74);
-      expect(paths.toSet().length, 74);
+    test(
+      'all declared duo_goat_spritesheet assets load from AssetBundle',
+      () async {
+        final paths = MascotAssets.allDeclaredAssetPaths;
+        expect(paths.length, 74);
+        expect(paths.toSet().length, 74);
 
-      for (final assetPath in paths) {
-        expect(assetPath, startsWith('assets/duo_goat_spritesheet/'));
-        final data = await rootBundle.load(assetPath);
-        expect(
-          data.lengthInBytes,
-          greaterThan(0),
-          reason: 'Asset $assetPath deveria ter bytes > 0',
-        );
-      }
-    });
+        for (final assetPath in paths) {
+          expect(assetPath, startsWith('assets/duo_goat_spritesheet/'));
+          final data = await rootBundle.load(assetPath);
+          expect(
+            data.lengthInBytes,
+            greaterThan(0),
+            reason: 'Asset $assetPath deveria ter bytes > 0',
+          );
+        }
+      },
+    );
 
-    test('all 23 MascotState enum values have complete specs and valid GIFs', () {
-      expect(MascotAssets.specs.length, MascotState.values.length);
-      expect(MascotAssets.specs.length, 23);
-      for (final state in MascotState.values) {
-        final spec = MascotAssets.specFor(state);
-        expect(spec.frameCount, greaterThan(0));
-        expect(spec.cols * spec.rows, greaterThanOrEqualTo(spec.frameCount));
-        expect(spec.title, isNotEmpty);
-        expect(spec.defaultQuote, isNotEmpty);
+    test(
+      'all 23 MascotState enum values have complete specs and valid GIFs',
+      () {
+        expect(MascotAssets.specs.length, MascotState.values.length);
+        expect(MascotAssets.specs.length, 23);
+        expect(MascotAssets.specFor(MascotState.sad).loop, isFalse);
+        expect(MascotAssets.specFor(MascotState.intense).loop, isFalse);
         expect(
-          MascotAssets.gifFor(state, variant: MascotVariant.white),
-          startsWith('assets/duo_goat_spritesheet/'),
+          const MascotSprite(state: MascotState.idle).useSpriteSheet,
+          isTrue,
         );
-        expect(
-          MascotAssets.sheetFor(state),
-          startsWith('assets/duo_goat_spritesheet/'),
-        );
-        expect(MascotAssets.randomIdleQuote(1), isNotEmpty);
-      }
-    });
+        for (final state in MascotState.values) {
+          final spec = MascotAssets.specFor(state);
+          expect(spec.frameCount, greaterThan(0));
+          expect(spec.cols * spec.rows, greaterThanOrEqualTo(spec.frameCount));
+          expect(spec.title, isNotEmpty);
+          expect(spec.defaultQuote, isNotEmpty);
+          expect(
+            MascotAssets.gifFor(state, variant: MascotVariant.white),
+            startsWith('assets/duo_goat_spritesheet/'),
+          );
+          expect(
+            MascotAssets.sheetFor(state),
+            startsWith('assets/duo_goat_spritesheet/'),
+          );
+          expect(MascotAssets.randomIdleQuote(1), isNotEmpty);
+        }
+      },
+    );
 
     test('JSON catalogs & per-animation sheets load cleanly', () async {
       final cache = MascotSpriteCache.instance;
 
-      final cat24Raw = await rootBundle.loadString(MascotAssets.catalog24FpsJson);
-      final catIntRaw = await rootBundle.loadString(MascotAssets.catalogInteractiveJson);
+      final cat24Raw = await rootBundle.loadString(
+        MascotAssets.catalog24FpsJson,
+      );
+      final catIntRaw = await rootBundle.loadString(
+        MascotAssets.catalogInteractiveJson,
+      );
       final cat24 = jsonDecode(cat24Raw) as List<dynamic>;
       final catInt = jsonDecode(catIntRaw) as List<dynamic>;
 
@@ -121,96 +137,102 @@ void main() {
   });
 
   group('Mascot widgets & studio modal', () {
-    testWidgets('MascotSprite, MascotPoseEmblem, MascotGifBadge and loaders settle', (
-      tester,
-    ) async {
-      var tapped = false;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: Column(
-                children: [
-                  MascotSprite(
-                    state: MascotState.celebrate,
-                    glowColor: Colors.amber,
-                    onTap: () => tapped = true,
-                  ),
-                  const MascotPoseEmblem(state: MascotState.intense),
-                  const MascotGifBadge(state: MascotState.fireLoop),
-                  const MascotLoader(
-                    message: 'Carregando...',
-                    showProgressBar: false,
-                  ),
-                  const MascotEmptyIllustration(state: MascotState.idle),
-                  const MascotErrorIllustration(state: MascotState.sad),
-                  const MascotSpeechBanner(
-                    title: 'Bode Duo',
-                    message: 'Bora estudar!',
-                  ),
-                ],
+    testWidgets(
+      'MascotSprite, MascotPoseEmblem, MascotGifBadge and loaders settle',
+      (tester) async {
+        var tapped = false;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    MascotSprite(
+                      state: MascotState.celebrate,
+                      glowColor: Colors.amber,
+                      onTap: () => tapped = true,
+                    ),
+                    const MascotSprite(
+                      state: MascotState.intense,
+                      maxFrames: 19,
+                    ),
+                    const MascotPoseEmblem(state: MascotState.intense),
+                    const MascotGifBadge(state: MascotState.fireLoop),
+                    const MascotLoader(
+                      message: 'Carregando...',
+                      showProgressBar: false,
+                    ),
+                    const MascotEmptyIllustration(state: MascotState.idle),
+                    const MascotErrorIllustration(state: MascotState.sad),
+                    const MascotSpeechBanner(
+                      title: 'Bode Duo',
+                      message: 'Bora estudar!',
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(MascotSprite).first);
-      await tester.pump();
-      expect(tapped, isTrue);
-    });
+        await tester.tap(find.byType(MascotSprite).first);
+        await tester.pump();
+        expect(tapped, isTrue);
+      },
+    );
 
-    testWidgets('InteractiveMascotStage handles tap, drag, hold, and fire mode', (
-      tester,
-    ) async {
-      final triggered = <MascotState>[];
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: InteractiveMascotStage(
-              showControls: true,
-              fireMode: true,
-              onReaction: triggered.add,
+    testWidgets(
+      'InteractiveMascotStage handles tap, drag, hold, and fire mode',
+      (tester) async {
+        final triggered = <MascotState>[];
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: InteractiveMascotStage(
+                showControls: true,
+                fireMode: true,
+                onReaction: triggered.add,
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('Modo Chama Ativo'), findsOneWidget);
+        expect(find.text('Modo Chama Ativo'), findsOneWidget);
 
-      await tester.tap(find.byType(MascotSprite).first);
-      await tester.pumpAndSettle();
-      expect(triggered, contains(MascotState.clickPoke));
+        await tester.tap(find.byType(MascotSprite).first);
+        await tester.pumpAndSettle();
+        expect(triggered, contains(MascotState.clickPoke));
 
-      await tester.longPress(find.byType(MascotSprite).first);
-      await tester.pumpAndSettle();
-      expect(triggered, contains(MascotState.holdGrab));
+        await tester.longPress(find.byType(MascotSprite).first);
+        await tester.pumpAndSettle();
+        expect(triggered, contains(MascotState.holdGrab));
 
-      await tester.drag(
-        find.byType(MascotSprite).first,
-        const Offset(180, 0),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        triggered.any(
-          (s) =>
-              s == MascotState.wallHitRight ||
-              s == MascotState.dragStartRight ||
-              s == MascotState.dragMoveRight,
-        ),
-        isTrue,
-      );
+        await tester.drag(
+          find.byType(MascotSprite).first,
+          const Offset(180, 0),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          triggered.any(
+            (s) =>
+                s == MascotState.wallHitRight ||
+                s == MascotState.dragStartRight ||
+                s == MascotState.dragMoveRight,
+          ),
+          isTrue,
+        );
 
-      await tester.tap(find.text('Foco'));
-      await tester.pumpAndSettle();
-      expect(triggered, contains(MascotState.intense));
+        await tester.tap(find.text('Foco'));
+        await tester.pumpAndSettle();
+        expect(triggered, contains(MascotState.intense));
 
-      await tester.tap(find.text('Comemorar'));
-      await tester.pumpAndSettle();
-      expect(triggered, contains(MascotState.celebrate));
-    });
+        await tester.tap(find.text('Comemorar'));
+        await tester.pumpAndSettle();
+        expect(triggered, contains(MascotState.celebrate));
+      },
+    );
 
     testWidgets('MascotSettingsCard opens 23-animation studio modal', (
       tester,
@@ -251,101 +273,103 @@ void main() {
       );
     });
 
-    testWidgets('Auth screens display BANNER/ICONE cleanly without goat mascot', (
-      tester,
-    ) async {
-      await tester.binding.setSurfaceSize(const Size(1280, 820));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+    testWidgets(
+      'Auth screens display BANNER/ICONE cleanly without goat mascot',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1280, 820));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      await tester.pumpWidget(
-        MaterialApp(key: UniqueKey(), home: const AccessSelectionPage()),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(MascotSprite), findsNothing);
-      expect(find.text('ENTRAR COMO ALUNO'), findsOneWidget);
+        await tester.pumpWidget(
+          MaterialApp(key: UniqueKey(), home: const AccessSelectionPage()),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(MascotSprite), findsNothing);
+        expect(find.text('ENTRAR COMO ALUNO'), findsOneWidget);
 
-      await tester.tap(find.text('ENTRAR COMO ALUNO'));
-      await tester.pumpAndSettle();
-      expect(find.byType(LoginPage), findsOneWidget);
-      expect(find.byType(InteractiveMascotStage), findsNothing);
+        await tester.tap(find.text('ENTRAR COMO ALUNO'));
+        await tester.pumpAndSettle();
+        expect(find.byType(LoginPage), findsOneWidget);
+        expect(find.byType(InteractiveMascotStage), findsNothing);
 
-      await tester.pumpWidget(
-        MaterialApp(key: UniqueKey(), home: const RegistrationChoicePage()),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Sou estudante'), findsOneWidget);
+        await tester.pumpWidget(
+          MaterialApp(key: UniqueKey(), home: const RegistrationChoicePage()),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Sou estudante'), findsOneWidget);
 
-      await tester.pumpWidget(
-        MaterialApp(
-          key: UniqueKey(),
-          home: const Scaffold(body: RegistrationChoiceDialog()),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Sou Estudante'), findsOneWidget);
-    });
-
-    testWidgets('EmptyState, ErrorState, and AppAnimatedFeedback render cleanly', (
-      tester,
-    ) async {
-      var retried = false;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: Column(
-                children: [
-                  const DashboardEmptyState(
-                    icon: Icons.inbox,
-                    title: 'Sem dados',
-                    message: 'Nada por aqui.',
-                  ),
-                  DashboardErrorState(
-                    message: 'Falha momentânea',
-                    onRetry: () => retried = true,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.ensureVisible(find.text('Tentar Novamente'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Tentar Novamente'));
-      expect(retried, isTrue);
-
-      for (final tone in AppFeedbackTone.values) {
         await tester.pumpWidget(
           MaterialApp(
             key: UniqueKey(),
+            home: const Scaffold(body: RegistrationChoiceDialog()),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Sou Estudante'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'EmptyState, ErrorState, and AppAnimatedFeedback render cleanly',
+      (tester) async {
+        var retried = false;
+        await tester.pumpWidget(
+          MaterialApp(
             home: Scaffold(
-              body: Builder(
-                builder: (context) {
-                  return FilledButton(
-                    onPressed: () => AppAnimatedFeedback.show(
-                      context,
-                      title: 'Feedback ${tone.name}',
-                      message: 'Status ${tone.name}',
-                      tone: tone,
+              body: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    const DashboardEmptyState(
+                      icon: Icons.inbox,
+                      title: 'Sem dados',
+                      message: 'Nada por aqui.',
                     ),
-                    child: Text('Trigger ${tone.name}'),
-                  );
-                },
+                    DashboardErrorState(
+                      message: 'Falha momentânea',
+                      onRetry: () => retried = true,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         );
-        await tester.tap(find.text('Trigger ${tone.name}'));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        expect(find.text('Feedback ${tone.name}'), findsOneWidget);
-        expect(find.byType(MascotPoseEmblem), findsNothing);
-        await tester.pump(const Duration(seconds: 5));
         await tester.pumpAndSettle();
-      }
-    });
+
+        await tester.ensureVisible(find.text('Tentar Novamente'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Tentar Novamente'));
+        expect(retried, isTrue);
+
+        for (final tone in AppFeedbackTone.values) {
+          await tester.pumpWidget(
+            MaterialApp(
+              key: UniqueKey(),
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) {
+                    return FilledButton(
+                      onPressed: () => AppAnimatedFeedback.show(
+                        context,
+                        title: 'Feedback ${tone.name}',
+                        message: 'Status ${tone.name}',
+                        tone: tone,
+                      ),
+                      child: Text('Trigger ${tone.name}'),
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+          await tester.tap(find.text('Trigger ${tone.name}'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.text('Feedback ${tone.name}'), findsOneWidget);
+          expect(find.byType(MascotPoseEmblem), findsNothing);
+          await tester.pump(const Duration(seconds: 5));
+          await tester.pumpAndSettle();
+        }
+      },
+    );
   });
 }

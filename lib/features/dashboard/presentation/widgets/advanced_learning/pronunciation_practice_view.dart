@@ -4,6 +4,7 @@ import 'package:frontend/core/audio/system_sound_service.dart';
 import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 import 'package:frontend/core/xp/xp_animation_controller.dart';
 import '../audio_speech_helper.dart';
 
@@ -29,11 +30,46 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
   bool _isListening = false;
   String _spokenText = '';
   String? _error;
+  Object? _mascotToken;
+  bool _disposed = false;
+
+  String _helpMessageForChallenge(Map<String, dynamic>? challenge) {
+    final tips = challenge?['phoneticTips']?.toString().trim() ?? '';
+    if (tips.isNotEmpty) return tips;
+    final phrase = challenge?['phraseText']?.toString().trim() ?? '';
+    if (phrase.isNotEmpty) {
+      return 'Ouça a referência em $_selectedLanguage e fale "$phrase" em ritmo natural perto do microfone.';
+    }
+    return 'Selecione um desafio em $_selectedLanguage, ouça o áudio nativo e grave sua fala.';
+  }
 
   @override
   void initState() {
     super.initState();
     _loadFuture = _loadChallenges();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _disposed) return;
+      _mascotToken = MascotController.instance.enterActivity(
+        activityId: 'pronunciation',
+        title: 'Prática de Pronúncia ($_selectedLanguage)',
+        mascotHelpMessage: _helpMessageForChallenge(_selectedChallenge),
+      );
+      MascotController.instance.updateNavigationContext(
+        languageCode: _selectedLanguage,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    final token = _mascotToken;
+    if (token != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        MascotController.instance.exitActivity(token);
+      });
+    }
+    super.dispose();
   }
 
   Future<void> _loadChallenges() async {
@@ -44,12 +80,24 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
         queryParameters: {'language': _selectedLanguage},
       );
       if (!mounted) return;
+      final loaded = (res.data as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+      final first = loaded.isNotEmpty ? loaded.first : null;
       setState(() {
-        _challenges = (res.data as List)
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
-        _selectedChallenge = _challenges.isNotEmpty ? _challenges.first : null;
+        _challenges = loaded;
+        _selectedChallenge = first;
       });
+      MascotController.instance.updateNavigationContext(
+        languageCode: _selectedLanguage,
+      );
+      if (_mascotToken != null) {
+        MascotController.instance.updateActivityContext(
+          _mascotToken!,
+          mascotHelpMessage: _helpMessageForChallenge(first),
+          isCompleted: false,
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = 'Erro ao carregar desafios de pronúncia.');
@@ -110,10 +158,15 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
           source: 'Prática de Pronúncia',
         );
       }
-      if (score >= 55) {
+      if (score >= 70 && _mascotToken != null) {
         SystemSoundService.success();
+        MascotController.instance.markActivityCompleted(_mascotToken!);
+      } else if (score >= 55) {
+        SystemSoundService.success();
+        MascotController.instance.reactCorrect();
       } else {
         SystemSoundService.defeat();
+        MascotController.instance.reactIncorrect();
       }
       if (!mounted) return;
       setState(() {
@@ -243,6 +296,13 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
                             _evaluationResult = null;
                             _spokenText = '';
                           });
+                          if (_mascotToken != null) {
+                            MascotController.instance.updateActivityContext(
+                              _mascotToken!,
+                              mascotHelpMessage: _helpMessageForChallenge(c),
+                              isCompleted: false,
+                            );
+                          }
                         }
                       },
                     );
@@ -394,35 +454,29 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
             GestureDetector(
               onTap: _startRecording,
               child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _isListening
-                          ? Colors.red
-                          : const Color(0xFF3579E8),
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              (_isListening
-                                      ? Colors.red
-                                      : const Color(0xFF3579E8))
-                                  .withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          spreadRadius: _isListening ? 6 : 2,
-                        ),
-                      ],
+                duration: const Duration(milliseconds: 300),
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _isListening ? Colors.red : const Color(0xFF3579E8),
+                  boxShadow: [
+                    BoxShadow(
+                      color:
+                          (_isListening ? Colors.red : const Color(0xFF3579E8))
+                              .withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      spreadRadius: _isListening ? 6 : 2,
                     ),
-                    child: Icon(
-                      _isListening
-                          ? Icons.graphic_eq_rounded
-                          : Icons.mic_rounded,
-                      size: 38,
-                      color: Colors.white,
-                    ),
-                  ),
+                  ],
                 ),
+                child: Icon(
+                  _isListening ? Icons.graphic_eq_rounded : Icons.mic_rounded,
+                  size: 38,
+                  color: Colors.white,
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
             Text(
               _isListening
@@ -461,9 +515,7 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
             if (_evaluating)
               const Padding(
                 padding: EdgeInsets.all(16),
-                child: AppLoader(
-                  message: 'Analisando acurácia fonética...',
-                ),
+                child: AppLoader(message: 'Analisando acurácia fonética...'),
               ),
 
             if (_evaluationResult != null)
@@ -505,21 +557,16 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
             children: [
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: scoreColor.withValues(alpha: 0.14),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      finalScore >= 80
-                          ? Icons.workspace_premium_rounded
-                          : (finalScore >= 55
-                                ? Icons.thumb_up_rounded
-                                : Icons.refresh_rounded),
-                      color: scoreColor,
-                      size: 32,
-                    ),
+                  MascotPoseEmblem(
+                    state: finalScore >= 80
+                        ? MascotState.celebrate
+                        : (finalScore >= 55
+                              ? MascotState.clickHeart
+                              : MascotState.sad),
+                    size: 56,
+                    backgroundColor: scoreColor.withValues(alpha: 0.14),
+                    borderColor: scoreColor.withValues(alpha: 0.3),
+                    glowColor: scoreColor,
                   ),
                   const SizedBox(width: 10),
                   Text(

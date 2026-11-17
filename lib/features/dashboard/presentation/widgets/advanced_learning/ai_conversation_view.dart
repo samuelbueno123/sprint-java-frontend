@@ -4,6 +4,7 @@ import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/ui/language_flag.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 import '../audio_speech_helper.dart';
 
 class AiConversationView extends StatefulWidget {
@@ -30,6 +31,7 @@ class _AiConversationViewState extends State<AiConversationView> {
   bool _sending = false;
   bool _listening = false;
   bool _showMistakesDrawer = false;
+  Object? _mascotToken;
 
   @override
   void initState() {
@@ -39,9 +41,24 @@ class _AiConversationViewState extends State<AiConversationView> {
 
   @override
   void dispose() {
+    final token = _mascotToken;
+    _mascotToken = null;
+    if (token != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        MascotController.instance.exitActivity(token);
+      });
+    }
     _msgCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  void _exitConversationMascot() {
+    final token = _mascotToken;
+    _mascotToken = null;
+    if (token != null) {
+      MascotController.instance.exitActivity(token);
+    }
   }
 
   Future<void> _loadScenarios([String? language]) async {
@@ -59,6 +76,7 @@ class _AiConversationViewState extends State<AiConversationView> {
             .toList();
         _loading = false;
       });
+      MascotController.instance.updateNavigationContext(languageCode: target);
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -124,6 +142,29 @@ class _AiConversationViewState extends State<AiConversationView> {
             .toList();
         _loading = false;
       });
+      _exitConversationMascot();
+      final scenarioTitle =
+          (scenario['title'] ??
+                  sessionData['scenarioTitle'] ??
+                  'Conversação IA')
+              .toString();
+      final role =
+          (scenario['personaRole'] ?? sessionData['personaRole'] ?? 'Tutor IA')
+              .toString();
+      final desc = (scenario['description'] ?? '').toString().trim();
+      final helpMsg = desc.isNotEmpty
+          ? 'Cenário com $role: $desc'
+          : 'Pratique livremente com $role em $_selectedLanguage e confira as correções pedagógicas.';
+      final activeLang =
+          sessionData['targetLanguage']?.toString() ?? _selectedLanguage;
+      _mascotToken = MascotController.instance.enterActivity(
+        activityId: 'ai_conv:${sessionData['id'] ?? scenario['code']}',
+        title: scenarioTitle,
+        mascotHelpMessage: helpMsg,
+      );
+      MascotController.instance.updateNavigationContext(
+        languageCode: activeLang,
+      );
       _scrollToBottom();
     } catch (e) {
       if (!mounted) return;
@@ -215,9 +256,7 @@ class _AiConversationViewState extends State<AiConversationView> {
     final colors = Theme.of(context).colorScheme;
 
     if (_loading) {
-      return const AppLoader(
-        message: 'Preparando tutor de conversação...',
-      );
+      return const AppLoader(message: 'Preparando tutor de conversação...');
     }
 
     if (_showMistakesDrawer) {
@@ -453,7 +492,10 @@ class _AiConversationViewState extends State<AiConversationView> {
             children: [
               IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
-                onPressed: () => setState(() => _currentSession = null),
+                onPressed: () {
+                  _exitConversationMascot();
+                  setState(() => _currentSession = null);
+                },
               ),
               const SizedBox(width: 8),
               CircleAvatar(
@@ -495,6 +537,7 @@ class _AiConversationViewState extends State<AiConversationView> {
                       );
                     } catch (_) {}
                   }
+                  _exitConversationMascot();
                   if (mounted) {
                     setState(() => _currentSession = null);
                   }
@@ -524,12 +567,14 @@ class _AiConversationViewState extends State<AiConversationView> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             child: Row(
               children: [
+                const MascotGifBadge(state: MascotState.clickBleat, size: 22),
+                const SizedBox(width: 8),
                 const SizedBox(
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Text(
                   '$role está digitando...',
                   style: TextStyle(
@@ -550,22 +595,26 @@ class _AiConversationViewState extends State<AiConversationView> {
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: _exampleRepliesForLanguage(
-                _currentSession?['targetLanguage']?.toString() ??
-                    _selectedLanguage,
-              ).map((example) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ActionChip(
-                    label: Text(example, style: const TextStyle(fontSize: 12)),
-                    onPressed: _sending
-                        ? null
-                        : () {
-                            _msgCtrl.text = example;
-                          },
-                  ),
-                );
-              }).toList(),
+              children:
+                  _exampleRepliesForLanguage(
+                    _currentSession?['targetLanguage']?.toString() ??
+                        _selectedLanguage,
+                  ).map((example) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ActionChip(
+                        label: Text(
+                          example,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        onPressed: _sending
+                            ? null
+                            : () {
+                                _msgCtrl.text = example;
+                              },
+                      ),
+                    );
+                  }).toList(),
             ),
           ),
         ),
@@ -736,10 +785,7 @@ class _AiConversationViewState extends State<AiConversationView> {
                     const SizedBox(height: 4),
                     Text(
                       explanation,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colors.onSurface,
-                      ),
+                      style: TextStyle(fontSize: 12, color: colors.onSurface),
                     ),
                   ],
                   if (nativeAlt != null && nativeAlt.isNotEmpty) ...[

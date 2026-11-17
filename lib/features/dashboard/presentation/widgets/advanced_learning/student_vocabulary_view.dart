@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 import '../audio_speech_helper.dart';
 
 class _AddVocabularyWordDialog extends StatefulWidget {
@@ -454,32 +455,12 @@ class _StudentVocabularyViewState extends State<StudentVocabularyView> {
                 }
 
                 if (_vocabulary.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const AppEmptyIllustration(
-                            icon: Icons.menu_book_rounded,
-                            size: 76,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Nenhuma palavra encontrada',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Adicione palavras desconhecidas com exemplos e pronúncia para enriquecer seu repertório!',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
+                  return const MascotEmptyIllustration(
+                    state: MascotState.idle,
+                    title: 'Nenhuma palavra encontrada',
+                    message:
+                        'Adicione palavras desconhecidas com exemplos e pronúncia para enriquecer seu repertório!',
+                    size: 92,
                   );
                 }
 

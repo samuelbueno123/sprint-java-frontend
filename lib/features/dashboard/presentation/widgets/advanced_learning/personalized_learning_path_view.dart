@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +8,7 @@ import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/ui/language_flag.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 import 'package:frontend/core/xp/xp_animation_controller.dart';
 import '../responsive_layout.dart';
 
@@ -46,16 +49,20 @@ class _PersonalizedLearningPathViewState
       );
       if (!mounted) return;
       final data = Map<String, dynamic>.from(res.data as Map);
+      final normalizedLang = SupportedLanguages.normalizeOrDefault(
+        data['language']?.toString(),
+        targetLang,
+      );
       setState(() {
         _pathData = data;
-        _selectedLanguage = SupportedLanguages.normalizeOrDefault(
-          data['language']?.toString(),
-          targetLang,
-        );
+        _selectedLanguage = normalizedLang;
         _modules = ((data['modules'] as List?) ?? [])
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
       });
+      MascotController.instance.updateNavigationContext(
+        languageCode: normalizedLang,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = 'Erro ao carregar trilha personalizada.');
@@ -104,9 +111,7 @@ class _PersonalizedLearningPathViewState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erro ao carregar prática do módulo.'),
-          ),
+          const SnackBar(content: Text('Erro ao carregar prática do módulo.')),
         );
       }
       setState(() => _submitting = false);
@@ -117,151 +122,218 @@ class _PersonalizedLearningPathViewState
 
     if (!mounted || questions.isEmpty) return;
 
+    final activityToken = MascotController.instance.enterActivity(
+      activityId: 'module:$moduleId',
+      title: moduleTitle,
+      mascotHelpMessage:
+          'Prática adaptativa de $_selectedLanguage ($moduleTitle). Responda com atenção para atingir pelo menos 60%!',
+    );
+
     final selected = <int, int>{};
     int currentIdx = 0;
     bool sending = false;
+    Map<String, dynamic>? quizResult;
 
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          final q = questions[currentIdx];
-          final prompt = q['prompt']?.toString() ?? '';
-          final options = ((q['options'] as List?) ?? const [])
-              .map((e) => e.toString())
-              .toList();
-          final dialogColors = Theme.of(ctx).colorScheme;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final dialogColors = Theme.of(ctx).colorScheme;
 
-          return AlertDialog(
-            insetPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 20,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-            title: Text(
-              '$moduleTitle (${currentIdx + 1}/${questions.length})',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    prompt,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
+            if (quizResult != null) {
+              final passed = quizResult!['passed'] == true;
+              final score = (quizResult!['score'] as num?)?.toDouble() ?? 0.0;
+              final xp = (quizResult!['xp'] as num?)?.toInt() ?? 0;
+
+              return AlertDialog(
+                insetPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 20,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                title: Text(
+                  passed ? 'Módulo Concluído!' : 'Resultado da Prática',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
                   ),
-                  const SizedBox(height: 14),
-                  for (var i = 0; i < options.length; i++)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: OutlinedButton(
-                        onPressed: sending
-                            ? null
-                            : () => setDialogState(() => selected[currentIdx] = i),
-                        style: OutlinedButton.styleFrom(
-                          alignment: Alignment.centerLeft,
-                          backgroundColor: selected[currentIdx] == i
-                              ? dialogColors.primary.withValues(alpha: 0.14)
-                              : null,
-                          side: BorderSide(
-                            color: selected[currentIdx] == i
-                                ? dialogColors.primary
-                                : dialogColors.outlineVariant,
-                            width: selected[currentIdx] == i ? 2 : 1,
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                        ),
-                        child: Text(
-                          options[i],
-                          style: TextStyle(color: dialogColors.onSurface),
-                        ),
-                      ),
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    MascotSprite(
+                      state: passed ? MascotState.celebrate : MascotState.sad,
+                      size: 78,
                     ),
+                    const SizedBox(height: 12),
+                    Text(
+                      passed
+                          ? 'Você atingiu ${score.round()}% (+$xp XP) em $moduleTitle!'
+                          : 'Pontuação: ${score.round()}%. Obtenha pelo menos 60% para concluir o módulo.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ],
+                ),
+                actions: [
+                  FilledButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('Continuar'),
+                  ),
                 ],
+              );
+            }
+
+            final q = questions[currentIdx];
+            final prompt = q['prompt']?.toString() ?? '';
+            final options = ((q['options'] as List?) ?? const [])
+                .map((e) => e.toString())
+                .toList();
+
+            return AlertDialog(
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 20,
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: sending ? null : () => Navigator.of(ctx).pop(),
-                child: const Text('Cancelar'),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
               ),
-              FilledButton(
-                onPressed: selected[currentIdx] == null || sending
-                    ? null
-                    : () async {
-                        if (currentIdx < questions.length - 1) {
-                          setDialogState(() => currentIdx++);
-                        } else {
-                          setDialogState(() => sending = true);
-                          try {
-                            final ordered = [
-                              for (var i = 0; i < questions.length; i++)
-                                selected[i] ?? 0,
-                            ];
-                            final res = await _dio.post<Map<String, dynamic>>(
-                              '/api/learning-path/modules/$moduleId/quiz-submit',
-                              data: {'selectedIndices': ordered},
-                            );
-                            final d = res.data ?? const {};
-                            final passed = d['passed'] == true;
-                            final score =
-                                (d['scorePercent'] as num?)?.toDouble() ?? 0.0;
-                            final xp = (d['xpEarned'] as num?)?.toInt() ?? 0;
-                            if (passed && xp > 0) {
-                              await XpAnimationController.recordXpGain(
-                                xp,
-                                source: 'Módulo: $moduleTitle',
-                              );
-                            }
-                            if (passed) {
-                              SystemSoundService.success();
-                            } else {
-                              SystemSoundService.defeat();
-                            }
-                            if (ctx.mounted) Navigator.of(ctx).pop();
-                            await _loadPath(language: _selectedLanguage);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    passed
-                                        ? 'Módulo concluído com ${score.round()}% (+$xp XP)!'
-                                        : 'Pontuação: ${score.round()}%. Obtenha pelo menos 60% para concluir o módulo.',
-                                  ),
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            if (ctx.mounted) {
-                              setDialogState(() => sending = false);
-                            }
-                          }
-                        }
-                      },
-                child: Text(
-                  currentIdx < questions.length - 1
-                      ? 'Próxima'
-                      : 'Concluir Prática',
+              title: Text(
+                '$moduleTitle (${currentIdx + 1}/${questions.length})',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-            ],
-          );
-        },
-      ),
-    );
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      prompt,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    for (var i = 0; i < options.length; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: OutlinedButton(
+                          onPressed: sending
+                              ? null
+                              : () => setDialogState(
+                                  () => selected[currentIdx] = i,
+                                ),
+                          style: OutlinedButton.styleFrom(
+                            alignment: Alignment.centerLeft,
+                            backgroundColor: selected[currentIdx] == i
+                                ? dialogColors.primary.withValues(alpha: 0.14)
+                                : null,
+                            side: BorderSide(
+                              color: selected[currentIdx] == i
+                                  ? dialogColors.primary
+                                  : dialogColors.outlineVariant,
+                              width: selected[currentIdx] == i ? 2 : 1,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                          ),
+                          child: Text(
+                            options[i],
+                            style: TextStyle(color: dialogColors.onSurface),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: sending ? null : () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: selected[currentIdx] == null || sending
+                      ? null
+                      : () async {
+                          if (currentIdx < questions.length - 1) {
+                            setDialogState(() => currentIdx++);
+                          } else {
+                            setDialogState(() => sending = true);
+                            try {
+                              final ordered = [
+                                for (var i = 0; i < questions.length; i++)
+                                  selected[i] ?? 0,
+                              ];
+                              final res = await _dio.post<Map<String, dynamic>>(
+                                '/api/learning-path/modules/$moduleId/quiz-submit',
+                                data: {'selectedIndices': ordered},
+                              );
+                              final d = res.data ?? const {};
+                              final passed = d['passed'] == true;
+                              final score =
+                                  (d['scorePercent'] as num?)?.toDouble() ??
+                                  0.0;
+                              final xp = (d['xpEarned'] as num?)?.toInt() ?? 0;
+                              if (passed && xp > 0) {
+                                await XpAnimationController.recordXpGain(
+                                  xp,
+                                  source: 'Módulo: $moduleTitle',
+                                );
+                              }
+                              if (passed) {
+                                SystemSoundService.success();
+                                MascotController.instance.markActivityCompleted(
+                                  activityToken,
+                                );
+                              } else {
+                                SystemSoundService.defeat();
+                                MascotController.instance.reactIncorrect();
+                              }
+                              unawaited(_loadPath(language: _selectedLanguage));
+                              if (ctx.mounted) {
+                                setDialogState(() {
+                                  sending = false;
+                                  quizResult = <String, dynamic>{
+                                    'passed': passed,
+                                    'score': score,
+                                    'xp': xp,
+                                  };
+                                });
+                              }
+                            } catch (e) {
+                              if (ctx.mounted) {
+                                setDialogState(() => sending = false);
+                              }
+                            }
+                          }
+                        },
+                  child: Text(
+                    currentIdx < questions.length - 1
+                        ? 'Próxima'
+                        : 'Concluir Prática',
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+    } finally {
+      MascotController.instance.exitActivity(activityToken);
+    }
   }
 
-  void _showDiagnosticDialog({String? initialLanguage}) async {
+  Future<void> _showDiagnosticDialog({String? initialLanguage}) async {
     String diagLang = initialLanguage ?? _selectedLanguage;
     List<Map<String, dynamic>> questions = [];
     try {
@@ -283,243 +355,266 @@ class _PersonalizedLearningPathViewState
 
     if (!mounted || questions.isEmpty) return;
 
+    final diagToken = MascotController.instance.enterActivity(
+      activityId: 'diagnostic:$diagLang',
+      title: 'Teste Diagnóstico ($diagLang)',
+      mascotHelpMessage:
+          'Responda no seu ritmo para calibrarmos seu nível CEFR em $diagLang.',
+    );
+
     final answers = <int, int>{};
     int currentQIndex = 0;
     bool saving = false;
     bool reloadingLang = false;
+    Map<String, dynamic>? completedResult;
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          final q = questions[currentQIndex];
-          final qId = (q['id'] as num).toInt();
-          final prompt = q['prompt'] ?? '';
-          final category = q['category'] ?? '';
-          final level = q['cefrLevel'] ?? '';
-          final options = ((q['options'] as List?) ?? []).cast<String>();
-          final dialogColors = Theme.of(ctx).colorScheme;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final q = questions[currentQIndex];
+            final qId = (q['id'] as num).toInt();
+            final prompt = q['prompt'] ?? '';
+            final category = q['category'] ?? '';
+            final level = q['cefrLevel'] ?? '';
+            final options = ((q['options'] as List?) ?? []).cast<String>();
+            final dialogColors = Theme.of(ctx).colorScheme;
 
-          return AlertDialog(
-            insetPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 20,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(
-                  'Teste Diagnóstico (${currentQIndex + 1}/${questions.length})',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '$diagLang • $level • $category',
+            return AlertDialog(
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 20,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'Teste Diagnóstico (${currentQIndex + 1}/${questions.length})',
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue,
                     ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '$diagLang • $level • $category',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: diagLang,
+                      decoration: const InputDecoration(
+                        labelText: 'Idioma do nivelamento',
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                      ),
+                      items: kSupportedLanguages
+                          .map(
+                            (lang) => DropdownMenuItem(
+                              value: lang,
+                              child: Row(
+                                children: [
+                                  LanguageFlag.forLanguage(lang, width: 18),
+                                  const SizedBox(width: 8),
+                                  Text(lang),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: saving || reloadingLang
+                          ? null
+                          : (newLang) async {
+                              if (newLang == null || newLang == diagLang)
+                                return;
+                              setDialogState(() => reloadingLang = true);
+                              try {
+                                final r = await _dio.get(
+                                  '/api/learning-path/diagnostic',
+                                  queryParameters: {'language': newLang},
+                                );
+                                final newQs = (r.data as List)
+                                    .map(
+                                      (e) =>
+                                          Map<String, dynamic>.from(e as Map),
+                                    )
+                                    .toList();
+                                if (ctx.mounted && newQs.isNotEmpty) {
+                                  setDialogState(() {
+                                    diagLang = newLang;
+                                    questions = newQs;
+                                    answers.clear();
+                                    currentQIndex = 0;
+                                  });
+                                  MascotController.instance.updateActivityContext(
+                                    diagToken,
+                                    mascotHelpMessage:
+                                        'Responda no seu ritmo para calibrarmos seu nível CEFR em $newLang.',
+                                  );
+                                }
+                              } finally {
+                                if (ctx.mounted) {
+                                  setDialogState(() => reloadingLang = false);
+                                }
+                              }
+                            },
+                    ),
+                    const SizedBox(height: 14),
+                    if (reloadingLang)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(20),
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    else ...[
+                      Text(
+                        prompt,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      ...List.generate(options.length, (optIdx) {
+                        final isSelected = answers[qId] == optIdx;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: isSelected
+                                  ? Colors.blue.withValues(alpha: 0.14)
+                                  : null,
+                              side: BorderSide(
+                                color: isSelected
+                                    ? Colors.blue
+                                    : dialogColors.outlineVariant,
+                                width: isSelected ? 2 : 1,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                            ),
+                            onPressed: () =>
+                                setDialogState(() => answers[qId] = optIdx),
+                            child: Text(
+                              options[optIdx],
+                              style: TextStyle(
+                                color: isSelected
+                                    ? dialogColors.primary
+                                    : dialogColors.onSurface,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: answers[qId] == null || saving || reloadingLang
+                      ? null
+                      : () async {
+                          if (currentQIndex < questions.length - 1) {
+                            setDialogState(() => currentQIndex++);
+                          } else {
+                            setDialogState(() => saving = true);
+                            try {
+                              final submitRes = await _dio.post(
+                                '/api/learning-path/diagnostic',
+                                data: {
+                                  'language': diagLang,
+                                  'answers': answers.map(
+                                    (key, value) =>
+                                        MapEntry(key.toString(), value),
+                                  ),
+                                },
+                              );
+                              completedResult = Map<String, dynamic>.from(
+                                submitRes.data as Map,
+                              );
+                              if (ctx.mounted) Navigator.of(ctx).pop();
+                            } catch (e) {
+                              if (ctx.mounted) {
+                                setDialogState(() => saving = false);
+                              }
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Erro ao enviar teste diagnóstico.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
+                          }
+                        },
+                  child: Text(
+                    currentQIndex < questions.length - 1
+                        ? 'Próxima'
+                        : 'Finalizar Teste',
                   ),
                 ),
               ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: diagLang,
-                    decoration: const InputDecoration(
-                      labelText: 'Idioma do nivelamento',
-                      isDense: true,
-                      border: OutlineInputBorder(),
-                    ),
-                    items: kSupportedLanguages
-                        .map(
-                          (lang) => DropdownMenuItem(
-                            value: lang,
-                            child: Row(
-                              children: [
-                                LanguageFlag.forLanguage(lang, width: 18),
-                                const SizedBox(width: 8),
-                                Text(lang),
-                              ],
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: saving || reloadingLang
-                        ? null
-                        : (newLang) async {
-                            if (newLang == null || newLang == diagLang) return;
-                            setDialogState(() => reloadingLang = true);
-                            try {
-                              final r = await _dio.get(
-                                '/api/learning-path/diagnostic',
-                                queryParameters: {'language': newLang},
-                              );
-                              final newQs = (r.data as List)
-                                  .map((e) => Map<String, dynamic>.from(e as Map))
-                                  .toList();
-                              if (ctx.mounted && newQs.isNotEmpty) {
-                                setDialogState(() {
-                                  diagLang = newLang;
-                                  questions = newQs;
-                                  answers.clear();
-                                  currentQIndex = 0;
-                                });
-                              }
-                            } finally {
-                              if (ctx.mounted) {
-                                setDialogState(() => reloadingLang = false);
-                              }
-                            }
-                          },
-                  ),
-                  const SizedBox(height: 14),
-                  if (reloadingLang)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(20),
-                        child: CircularProgressIndicator(),
-                      ),
-                    )
-                  else ...[
-                    Text(
-                      prompt,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    ...List.generate(options.length, (optIdx) {
-                      final isSelected = answers[qId] == optIdx;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: isSelected
-                                ? Colors.blue.withValues(alpha: 0.14)
-                                : null,
-                            side: BorderSide(
-                              color: isSelected
-                                  ? Colors.blue
-                                  : dialogColors.outlineVariant,
-                              width: isSelected ? 2 : 1,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            alignment: Alignment.centerLeft,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                          ),
-                          onPressed: () =>
-                              setDialogState(() => answers[qId] = optIdx),
-                          child: Text(
-                            options[optIdx],
-                            style: TextStyle(
-                              color: isSelected
-                                  ? dialogColors.primary
-                                  : dialogColors.onSurface,
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Cancelar'),
-              ),
-              FilledButton(
-                onPressed: answers[qId] == null || saving || reloadingLang
-                    ? null
-                    : () async {
-                        if (currentQIndex < questions.length - 1) {
-                          setDialogState(() => currentQIndex++);
-                        } else {
-                          setDialogState(() => saving = true);
-                          try {
-                            final submitRes = await _dio.post(
-                              '/api/learning-path/diagnostic',
-                              data: {
-                                'language': diagLang,
-                                'answers': answers.map(
-                                  (key, value) =>
-                                      MapEntry(key.toString(), value),
-                                ),
-                              },
-                            );
-                            final result = Map<String, dynamic>.from(
-                              submitRes.data as Map,
-                            );
-                            if (ctx.mounted) Navigator.of(ctx).pop();
-                            _loadPath(language: diagLang);
-                            if (mounted) {
-                              _showResultModal(result);
-                            }
-                          } catch (e) {
-                            if (ctx.mounted) {
-                              setDialogState(() => saving = false);
-                            }
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Erro ao enviar teste diagnóstico.',
-                                  ),
-                                ),
-                              );
-                            }
-                          }
-                        }
-                      },
-                child: Text(
-                  currentQIndex < questions.length - 1
-                      ? 'Próxima'
-                      : 'Finalizar Teste',
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
+            );
+          },
+        ),
+      );
+      if (completedResult != null && mounted) {
+        SystemSoundService.success();
+        MascotController.instance.markActivityCompleted(diagToken);
+        unawaited(_loadPath(language: diagLang));
+        await _showResultModal(completedResult!);
+      }
+    } finally {
+      MascotController.instance.exitActivity(diagToken);
+    }
   }
 
-  void _showResultModal(Map<String, dynamic> result) {
+  Future<void> _showResultModal(Map<String, dynamic> result) {
     final level = result['determinedCefrLevel'] ?? 'A2';
     final summary = result['diagnosticSummary'] ?? '';
 
-    showDialog(
+    return showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -537,6 +632,8 @@ class _PersonalizedLearningPathViewState
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            const MascotSprite(state: MascotState.celebrate, size: 76),
+            const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
@@ -652,8 +749,9 @@ class _PersonalizedLearningPathViewState
                     ],
                   ),
                   FilledButton.tonalIcon(
-                    onPressed: () =>
-                        _showDiagnosticDialog(initialLanguage: _selectedLanguage),
+                    onPressed: () => _showDiagnosticDialog(
+                      initialLanguage: _selectedLanguage,
+                    ),
                     icon: const Icon(Icons.quiz_rounded, size: 18),
                     label: const Text('Fazer Teste de Nivelamento'),
                   ),
@@ -679,7 +777,8 @@ class _PersonalizedLearningPathViewState
               ),
               const SizedBox(height: 14),
               AppInfoBanner(
-                title: 'Rumo ao nível $targetCefr ($cefr atual • $_selectedLanguage)',
+                title:
+                    'Rumo ao nível $targetCefr ($cefr atual • $_selectedLanguage)',
                 message:
                     'Você está com $streak dia(s) de ofensiva. Conclua cada módulo prático (≥ 60%) para evoluir na sua meta de $dailyGoal min/dia!',
                 icon: Icons.route_rounded,
@@ -931,7 +1030,9 @@ class _PersonalizedLearningPathViewState
                   },
                   dataSets: [
                     RadarDataSet(
-                      fillColor: const Color(0xFF3579E8).withValues(alpha: 0.25),
+                      fillColor: const Color(
+                        0xFF3579E8,
+                      ).withValues(alpha: 0.25),
                       borderColor: const Color(0xFF3579E8),
                       borderWidth: 2.2,
                       entryRadius: 3.5,
@@ -967,11 +1068,7 @@ class _PersonalizedLearningPathViewState
                 ),
                 SizedBox(
                   width: itemWidth,
-                  child: _buildCompetenceBar(
-                    'Vocabulário',
-                    voc,
-                    Colors.purple,
-                  ),
+                  child: _buildCompetenceBar('Vocabulário', voc, Colors.purple),
                 ),
                 SizedBox(
                   width: itemWidth,

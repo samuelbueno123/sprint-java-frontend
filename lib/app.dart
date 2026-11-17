@@ -6,6 +6,7 @@ import 'core/localization/app_locale_controller.dart';
 import 'core/network/realtime_sync_service.dart';
 import 'core/network/session_store.dart';
 import 'core/theme/app_theme_controller.dart';
+import 'core/ui/mascot/mascot.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/dashboard/presentation/pages/dashboard_page.dart';
 
@@ -35,6 +36,7 @@ class _AppState extends State<App> {
     if (!SessionStore.sessionExpiredNotifier.value) return;
     SessionStore.resetSessionExpiredNotification();
     RealtimeSyncService.instance.disconnect();
+    MascotController.instance.setSessionActive(false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final navigator = _navigatorKey.currentState;
       if (navigator == null || !navigator.mounted) return;
@@ -292,6 +294,12 @@ class _AppState extends State<App> {
                   ),
                 );
         },
+        builder: (context, child) => Overlay(
+          initialEntries: [
+            OverlayEntry(builder: (_) => child ?? const SizedBox.shrink()),
+            OverlayEntry(builder: (_) => const FloatingMascotOverlay()),
+          ],
+        ),
         home: SessionStore.hasSession
             ? const DashboardPage()
             : const LoginPage(),

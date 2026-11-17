@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_feedback_widgets.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../dashboard_dependencies.dart';
 import '../viewmodels/dashboard_state.dart';
@@ -31,6 +32,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _handleLogout() async {
+    MascotController.instance.setSessionActive(false);
     try {
       await _viewModel.performLogout();
     } catch (_) {

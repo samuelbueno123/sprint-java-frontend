@@ -11,6 +11,7 @@ import 'dart:async';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/realtime_sync_service.dart';
 import '../../../../core/ui/language_flag.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../../../core/ui/motion_kit.dart';
 import '../../../../core/xp/xp_animation_controller.dart';
 import '../../domain/entities/dashboard_data.dart';
@@ -3099,17 +3100,16 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: Icon(
-                              urgent.isNotEmpty
-                                  ? Icons.bolt_rounded
-                                  : Icons.menu_book_rounded,
-                              color: Colors.white,
-                              size: 28,
+                            child: MascotGifBadge(
+                              state: urgent.isNotEmpty
+                                  ? MascotState.intense
+                                  : MascotState.clickBleat,
+                              size: 38,
                             ),
                           ),
                           const SizedBox(width: 14),
@@ -3384,17 +3384,18 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.18),
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: Icon(
-                              earned > 0
-                                  ? Icons.emoji_events_rounded
-                                  : Icons.military_tech_rounded,
-                              color: Colors.white,
-                              size: 32,
+                            child: MascotGifBadge(
+                              state: earned == achievements.length && earned > 0
+                                  ? MascotState.fireLoop
+                                  : (earned > 0
+                                        ? MascotState.celebrate
+                                        : MascotState.idle),
+                              size: 40,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -3754,6 +3755,8 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
   bool _audioFallbackMode = false;
   String? _speechStatus;
   int _index = 0;
+  Object? _mascotToken;
+  bool _disposed = false;
 
   @override
   void initState() {
@@ -3762,10 +3765,31 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
     _selected.addAll(
       List<String?>.filled(widget.exercise.questions.length, null),
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _disposed) return;
+      _mascotToken = MascotController.instance.enterActivity(
+        activityId: 'exercise:${widget.exercise.id}',
+        title: widget.exercise.title,
+        mascotHelpMessage: widget.exercise.mascotHelpMessage,
+      );
+      if (widget.exercise.language.trim().isNotEmpty) {
+        MascotController.instance.updateNavigationContext(
+          languageCode: widget.exercise.language,
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
+    _disposed = true;
+    final token = _mascotToken;
+    _mascotToken = null;
+    if (token != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        MascotController.instance.exitActivity(token);
+      });
+    }
     AudioSpeechHelper.stopSpeaking();
     _text.dispose();
     super.dispose();
@@ -3848,7 +3872,17 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
     }
     _answers[_index] = answer;
     if (_index < widget.exercise.questions.length - 1) {
-      SystemSoundService.pop();
+      if (!q.isOpenEnded && q.answer.trim().isNotEmpty) {
+        final isRight =
+            _normalizeClientAnswer(answer) == _normalizeClientAnswer(q.answer);
+        if (isRight) {
+          MascotController.instance.reactCorrect();
+        } else {
+          MascotController.instance.reactIncorrect();
+        }
+      } else {
+        SystemSoundService.pop();
+      }
       setState(() {
         _index++;
         _speechStatus = null;
@@ -3884,15 +3918,20 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
           source: widget.exercise.title,
         );
       }
-      if (accuracy >= 0.5) {
-        SystemSoundService.success();
-      } else {
-        SystemSoundService.defeat();
-      }
       if (!mounted) return;
       setState(() {
         _recapResult = result;
       });
+      if (_mascotToken != null) {
+        if (accuracy < 0.5) {
+          SystemSoundService.defeat();
+        }
+        MascotController.instance.markActivityCompleted(_mascotToken!);
+      } else if (accuracy >= 0.5) {
+        MascotController.instance.reactCorrect();
+      } else {
+        MascotController.instance.reactIncorrect();
+      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -3950,25 +3989,25 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                 ),
                 child: Column(
                   children: [
-                  Container(
-                    width: 84,
-                    height: 84,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Icon(
-                        percent >= 70
-                            ? Icons.emoji_events_rounded
-                            : (percent >= 40
-                                  ? Icons.thumb_up_alt_rounded
-                                  : Icons.refresh_rounded),
-                        color: Colors.white,
-                        size: 46,
+                    Container(
+                      width: 84,
+                      height: 84,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: MascotSprite(
+                          state: percent >= 70
+                              ? MascotState.celebrate
+                              : (percent >= 40
+                                    ? MascotState.clickHeart
+                                    : MascotState.sad),
+                          size: 68,
+                          glowColor: Colors.white,
+                        ),
                       ),
                     ),
-                  ),
                     const SizedBox(height: 12),
                     const Text(
                       'Parabéns!',
@@ -4283,7 +4322,10 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
         .replaceAll(RegExp(r'[óòôõö]'), 'o')
         .replaceAll(RegExp(r'[úùûü]'), 'u')
         .replaceAll('ç', 'c')
-        .replaceAll(RegExp(r'^[\p{P}\p{S}\s]+|[\p{P}\p{S}\s]+$', unicode: true), '')
+        .replaceAll(
+          RegExp(r'^[\p{P}\p{S}\s]+|[\p{P}\p{S}\s]+$', unicode: true),
+          '',
+        )
         .replaceAll(RegExp(r'\s+'), ' ');
   }
 
@@ -4304,8 +4346,10 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
     final bool isOpenEnded =
         qf['evaluationMode'] == 'OPEN_ENDED' || question.isOpenEnded;
     final bool isPending =
-        statusStr == 'PENDING' || (isOpenEnded && statusStr != 'CORRECT' && statusStr != 'WRONG');
-    final bool isCorrect = !isPending &&
+        statusStr == 'PENDING' ||
+        (isOpenEnded && statusStr != 'CORRECT' && statusStr != 'WRONG');
+    final bool isCorrect =
+        !isPending &&
         (qf['isCorrect'] == true ||
             qf['correct'] == true ||
             statusStr == 'CORRECT' ||
@@ -4322,9 +4366,13 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
         ? accent.withValues(alpha: 0.14)
         : (isPending
               ? const Color(0xFFFFFBEB)
-              : (isCorrect ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2)));
+              : (isCorrect
+                    ? const Color(0xFFF0FDF4)
+                    : const Color(0xFFFEF2F2)));
     final borderColor = accent.withValues(alpha: isDark ? 0.45 : 0.35);
-    final iconColor = isDark ? (isCorrect ? const Color(0xFF4ADE80) : const Color(0xFFF87171)) : accent;
+    final iconColor = isDark
+        ? (isCorrect ? const Color(0xFF4ADE80) : const Color(0xFFF87171))
+        : accent;
     final ansColor = iconColor;
 
     return Container(
@@ -5157,11 +5205,11 @@ class _LessonEmptyFilter extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 42, horizontal: 16),
       child: Column(
         children: [
-          AppEmptyIllustration(
-            icon: filter == 'completed'
-                ? Icons.assignment_turned_in_outlined
-                : Icons.assignment_outlined,
-            size: 76,
+          MascotSprite(
+            state: filter == 'completed'
+                ? MascotState.celebrate
+                : MascotState.idle,
+            size: 78,
           ),
           const SizedBox(height: 12),
           Text(
@@ -5175,14 +5223,55 @@ class _LessonEmptyFilter extends StatelessWidget {
   }
 }
 
-class _ExerciseContentPage extends StatelessWidget {
+class _ExerciseContentPage extends StatefulWidget {
   const _ExerciseContentPage({required this.exercise, required this.onBack});
   final _Exercise exercise;
   final VoidCallback onBack;
 
   @override
+  State<_ExerciseContentPage> createState() => _ExerciseContentPageState();
+}
+
+class _ExerciseContentPageState extends State<_ExerciseContentPage> {
+  Object? _mascotToken;
+  bool _disposed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _disposed) return;
+      _mascotToken = MascotController.instance.enterActivity(
+        activityId: 'content:${widget.exercise.id}',
+        title: widget.exercise.title,
+        mascotHelpMessage: widget.exercise.mascotHelpMessage,
+      );
+      if (widget.exercise.language.trim().isNotEmpty) {
+        MascotController.instance.updateNavigationContext(
+          languageCode: widget.exercise.language,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    final token = _mascotToken;
+    _mascotToken = null;
+    if (token != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        MascotController.instance.exitActivity(token);
+      });
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final exercise = widget.exercise;
+    final helpMessage = exercise.mascotHelpMessage?.trim() ?? '';
     final mediaUrl = exercise.mediaUrl?.trim() ?? '';
     final isImage =
         mediaUrl.isNotEmpty &&
@@ -5196,7 +5285,7 @@ class _ExerciseContentPage extends StatelessWidget {
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
-            onPressed: onBack,
+            onPressed: widget.onBack,
             icon: const Icon(Icons.arrow_back_rounded),
             label: const Text('Voltar às lições'),
           ),
@@ -5218,6 +5307,14 @@ class _ExerciseContentPage extends StatelessWidget {
           ].where((value) => value.trim().isNotEmpty).join(' · '),
           style: TextStyle(color: colors.onSurfaceVariant),
         ),
+        if (helpMessage.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          MascotSpeechBanner(
+            title: 'Dica do Bode para este conteúdo',
+            message: helpMessage,
+            state: MascotState.clickBleat,
+          ),
+        ],
         const SizedBox(height: 18),
         Card(
           color: colors.surface,
@@ -5285,11 +5382,12 @@ class _Exercise {
     this.description,
     this.contentBody,
     this.mediaUrl,
+    this.mascotHelpMessage,
     this.dueDate,
   });
   final int id;
   final String title, language, level, className, category, theme, teacher;
-  final String? description, contentBody, mediaUrl;
+  final String? description, contentBody, mediaUrl, mascotHelpMessage;
   final DateTime? dueDate;
   final List<_ExerciseQuestion> questions;
   bool get isContent =>
@@ -5323,6 +5421,7 @@ class _Exercise {
     description: json['description'] as String?,
     contentBody: json['contentBody'] as String?,
     mediaUrl: json['mediaUrl'] as String?,
+    mascotHelpMessage: json['mascotHelpMessage'] as String?,
     dueDate: DateTime.tryParse(json['dueDate']?.toString() ?? ''),
     questions: (json['questions'] as List? ?? [])
         .map(
@@ -6823,9 +6922,7 @@ class _StudentClassDashboardViewState
       );
     }
     if (_isLoading) {
-      return const AppLoader(
-        message: 'Carregando painel da turma...',
-      );
+      return const AppLoader(message: 'Carregando painel da turma...');
     }
 
     if (_error != null || _dashboard == null) {
@@ -7694,9 +7791,7 @@ class _StudentExerciseReviewDialogState
         width: 600,
         height: 520,
         child: _isLoading
-            ? const AppLoader(
-                message: 'Carregando revisão da atividade...',
-              )
+            ? const AppLoader(message: 'Carregando revisão da atividade...')
             : _error != null
             ? Center(child: Text(_error!))
             : _buildReviewContent(),

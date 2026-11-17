@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 import '../audio_speech_helper.dart';
 
 class StudentMistakesView extends StatefulWidget {
@@ -291,32 +292,14 @@ class _StudentMistakesViewState extends State<StudentMistakesView> {
               const SizedBox(height: 20),
 
               if (_mistakes.isEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 48,
-                    horizontal: 24,
-                  ),
-                  alignment: Alignment.center,
-                  child: Column(
-                    children: [
-                      const AppEmptyIllustration(
-                        icon: Icons.check_circle_outline_rounded,
-                        size: 76,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Caderno de Erros Vazio!',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+                  child: MascotEmptyIllustration(
+                    state: MascotState.celebrate,
+                    title: 'Caderno de Erros Vazio!',
+                    message:
                         'Você dominou todas as questões ou ainda não errou nenhuma pergunta recente. Continue assim!',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ],
+                    size: 92,
                   ),
                 )
               else

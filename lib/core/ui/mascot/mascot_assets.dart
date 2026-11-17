@@ -2,10 +2,7 @@ import 'dart:math';
 
 import '../../audio/system_sound_service.dart';
 
-enum MascotVariant {
-  white,
-  fire,
-}
+enum MascotVariant { white, fire }
 
 enum MascotState {
   idle,
@@ -121,7 +118,8 @@ abstract final class MascotAssets {
       description: description,
       defaultQuote: defaultQuote,
       gifPath: '$baseDir/bode_branco_24fps_$id.gif',
-      spriteSheetPath: '$baseDir/spritesheets_24fps/bode_branco_24fps_${id}_grid.png',
+      spriteSheetPath:
+          '$baseDir/spritesheets_24fps/bode_branco_24fps_${id}_grid.png',
       jsonPath: '$baseDir/spritesheets_24fps/bode_branco_24fps_$id.json',
       frameCount: 24,
       columns: 6,
@@ -192,7 +190,7 @@ abstract final class MascotAssets {
       title: 'Tristeza & Apoio',
       description: 'Orelhas caídas com incentivo gentil para tentar de novo.',
       defaultQuote: 'Não desanime! Todo erro nos aproxima da fluência.',
-      loop: true,
+      loop: false,
       sfx: SystemSfxType.defeat,
     ),
     MascotState.intense: _coreSpec(
@@ -201,7 +199,7 @@ abstract final class MascotAssets {
       title: 'Foco & Intensidade',
       description: 'Olhar determinado pronto para desafios e pronúncia.',
       defaultQuote: 'Modo foco ativado! Você consegue dominar isso agora.',
-      loop: true,
+      loop: false,
       sfx: SystemSfxType.transition,
     ),
     MascotState.clickPoke: _interactiveSpec(
@@ -391,7 +389,8 @@ abstract final class MascotAssets {
       id: 'fire_loop',
       title: 'Modo Chama da Ofensiva',
       category: 'Modo Chama',
-      description: 'Energia máxima quando sua sequência de estudos está pegando fogo!',
+      description:
+          'Energia máxima quando sua sequência de estudos está pegando fogo!',
       defaultQuote: 'Sua ofensiva está em chamas! Continue imparável!',
       loop: true,
       sfx: SystemSfxType.fire,

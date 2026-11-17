@@ -5,6 +5,7 @@ import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/ui/language_flag.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 import 'package:frontend/core/xp/xp_animation_controller.dart';
 import '../responsive_layout.dart';
 
@@ -139,8 +140,9 @@ class _CommunitySubmissionDialogState
               items: _levelsFor(
                 _language,
               ).map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
-              onChanged: (v) =>
-                  setState(() => _targetLevel = v ?? _levelsFor(_language).first),
+              onChanged: (v) => setState(
+                () => _targetLevel = v ?? _levelsFor(_language).first,
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -445,11 +447,17 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> {
       final res = await Future.wait([
         _dio.get('/api/community/feed'),
         _dio.get('/api/community/my-submissions'),
-        _dio.get('/api/home').catchError((_) => Response(requestOptions: RequestOptions())),
+        _dio
+            .get('/api/home')
+            .catchError((_) => Response(requestOptions: RequestOptions())),
       ]);
 
-      final homeMap = res[2].data is Map ? Map<String, dynamic>.from(res[2].data as Map) : const <String, dynamic>{};
-      final studentProfile = homeMap['studentProfile'] is Map ? Map<String, dynamic>.from(homeMap['studentProfile'] as Map) : const <String, dynamic>{};
+      final homeMap = res[2].data is Map
+          ? Map<String, dynamic>.from(res[2].data as Map)
+          : const <String, dynamic>{};
+      final studentProfile = homeMap['studentProfile'] is Map
+          ? Map<String, dynamic>.from(homeMap['studentProfile'] as Map)
+          : const <String, dynamic>{};
       final rawLangs = (studentProfile['languages'] as List?) ?? const [];
       final resolvedLevels = <String, List<String>>{};
       for (final item in rawLangs) {
@@ -605,9 +613,7 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> {
           if (_loading)
             const Padding(
               padding: EdgeInsets.all(24),
-              child: AppLoader(
-                message: 'Carregando textos da comunidade...',
-              ),
+              child: AppLoader(message: 'Carregando textos da comunidade...'),
             )
           else if (_selectedTab == 0)
             _buildFeedTab(colors)
@@ -620,29 +626,13 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> {
 
   Widget _buildFeedTab(ColorScheme colors) {
     if (_feedSubmissions.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const AppEmptyIllustration(
-                icon: Icons.rate_review_outlined,
-                size: 76,
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Nenhum exercício do seu nível pendente.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              Text(
-                'Volte mais tarde ou publique seu próprio texto!',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: colors.onSurfaceVariant),
-              ),
-            ],
-          ),
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: MascotEmptyIllustration(
+          state: MascotState.idle,
+          title: 'Nenhum exercício do seu nível pendente.',
+          message: 'Volte mais tarde ou publique seu próprio texto!',
+          size: 84,
         ),
       );
     }

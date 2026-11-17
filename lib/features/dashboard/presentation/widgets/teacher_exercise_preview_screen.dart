@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import 'responsive_layout.dart';
 
 /// Screen that renders the exercise preview for teachers matching the visual specification.
@@ -12,6 +13,7 @@ class TeacherExercisePreviewScreen extends StatefulWidget {
     this.level,
     required this.questions,
     this.contentBody,
+    this.mascotHelpMessage,
     this.onBack,
   });
 
@@ -21,6 +23,7 @@ class TeacherExercisePreviewScreen extends StatefulWidget {
   final String? level;
   final List<dynamic> questions;
   final String? contentBody;
+  final String? mascotHelpMessage;
   final VoidCallback? onBack;
 
   @override
@@ -31,6 +34,51 @@ class TeacherExercisePreviewScreen extends StatefulWidget {
 class _TeacherExercisePreviewScreenState
     extends State<TeacherExercisePreviewScreen> {
   final Set<int> _expandedGabaritos = {};
+  Object? _mascotToken;
+  bool _disposed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _disposed) return;
+      _mascotToken = MascotController.instance.enterActivity(
+        activityId: 'preview:${widget.title}',
+        title: widget.title.trim().isEmpty
+            ? 'Pré-visualização'
+            : widget.title.trim(),
+        mascotHelpMessage: widget.mascotHelpMessage,
+      );
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant TeacherExercisePreviewScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mascotHelpMessage != widget.mascotHelpMessage) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _disposed || _mascotToken == null) return;
+        final trimmed = widget.mascotHelpMessage?.trim() ?? '';
+        MascotController.instance.updateActivityContext(
+          _mascotToken!,
+          mascotHelpMessage: trimmed,
+          clearMascotHelpMessage: trimmed.isEmpty,
+        );
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    final token = _mascotToken;
+    if (token != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        MascotController.instance.exitActivity(token);
+      });
+    }
+    super.dispose();
+  }
 
   void _toggleGabarito(int index) {
     setState(() {
@@ -295,6 +343,63 @@ class _TeacherExercisePreviewScreenState
                     ),
                   ),
                   const SizedBox(height: 16),
+
+                  if (widget.mascotHelpMessage != null &&
+                      widget.mascotHelpMessage!.trim().isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF1E293B)
+                            : const Color(0xFFEEF2FF),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: const Color(
+                            0xFF4F46E5,
+                          ).withValues(alpha: 0.45),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const MascotPoseEmblem(
+                            state: MascotState.clickBleat,
+                            size: 42,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Dica configurada no Bode Branco',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF312E81),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  widget.mascotHelpMessage!.trim(),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    height: 1.4,
+                                    color: isDark
+                                        ? const Color(0xFFE2E8F0)
+                                        : const Color(0xFF1E1B4B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   if (widget.contentBody != null &&
                       widget.contentBody!.trim().isNotEmpty) ...[

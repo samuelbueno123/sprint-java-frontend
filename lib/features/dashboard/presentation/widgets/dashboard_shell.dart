@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/audio/system_sound_service.dart';
+import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/realtime_sync_service.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/user_profile_type.dart';
 import 'admin_dashboard_view.dart';
@@ -59,9 +61,23 @@ class _DashboardShellState extends State<DashboardShell> {
   @override
   void initState() {
     super.initState();
+    _scheduleMascotSync();
     _realtimeSubscription = RealtimeSyncService.instance.events.listen(
       _handleRealtimeEvent,
     );
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.activeSection != widget.activeSection ||
+        oldWidget.data.profileType != widget.data.profileType ||
+        oldWidget.data.studentProfile != widget.data.studentProfile ||
+        oldWidget.data.teacherProfile != widget.data.teacherProfile ||
+        oldWidget.data.studentEnrollments != widget.data.studentEnrollments ||
+        oldWidget.data.teacherAssignments != widget.data.teacherAssignments) {
+      _scheduleMascotSync();
+    }
   }
 
   @override
@@ -69,6 +85,41 @@ class _DashboardShellState extends State<DashboardShell> {
     _announcementDismissTimer?.cancel();
     _realtimeSubscription?.cancel();
     super.dispose();
+  }
+
+  String _resolvePreferredLanguage() {
+    final studentLangs = widget.data.studentProfile?.languages;
+    if (studentLangs != null && studentLangs.isNotEmpty) {
+      return SupportedLanguages.normalizeOrDefault(studentLangs.first);
+    }
+    if (widget.data.studentEnrollments.isNotEmpty) {
+      return widget.data.studentEnrollments.first.resolvedLanguage;
+    }
+    final teacherLangs = widget.data.teacherProfile?.taughtLanguages;
+    if (teacherLangs != null && teacherLangs.isNotEmpty) {
+      return SupportedLanguages.normalizeOrDefault(teacherLangs.first);
+    }
+    if (widget.data.teacherAssignments.isNotEmpty) {
+      return widget.data.teacherAssignments.first.resolvedLanguage;
+    }
+    return kDefaultSupportedLanguage;
+  }
+
+  void _scheduleMascotSync() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      MascotController.instance.setSessionActive(true);
+      MascotController.instance.updateNavigationContext(
+        section: widget.activeSection,
+        userRole: widget.data.profileType.name,
+        languageCode: _resolvePreferredLanguage(),
+      );
+    });
+  }
+
+  void _handleLogoutPressed() {
+    MascotController.instance.setSessionActive(false);
+    widget.onLogout();
   }
 
   void _handleRealtimeEvent(RealtimeSyncEvent event) {
@@ -187,7 +238,7 @@ class _DashboardShellState extends State<DashboardShell> {
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: DashboardTopBar(
             data: widget.data,
-            onLogout: widget.onLogout,
+            onLogout: _handleLogoutPressed,
             onOpenSettings: () {
               SystemSoundService.transition();
               widget.onSectionSelected('settings');
@@ -440,39 +491,25 @@ class _DashboardShellState extends State<DashboardShell> {
           );
         }
         if (widget.activeSection == 'srsReview') {
-          return SrsReviewView(
-            onBack: backCallback,
-          );
+          return SrsReviewView(onBack: backCallback);
         }
         if (widget.activeSection == 'aiConversation') {
-          return AiConversationView(
-            onBack: backCallback,
-          );
+          return AiConversationView(onBack: backCallback);
         }
         if (widget.activeSection == 'pronunciation') {
-          return PronunciationPracticeView(
-            onBack: backCallback,
-          );
+          return PronunciationPracticeView(onBack: backCallback);
         }
         if (widget.activeSection == 'communityReview') {
-          return CommunityPeerReviewView(
-            onBack: backCallback,
-          );
+          return CommunityPeerReviewView(onBack: backCallback);
         }
         if (widget.activeSection == 'learningPath') {
-          return PersonalizedLearningPathView(
-            onBack: backCallback,
-          );
+          return PersonalizedLearningPathView(onBack: backCallback);
         }
         if (widget.activeSection == 'mistakes') {
-          return StudentMistakesView(
-            onBack: backCallback,
-          );
+          return StudentMistakesView(onBack: backCallback);
         }
         if (widget.activeSection == 'vocabulary') {
-          return StudentVocabularyView(
-            onBack: backCallback,
-          );
+          return StudentVocabularyView(onBack: backCallback);
         }
         if (const {
           'lesson',
@@ -490,7 +527,7 @@ class _DashboardShellState extends State<DashboardShell> {
           data: widget.data,
           activeSection: widget.activeSection,
           onSectionSelected: widget.onSectionSelected,
-          onLogout: widget.onLogout,
+          onLogout: _handleLogoutPressed,
           onRefresh: widget.onRefresh,
         );
       case UserProfileType.teacher:
@@ -522,7 +559,7 @@ class _DashboardShellState extends State<DashboardShell> {
           data: widget.data,
           activeSection: widget.activeSection,
           onSectionSelected: widget.onSectionSelected,
-          onLogout: widget.onLogout,
+          onLogout: _handleLogoutPressed,
           onRefresh: widget.onRefresh,
         );
       case UserProfileType.admin:
@@ -530,7 +567,7 @@ class _DashboardShellState extends State<DashboardShell> {
           data: widget.data,
           activeSection: widget.activeSection,
           onSectionSelected: widget.onSectionSelected,
-          onLogout: widget.onLogout,
+          onLogout: _handleLogoutPressed,
           onRefresh: widget.onRefresh,
         );
       case UserProfileType.user:
@@ -538,7 +575,7 @@ class _DashboardShellState extends State<DashboardShell> {
           data: widget.data,
           activeSection: widget.activeSection,
           onSectionSelected: widget.onSectionSelected,
-          onLogout: widget.onLogout,
+          onLogout: _handleLogoutPressed,
           onRefresh: widget.onRefresh,
         );
     }
@@ -546,10 +583,7 @@ class _DashboardShellState extends State<DashboardShell> {
 }
 
 class _SectionBackHeader extends StatelessWidget {
-  const _SectionBackHeader({
-    required this.sectionLabel,
-    required this.onBack,
-  });
+  const _SectionBackHeader({required this.sectionLabel, required this.onBack});
 
   final String sectionLabel;
   final VoidCallback onBack;
@@ -645,14 +679,7 @@ class _TemporaryAnnouncementBanner extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
-                padding: EdgeInsets.only(top: 2),
-                child: Icon(
-                  Icons.campaign_rounded,
-                  color: Color(0xFF4F46E5),
-                  size: 22,
-                ),
-              ),
+              const MascotPoseEmblem(state: MascotState.clickBleat, size: 36),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -689,10 +716,7 @@ class _TemporaryAnnouncementBanner extends StatelessWidget {
                 ),
               ),
               if (onViewClasses != null)
-                TextButton(
-                  onPressed: onViewClasses,
-                  child: const Text('Ver'),
-                ),
+                TextButton(onPressed: onViewClasses, child: const Text('Ver')),
               IconButton(
                 tooltip: 'Fechar aviso',
                 visualDensity: VisualDensity.compact,

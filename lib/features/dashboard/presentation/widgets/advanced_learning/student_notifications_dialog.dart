@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 
 class StudentNotificationsDialog extends StatefulWidget {
   const StudentNotificationsDialog({super.key});
@@ -157,35 +158,16 @@ class _StudentNotificationsDialogState
           future: _loadFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const AppLoader(
-                message: 'Buscando suas notificações...',
-              );
+              return const AppLoader(message: 'Buscando suas notificações...');
             }
 
             if (_notifications.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const AppEmptyIllustration(
-                      icon: Icons.notifications_none_rounded,
-                      size: 76,
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      'Tudo em dia!',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Você não possui nenhuma notificação pendente no momento.',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ],
-                ),
+              return const MascotEmptyIllustration(
+                state: MascotState.idle,
+                title: 'Tudo em dia!',
+                message:
+                    'Você não possui nenhuma notificação pendente no momento.',
+                size: 84,
               );
             }
 

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 
 class _NewAnnouncementDialog extends StatefulWidget {
   const _NewAnnouncementDialog();
@@ -257,28 +258,13 @@ class _ClassAnnouncementsViewState extends State<ClassAnnouncementsView> {
           }
 
           if (_announcements.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const AppEmptyIllustration(
-                    icon: Icons.campaign_outlined,
-                    size: 76,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Nenhum comunicado publicado',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.isTeacher
-                        ? 'Clique em "Novo Comunicado" para enviar recados e avisos para a turma.'
-                        : 'Avisos e prazos publicados pelo professor aparecerão aqui.',
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
+            return MascotEmptyIllustration(
+              state: MascotState.clickBleat,
+              title: 'Nenhum comunicado publicado',
+              message: widget.isTeacher
+                  ? 'Clique em "Novo Comunicado" para enviar recados e avisos para a turma.'
+                  : 'Avisos e prazos publicados pelo professor aparecerão aqui.',
+              size: 84,
             );
           }
 

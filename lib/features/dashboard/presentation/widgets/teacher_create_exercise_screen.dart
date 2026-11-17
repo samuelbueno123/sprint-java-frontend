@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_feedback_widgets.dart';
 import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/teacher_class_assignment.dart';
 import '../../domain/entities/teacher_profile.dart';
@@ -90,6 +91,7 @@ class _TeacherCreateExerciseScreenState
   final _title = TextEditingController();
   final _theme = TextEditingController();
   final _description = TextEditingController();
+  final _mascotHelp = TextEditingController();
   final _content = TextEditingController();
   final _mediaUrl = TextEditingController();
   final _aiInstructions = TextEditingController();
@@ -215,6 +217,7 @@ class _TeacherCreateExerciseScreenState
     _title.dispose();
     _theme.dispose();
     _description.dispose();
+    _mascotHelp.dispose();
     _content.dispose();
     _mediaUrl.dispose();
     _aiInstructions.dispose();
@@ -328,6 +331,9 @@ class _TeacherCreateExerciseScreenState
           'languageName': _language,
           'proficiencyLevel': _level,
           'description': _description.text.trim(),
+          'mascotHelpMessage': _mascotHelp.text.trim().isEmpty
+              ? null
+              : _mascotHelp.text.trim(),
           'contentBody': _contentOnly ? _content.text.trim() : null,
           'mediaUrl': _mediaUrl.text.trim().isEmpty
               ? null
@@ -498,6 +504,7 @@ class _TeacherCreateExerciseScreenState
     _title.clear();
     _theme.clear();
     _description.clear();
+    _mascotHelp.clear();
     _content.clear();
     _mediaUrl.clear();
     for (final question in _questions) {
@@ -564,6 +571,9 @@ class _TeacherCreateExerciseScreenState
           level: _level,
           questions: previewQuestions,
           contentBody: _contentOnly ? _content.text.trim() : null,
+          mascotHelpMessage: _mascotHelp.text.trim().isEmpty
+              ? null
+              : _mascotHelp.text.trim(),
           onBack: () => Navigator.pop(context),
         ),
       ),
@@ -946,6 +956,29 @@ class _TeacherCreateExerciseScreenState
             label: 'Descrição (opcional)',
             hint: 'Adicione instruções ou contexto para os alunos.',
             maxLines: 3,
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: MascotPoseEmblem(
+                  state: MascotState.clickBleat,
+                  size: 36,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _textField(
+                  controller: _mascotHelp,
+                  label: 'Dica do Bode Branco para esta atividade (opcional)',
+                  hint:
+                      'Orientação exibida no balão de ajuda do mascote durante a atividade.',
+                  maxLines: 3,
+                ),
+              ),
+            ],
           ),
           if (_availableClasses.isEmpty && !_loadingClasses) ...[
             const SizedBox(height: 12),

@@ -16,11 +16,12 @@ class MascotSprite extends StatefulWidget {
     required this.state,
     this.size = 96,
     this.fit = BoxFit.contain,
-    this.useSpriteSheet = false,
+    this.useSpriteSheet = true,
     this.useMaster24FpsAtlas = false,
     this.animate = true,
     this.overrideVariant,
     this.overrideFps,
+    this.maxFrames,
     this.explicitGifPath,
     this.onOneShotComplete,
     this.onCompleted,
@@ -38,6 +39,7 @@ class MascotSprite extends StatefulWidget {
   final bool animate;
   final MascotVariant? overrideVariant;
   final int? overrideFps;
+  final int? maxFrames;
   final String? explicitGifPath;
   final VoidCallback? onOneShotComplete;
   final VoidCallback? onCompleted;
@@ -72,7 +74,8 @@ class _MascotSpriteState extends State<MascotSprite>
         oldWidget.useSpriteSheet != widget.useSpriteSheet ||
         oldWidget.useMaster24FpsAtlas != widget.useMaster24FpsAtlas ||
         oldWidget.animate != widget.animate ||
-        oldWidget.overrideFps != widget.overrideFps) {
+        oldWidget.overrideFps != widget.overrideFps ||
+        oldWidget.maxFrames != widget.maxFrames) {
       _oneShotReported = false;
       _gifOneShotTimer?.cancel();
       _setupAnimation();
@@ -92,7 +95,10 @@ class _MascotSpriteState extends State<MascotSprite>
         widget.onOneShotComplete != null || widget.onCompleted != null;
     if (!spec.loop && hasCompletionCallback && !_useSheet) {
       final effectiveFps = (widget.overrideFps ?? spec.fps).clamp(4, 36);
-      final ms = ((spec.frameCount / effectiveFps) * 1000).round();
+      final effectiveFrames = widget.maxFrames == null
+          ? spec.frameCount
+          : widget.maxFrames!.clamp(1, spec.frameCount);
+      final ms = ((effectiveFrames / effectiveFps) * 1000).round();
       _gifOneShotTimer?.cancel();
       _gifOneShotTimer = Timer(Duration(milliseconds: ms + 40), () {
         if (!mounted || _oneShotReported) return;
@@ -111,13 +117,33 @@ class _MascotSpriteState extends State<MascotSprite>
     if (!mounted) return;
     setState(() => _loadedSheet = loaded);
 
-    if (loaded == null) return;
+    if (loaded == null) {
+      if (!spec.loop && hasCompletionCallback) {
+        final effectiveFps = (widget.overrideFps ?? spec.fps).clamp(4, 36);
+        final effectiveFrames = widget.maxFrames == null
+            ? spec.frameCount
+            : widget.maxFrames!.clamp(1, spec.frameCount);
+        final ms = ((effectiveFrames / effectiveFps) * 1000).round();
+        _gifOneShotTimer?.cancel();
+        _gifOneShotTimer = Timer(Duration(milliseconds: ms + 40), () {
+          if (!mounted || _oneShotReported) return;
+          _oneShotReported = true;
+          widget.onOneShotComplete?.call();
+          widget.onCompleted?.call();
+        });
+      }
+      return;
+    }
     final fps =
-        (widget.overrideFps ??
-                MascotPreferenceController.targetFps.value)
+        (widget.overrideFps ?? MascotPreferenceController.targetFps.value)
             .clamp(4, 36);
-    final durationMs =
-        ((loaded.frameCount / fps) * 1000).round().clamp(160, 8000);
+    final effectiveFrames = widget.maxFrames == null
+        ? loaded.frameCount
+        : widget.maxFrames!.clamp(1, loaded.frameCount);
+    final durationMs = ((effectiveFrames / fps) * 1000).round().clamp(
+      160,
+      8000,
+    );
 
     _sheetController ??= AnimationController(vsync: this);
     _sheetController!.duration = Duration(milliseconds: durationMs);
@@ -165,14 +191,17 @@ class _MascotSpriteState extends State<MascotSprite>
 
             Widget visual;
             if (_useSheet && _loadedSheet != null) {
+              final effectiveFrames = widget.maxFrames == null
+                  ? _loadedSheet!.frameCount
+                  : widget.maxFrames!.clamp(1, _loadedSheet!.frameCount);
               visual = AnimatedBuilder(
                 animation: _sheetController!,
                 builder: (_, _) {
                   final rawValue = canAnimate ? _sheetController!.value : 0.0;
-                  final idx =
-                      (rawValue * _loadedSheet!.frameCount)
-                          .floor()
-                          .clamp(0, _loadedSheet!.frameCount - 1);
+                  final idx = (rawValue * effectiveFrames).floor().clamp(
+                    0,
+                    effectiveFrames - 1,
+                  );
                   return CustomPaint(
                     size: Size.square(widget.size),
                     painter: _GridSpritePainter(
@@ -221,8 +250,7 @@ class _MascotSpriteState extends State<MascotSprite>
             }
 
             if (isFire || widget.glowColor != null) {
-              final primaryGlow =
-                  widget.glowColor ?? const Color(0xFFFF6B00);
+              final primaryGlow = widget.glowColor ?? const Color(0xFFFF6B00);
               visual = DecoratedBox(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
@@ -288,7 +316,7 @@ class _GridSpritePainter extends CustomPainter {
     );
     final dst = Offset.zero & size;
     final paint = Paint()
-      ..filterQuality = FilterQuality.medium
+      ..filterQuality = FilterQuality.none
       ..colorFilter = colorFilter;
     canvas.drawImageRect(sheet.image, src, dst, paint);
   }
@@ -309,7 +337,8 @@ class _MascotFallbackAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final icon = switch (state) {
-      MascotState.celebrate || MascotState.clickHeart => Icons.auto_awesome_rounded,
+      MascotState.celebrate ||
+      MascotState.clickHeart => Icons.auto_awesome_rounded,
       MascotState.sad => Icons.sentiment_dissatisfied_rounded,
       MascotState.fireLoop => Icons.local_fire_department_rounded,
       _ => Icons.pets_rounded,
@@ -319,7 +348,9 @@ class _MascotFallbackAvatar extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.45),
+        color: Theme.of(
+          context,
+        ).colorScheme.primaryContainer.withValues(alpha: 0.45),
       ),
       child: Icon(
         icon,
@@ -384,7 +415,8 @@ class MascotPoseEmblem extends StatelessWidget {
       height: size,
       padding: EdgeInsets.all(size * 0.08),
       decoration: BoxDecoration(
-        color: backgroundColor ?? colors.primaryContainer.withValues(alpha: 0.35),
+        color:
+            backgroundColor ?? colors.primaryContainer.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(size * 0.3),
         border: Border.all(
           color: borderColor ?? colors.primary.withValues(alpha: 0.25),
@@ -691,10 +723,7 @@ class MascotSpeechBanner extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) ...[
-            const SizedBox(width: 10),
-            trailing!,
-          ],
+          if (trailing != null) ...[const SizedBox(width: 10), trailing!],
         ],
       ),
     );

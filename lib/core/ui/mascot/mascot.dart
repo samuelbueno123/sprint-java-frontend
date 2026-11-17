@@ -1,5 +1,9 @@
+export 'floating_mascot_overlay.dart';
 export 'interactive_mascot_stage.dart';
 export 'mascot_assets.dart';
+export 'mascot_chat_popover.dart';
+export 'mascot_chat_service.dart';
+export 'mascot_controller.dart';
 export 'mascot_preference_controller.dart';
 export 'mascot_settings_card.dart';
 export 'mascot_sprite_cache.dart';

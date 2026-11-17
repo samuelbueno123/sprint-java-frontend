@@ -5,6 +5,7 @@ import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/ui/language_flag.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 import 'package:frontend/core/xp/xp_animation_controller.dart';
 
 class _AddSrsCardDialog extends StatefulWidget {
@@ -246,17 +247,46 @@ class _SrsReviewViewState extends State<SrsReviewView> {
   String? _error;
   int _sessionXp = 0;
   int _sessionReviewedCount = 0;
+  Object? _mascotToken;
+  bool _disposed = false;
 
   @override
   void initState() {
     super.initState();
     _loadFuture = _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _disposed) return;
+      _mascotToken = MascotController.instance.enterActivity(
+        activityId: 'srs:session',
+        title: 'Revisão Espaçada (SRS)',
+        mascotHelpMessage:
+            'Tente lembrar o significado antes de virar o card e avalie sua confiança para calibrar os intervalos.',
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    final token = _mascotToken;
+    if (token != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        MascotController.instance.exitActivity(token);
+      });
+    }
+    super.dispose();
   }
 
   Future<void> _loadData() async {
     setState(() {
       _error = null;
     });
+    if (_mascotToken != null) {
+      MascotController.instance.updateActivityContext(
+        _mascotToken!,
+        isCompleted: false,
+      );
+    }
     try {
       final responses = await Future.wait([
         _dio.get('/api/srs/session'),
@@ -310,8 +340,14 @@ class _SrsReviewViewState extends State<SrsReviewView> {
       }
       if (rating <= 1) {
         SystemSoundService.defeat();
-      } else if (rating >= 4) {
-        SystemSoundService.success();
+        MascotController.instance.reactIncorrect();
+      } else if (rating >= 3) {
+        if (rating >= 4) {
+          SystemSoundService.success();
+        } else {
+          SystemSoundService.pop();
+        }
+        MascotController.instance.reactCorrect();
       } else {
         SystemSoundService.pop();
       }
@@ -326,6 +362,9 @@ class _SrsReviewViewState extends State<SrsReviewView> {
       });
 
       if (_currentIndex >= _items.length) {
+        if (_sessionReviewedCount > 0 && _mascotToken != null) {
+          MascotController.instance.markActivityCompleted(_mascotToken!);
+        }
         // Refresh stats
         final statsRes = await _dio.get('/api/srs/stats');
         if (mounted) {
@@ -367,9 +406,7 @@ class _SrsReviewViewState extends State<SrsReviewView> {
       future: _loadFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const AppLoader(
-            message: 'Preparando flashcards da sessão...',
-          );
+          return const AppLoader(message: 'Preparando flashcards da sessão...');
         }
 
         if (_error != null) {
@@ -786,15 +823,14 @@ class _SrsReviewViewState extends State<SrsReviewView> {
           child: Column(
             children: [
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: Colors.green.withValues(alpha: 0.14),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.emoji_events_rounded,
-                  color: Colors.green,
-                  size: 52,
+                child: const MascotSprite(
+                  state: MascotState.celebrate,
+                  size: 86,
                 ),
               ),
               const SizedBox(height: 16),

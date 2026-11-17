@@ -36,6 +36,7 @@ class InteractiveMascotStage extends StatefulWidget {
     this.compact = false,
     this.showControls = true,
     this.sandboxBounds = const Size(240, 150),
+    this.useSpriteSheet = true,
   });
 
   final double size;
@@ -51,13 +52,12 @@ class InteractiveMascotStage extends StatefulWidget {
   final bool compact;
   final bool showControls;
   final Size sandboxBounds;
+  final bool useSpriteSheet;
 
   double get resolvedSize => mascotSize ?? size;
 
-  Size get resolvedBounds => Size(
-    sandboxBounds.width,
-    height ?? sandboxBounds.height,
-  );
+  Size get resolvedBounds =>
+      Size(sandboxBounds.width, height ?? sandboxBounds.height);
 
   @override
   State<InteractiveMascotStage> createState() => _InteractiveMascotStageState();
@@ -83,10 +83,9 @@ class _InteractiveMascotStageState extends State<InteractiveMascotStage>
   void initState() {
     super.initState();
     _fireMode = widget.fireMode;
-    _currentState =
-        _fireMode && widget.initialState == MascotState.idle
-            ? MascotState.fireLoop
-            : widget.initialState;
+    _currentState = _fireMode && widget.initialState == MascotState.idle
+        ? MascotState.fireLoop
+        : widget.initialState;
     _quote =
         widget.initialQuote ??
         widget.hintText ??
@@ -106,10 +105,9 @@ class _InteractiveMascotStageState extends State<InteractiveMascotStage>
       }
     }
     if (oldWidget.initialState != widget.initialState && !_isDragging) {
-      _currentState =
-          _fireMode && widget.initialState == MascotState.idle
-              ? MascotState.fireLoop
-              : widget.initialState;
+      _currentState = _fireMode && widget.initialState == MascotState.idle
+          ? MascotState.fireLoop
+          : widget.initialState;
       _quote =
           widget.initialQuote ??
           widget.hintText ??
@@ -166,10 +164,7 @@ class _InteractiveMascotStageState extends State<InteractiveMascotStage>
     final reactions = MascotAssets.clickReactions;
     final reaction = reactions[_clickIndex % reactions.length];
     _clickIndex++;
-    _triggerState(
-      reaction,
-      autoResetAfter: const Duration(milliseconds: 850),
-    );
+    _triggerState(reaction, autoResetAfter: const Duration(milliseconds: 850));
   }
 
   void _startHoldTimer() {
@@ -260,10 +255,7 @@ class _InteractiveMascotStageState extends State<InteractiveMascotStage>
   void _onPanEnd(DragEndDetails details) {
     _isDragging = false;
     final vel = details.velocity.pixelsPerSecond / 60.0;
-    _velocity = Offset(
-      vel.dx.clamp(-18.0, 18.0),
-      vel.dy.clamp(-18.0, 18.0),
-    );
+    _velocity = Offset(vel.dx.clamp(-18.0, 18.0), vel.dy.clamp(-18.0, 18.0));
     if (_velocity.distance > 1.2) {
       _physicsTicker?.stop();
       _physicsTicker?.start();
@@ -369,7 +361,7 @@ class _InteractiveMascotStageState extends State<InteractiveMascotStage>
             state: _currentState,
             size: widget.resolvedSize,
             overrideVariant: _fireMode ? MascotVariant.fire : null,
-            useSpriteSheet: false,
+            useSpriteSheet: widget.useSpriteSheet,
             onOneShotComplete: () {
               if (!mounted || _isDragging) return;
               if (!spec.loop) {
@@ -535,7 +527,7 @@ class MascotCompanionModal extends StatefulWidget {
 class _MascotCompanionModalState extends State<MascotCompanionModal> {
   MascotState _selectedState = MascotState.idle;
   String _selectedCategory = 'Todos';
-  bool _useSpriteSheet = false;
+  bool _useSpriteSheet = true;
   bool _checkerBg = true;
   bool _fireMode = false;
   double _fps = 24;
@@ -585,7 +577,10 @@ class _MascotCompanionModalState extends State<MascotCompanionModal> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.auto_awesome_rounded, color: Color(0xFF4F46E5)),
+                      const Icon(
+                        Icons.auto_awesome_rounded,
+                        color: Color(0xFF4F46E5),
+                      ),
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
@@ -691,13 +686,16 @@ class _MascotCompanionModalState extends State<MascotCompanionModal> {
                               children: [
                                 if (_checkerBg)
                                   const Positioned.fill(
-                                    child: CustomPaint(painter: _CheckerPainter()),
+                                    child: CustomPaint(
+                                      painter: _CheckerPainter(),
+                                    ),
                                   ),
                                 InteractiveMascotStage(
                                   size: 118,
                                   initialState: _selectedState,
                                   fireMode: _fireMode,
                                   compact: true,
+                                  useSpriteSheet: _useSpriteSheet,
                                   sandboxBounds: const Size(146, 146),
                                   onStateTriggered: (triggered) {
                                     setState(() => _selectedState = triggered);
@@ -728,7 +726,9 @@ class _MascotCompanionModalState extends State<MascotCompanionModal> {
                                 Chip(
                                   visualDensity: VisualDensity.compact,
                                   label: Text(
-                                    selectedSpec.loop ? 'Loop contínuo' : 'One-shot',
+                                    selectedSpec.loop
+                                        ? 'Loop contínuo'
+                                        : 'One-shot',
                                   ),
                                 ),
                               ],
@@ -816,12 +816,13 @@ class _MascotCompanionModalState extends State<MascotCompanionModal> {
                   const SizedBox(height: 10),
                   Expanded(
                     child: GridView.builder(
-                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 148,
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
-                        childAspectRatio: 0.92,
-                      ),
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 148,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                            childAspectRatio: 0.92,
+                          ),
                       itemCount: filtered.length,
                       itemBuilder: (context, index) {
                         final spec = filtered[index];
@@ -840,7 +841,9 @@ class _MascotCompanionModalState extends State<MascotCompanionModal> {
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? colors.primaryContainer.withValues(alpha: 0.5)
+                                  ? colors.primaryContainer.withValues(
+                                      alpha: 0.5,
+                                    )
                                   : colors.surfaceContainerLow,
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(

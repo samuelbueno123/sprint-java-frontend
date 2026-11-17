@@ -2,7 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_feedback_widgets.dart';
+import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../domain/entities/dashboard_data.dart';
 import 'responsive_layout.dart';
 import 'teacher_exercise_preview_screen.dart';
@@ -116,6 +118,7 @@ class TeacherExercisesOverviewScreen extends StatefulWidget {
     required this.exercises,
     required this.submissions,
     this.dataLoadError,
+    this.dio,
     required this.onCreateExercise,
     required this.onRefresh,
   });
@@ -124,6 +127,7 @@ class TeacherExercisesOverviewScreen extends StatefulWidget {
   final List<Map<String, dynamic>> exercises;
   final List<Map<String, dynamic>> submissions;
   final String? dataLoadError;
+  final Dio? dio;
   final VoidCallback onCreateExercise;
   final VoidCallback onRefresh;
 
@@ -134,7 +138,7 @@ class TeacherExercisesOverviewScreen extends StatefulWidget {
 
 class _TeacherExercisesOverviewScreenState
     extends State<TeacherExercisesOverviewScreen> {
-  final Dio _dio = ApiClient().dio;
+  late final Dio _dio = widget.dio ?? ApiClient().dio;
   final Set<String> _expandedPackages = {};
   final Map<int, Set<int>?> _studentIdsByClass = {};
   int? _selectedClassId;
@@ -653,6 +657,8 @@ class _TeacherExercisesOverviewScreenState
         ? styles.first
         : 'Misto';
     final createdAt = _dateLabel(exercise['createdAt']);
+    final hasMascotHelp =
+        exercise['mascotHelpMessage']?.toString().trim().isNotEmpty == true;
 
     return Card(
       margin: const EdgeInsets.only(top: 10),
@@ -683,6 +689,36 @@ class _TeacherExercisesOverviewScreenState
                   context,
                   classSize != null && classSize > 0 && submitted >= classSize,
                 ),
+                if (hasMascotHelp)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.tips_and_updates_rounded,
+                          size: 13,
+                          color: Color(0xFF4F46E5),
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'Dica do Bode',
+                          style: TextStyle(
+                            color: Color(0xFF4F46E5),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 9),
@@ -740,17 +776,31 @@ class _TeacherExercisesOverviewScreenState
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: () => _cloneExerciseDialog(context, exercise),
-                  icon: const Icon(Icons.copy_rounded, size: 18),
-                  label: const Text('Clonar'),
-                ),
-                const SizedBox(width: 4),
-                TextButton.icon(
-                  onPressed: () => _previewExercise(context, exercise),
-                  icon: const Icon(Icons.visibility_outlined, size: 18),
-                  label: const Text('Pré-visualizar'),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => _editExerciseDialog(context, exercise),
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        label: const Text('Editar'),
+                      ),
+                      TextButton.icon(
+                        onPressed: () =>
+                            _cloneExerciseDialog(context, exercise),
+                        icon: const Icon(Icons.copy_rounded, size: 18),
+                        label: const Text('Clonar'),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => _previewExercise(context, exercise),
+                        icon: const Icon(Icons.visibility_outlined, size: 18),
+                        label: const Text('Pré-visualizar'),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -758,6 +808,40 @@ class _TeacherExercisesOverviewScreenState
         ),
       ),
     );
+  }
+
+  Future<void> _editExerciseDialog(
+    BuildContext context,
+    Map<String, dynamic> exercise,
+  ) async {
+    final exerciseId = _int(exercise['id']);
+    if (exerciseId == null) return;
+
+    final payload = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => _EditExerciseDialog(
+        exercise: exercise,
+        classes: _classes,
+        fallbackClassId: _selectedClassId,
+      ),
+    );
+
+    if (payload == null) return;
+    try {
+      await _dio.put('/api/exercises/$exerciseId', data: payload);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Atividade atualizada com sucesso!')),
+        );
+        widget.onRefresh();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao atualizar atividade: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _cloneExerciseDialog(
@@ -824,6 +908,7 @@ class _TeacherExercisesOverviewScreenState
           level: '${exercise['proficiencyLevel'] ?? 'Intermediário'}',
           questions: questions,
           contentBody: exercise['contentBody']?.toString(),
+          mascotHelpMessage: exercise['mascotHelpMessage']?.toString(),
           onBack: () => Navigator.pop(context),
         ),
       ),
@@ -1015,4 +1100,314 @@ class _ExercisePackage {
   final String category;
   final String theme;
   final List<Map<String, dynamic>> exercises;
+}
+
+class _EditExerciseDialog extends StatefulWidget {
+  const _EditExerciseDialog({
+    required this.exercise,
+    required this.classes,
+    this.fallbackClassId,
+  });
+
+  final Map<String, dynamic> exercise;
+  final List<_ClassOption> classes;
+  final int? fallbackClassId;
+
+  @override
+  State<_EditExerciseDialog> createState() => _EditExerciseDialogState();
+}
+
+class _EditExerciseDialogState extends State<_EditExerciseDialog> {
+  static const List<String> _defaultCategories = [
+    'Gramática',
+    'Vocabulário',
+    'Conversação',
+    'Leitura',
+    'Escrita',
+    'Pronúncia',
+  ];
+  static const List<String> _defaultLevels = [
+    'Fácil',
+    'Médio',
+    'Difícil',
+    'Básico',
+    'Intermediário',
+    'Avançado',
+  ];
+
+  late final TextEditingController _titleCtrl;
+  late final TextEditingController _themeCtrl;
+  late final TextEditingController _descriptionCtrl;
+  late final TextEditingController _mascotHelpCtrl;
+  late String _category;
+  late String _level;
+  DateTime? _dueDate;
+  String? _validationError;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleCtrl = TextEditingController(
+      text: widget.exercise['title']?.toString() ?? '',
+    );
+    _themeCtrl = TextEditingController(
+      text: widget.exercise['theme']?.toString() ?? '',
+    );
+    _descriptionCtrl = TextEditingController(
+      text: widget.exercise['description']?.toString() ?? '',
+    );
+    _mascotHelpCtrl = TextEditingController(
+      text: widget.exercise['mascotHelpMessage']?.toString() ?? '',
+    );
+
+    final rawCat = widget.exercise['category']?.toString().trim() ?? '';
+    _category = rawCat.isEmpty ? _defaultCategories.first : rawCat;
+
+    final rawLevel =
+        widget.exercise['proficiencyLevel']?.toString().trim() ?? '';
+    _level = rawLevel.isEmpty ? 'Intermediário' : rawLevel;
+
+    final rawDue = widget.exercise['dueDate']?.toString().trim();
+    if (rawDue != null && rawDue.isNotEmpty) {
+      _dueDate = DateTime.tryParse(rawDue);
+    }
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _themeCtrl.dispose();
+    _descriptionCtrl.dispose();
+    _mascotHelpCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDueDate() async {
+    final today = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dueDate ?? today,
+      firstDate: DateTime(today.year - 1),
+      lastDate: DateTime(today.year + 3),
+    );
+    if (picked != null && mounted) {
+      setState(() => _dueDate = picked);
+    }
+  }
+
+  void _submit() {
+    final title = _titleCtrl.text.trim();
+    if (title.isEmpty) {
+      setState(() => _validationError = 'Informe o título da atividade.');
+      return;
+    }
+
+    final schoolClassId =
+        (widget.exercise['schoolClassId'] as num?)?.toInt() ??
+        widget.fallbackClassId ??
+        widget.classes.firstOrNull?.id;
+    if (schoolClassId == null) {
+      setState(() => _validationError = 'Turma vinculada não encontrada.');
+      return;
+    }
+
+    final rawLang = widget.exercise['languageName']?.toString().trim();
+    final matchedClassName = widget.classes
+        .where((c) => c.id == schoolClassId)
+        .map((c) => c.name)
+        .firstOrNull;
+    final languageName = (rawLang != null && rawLang.isNotEmpty)
+        ? SupportedLanguages.normalizeOrDefault(rawLang)
+        : SupportedLanguages.inferFromClassName(matchedClassName);
+
+    final dueDateStr = _dueDate == null
+        ? null
+        : '${_dueDate!.year.toString().padLeft(4, '0')}-${_dueDate!.month.toString().padLeft(2, '0')}-${_dueDate!.day.toString().padLeft(2, '0')}';
+
+    final questions = (widget.exercise['questions'] as List? ?? const [])
+        .whereType<Map>()
+        .map((q) {
+          final rawOpts = q['options'] as List? ?? const [];
+          return <String, dynamic>{
+            'style': (q['style'] ?? 'Múltipla Escolha').toString(),
+            'question': (q['question'] ?? q['prompt'] ?? '').toString(),
+            'options': rawOpts.map((e) => e.toString()).toList(),
+            if (q['correctAnswer'] != null)
+              'correctAnswer': q['correctAnswer'].toString(),
+            if (q['expectedAnswer'] != null)
+              'expectedAnswer': q['expectedAnswer'].toString(),
+          };
+        })
+        .toList();
+
+    final helpText = _mascotHelpCtrl.text.trim();
+
+    Navigator.of(context).pop(<String, dynamic>{
+      'title': title,
+      'category': _category,
+      'theme': _themeCtrl.text.trim(),
+      'languageName': languageName,
+      'proficiencyLevel': _level,
+      'description': _descriptionCtrl.text.trim(),
+      'mascotHelpMessage': helpText.isEmpty ? null : helpText,
+      'contentBody': widget.exercise['contentBody'],
+      'mediaUrl': widget.exercise['mediaUrl'],
+      'dueDate': dueDateStr,
+      'schoolClassId': schoolClassId,
+      'questions': questions,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final categoryItems = <String>{
+      ..._defaultCategories,
+      if (_category.isNotEmpty) _category,
+    }.toList();
+    final levelItems = <String>{
+      ..._defaultLevels,
+      if (_level.isNotEmpty) _level,
+    }.toList();
+
+    return AlertDialog(
+      title: const Row(
+        children: [
+          MascotPoseEmblem(state: MascotState.clickBleat, size: 32),
+          SizedBox(width: 10),
+          Expanded(child: Text('Editar Atividade')),
+        ],
+      ),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _titleCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Título da Atividade',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _category,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Categoria',
+                        isDense: true,
+                      ),
+                      items: categoryItems
+                          .map(
+                            (c) => DropdownMenuItem(value: c, child: Text(c)),
+                          )
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) setState(() => _category = val);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _level,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Nível',
+                        isDense: true,
+                      ),
+                      items: levelItems
+                          .map(
+                            (l) => DropdownMenuItem(value: l, child: Text(l)),
+                          )
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) setState(() => _level = val);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _themeCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Tema',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _descriptionCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Descrição (opcional)',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _mascotHelpCtrl,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Dica do Bode Branco (opcional)',
+                  hintText:
+                      'Orientação exibida no balão de ajuda do mascote durante a atividade.',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _pickDueDate,
+                      icon: const Icon(Icons.calendar_month_outlined, size: 18),
+                      label: Text(
+                        _dueDate == null
+                            ? 'Prazo (opcional)'
+                            : 'Prazo: ${_dueDate!.day.toString().padLeft(2, '0')}/${_dueDate!.month.toString().padLeft(2, '0')}/${_dueDate!.year}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  if (_dueDate != null)
+                    IconButton(
+                      tooltip: 'Remover prazo',
+                      onPressed: () => setState(() => _dueDate = null),
+                      icon: const Icon(Icons.clear_rounded, size: 18),
+                    ),
+                ],
+              ),
+              if (_validationError != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _validationError!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(null),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: const Text('Salvar Alterações'),
+        ),
+      ],
+    );
+  }
 }

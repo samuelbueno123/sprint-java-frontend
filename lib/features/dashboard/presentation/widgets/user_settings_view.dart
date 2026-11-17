@@ -7,6 +7,7 @@ import '../../../../core/localization/app_locale_controller.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme_controller.dart';
 import '../../../../core/ui/language_flag.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../data/datasources/dashboard_remote_datasource.dart';
 import '../../domain/entities/dashboard_data.dart';
 import 'app_theme_selector.dart';
@@ -953,6 +954,13 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                   ),
                 ),
               ).animate().fadeIn(duration: 350.ms, delay: 150.ms).slideY(begin: 0.05, end: 0),
+              const SizedBox(height: 16),
+
+              MascotSettingsCard(
+                accentColor: brandColor,
+                cardColor: cardBg,
+                borderColor: cardBorder,
+              ),
               const SizedBox(height: 16),
 
               // Card 5: Notificações & Conectividade
