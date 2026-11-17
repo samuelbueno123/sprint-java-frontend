@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 
 class _AddSrsCardDialog extends StatefulWidget {
   const _AddSrsCardDialog({required this.onSave});
@@ -231,6 +232,7 @@ class _SrsReviewViewState extends State<SrsReviewView> {
   String? _error;
   int _sessionXp = 0;
   int _sessionReviewedCount = 0;
+  MascotState _companionState = MascotState.idle;
 
   @override
   void initState() {
@@ -276,6 +278,12 @@ class _SrsReviewViewState extends State<SrsReviewView> {
 
     setState(() {
       _submitting = true;
+      _companionState = switch (rating) {
+        1 => MascotState.sad,
+        2 => MascotState.clickShake,
+        3 => MascotState.clickHeart,
+        _ => MascotState.celebrate,
+      };
     });
 
     try {
@@ -338,7 +346,10 @@ class _SrsReviewViewState extends State<SrsReviewView> {
       future: _loadFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const MascotLoader(
+            message: 'Preparando flashcards da sessão...',
+            mascotSize: 80,
+          );
         }
 
         if (_error != null) {
@@ -346,11 +357,7 @@ class _SrsReviewViewState extends State<SrsReviewView> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.error_outline_rounded,
-                  size: 48,
-                  color: colors.error,
-                ),
+                const MascotErrorIllustration(state: MascotState.sad, size: 78),
                 const SizedBox(height: 16),
                 Text(_error!, style: TextStyle(color: colors.error)),
                 const SizedBox(height: 16),
@@ -538,7 +545,36 @@ class _SrsReviewViewState extends State<SrsReviewView> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                MascotSprite(
+                  state: _companionState,
+                  size: 48,
+                  useMaster24FpsAtlas: true,
+                  onTap: () =>
+                      setState(() => _companionState = MascotState.clickPoke),
+                  onCompleted: () {
+                    if (!mounted) return;
+                    if (!MascotAssets.specFor(_companionState).loop) {
+                      setState(() => _companionState = MascotState.idle);
+                    }
+                  },
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    MascotAssets.specFor(_companionState).defaultQuote,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
 
             // Flip Card
             GestureDetector(
@@ -758,10 +794,9 @@ class _SrsReviewViewState extends State<SrsReviewView> {
           ),
           child: Column(
             children: [
-              const Icon(
-                Icons.celebration_rounded,
-                size: 64,
-                color: Colors.amber,
+              const MascotGifBadge(
+                state: MascotState.celebrate,
+                size: 96,
               ),
               const SizedBox(height: 16),
               const Text(

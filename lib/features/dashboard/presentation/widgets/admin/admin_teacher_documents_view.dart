@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../../core/network/api_client.dart';
+import '../../../../../core/ui/mascot/mascot.dart';
 import '../responsive_layout.dart';
 
 class AdminTeacherDocumentsView extends StatefulWidget {
@@ -492,8 +493,13 @@ class _AdminTeacherDocumentsViewState extends State<AdminTeacherDocumentsView> {
 
           if (_isLoading)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
-              child: Center(child: CircularProgressIndicator()),
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: MascotLoader(
+                message: 'Carregando documentos docentes...',
+                state: MascotState.idle,
+                mascotSize: 78,
+                accentColor: Color(0xFFD97706),
+              ),
             )
           else if (_documents.isEmpty)
             Card(
@@ -508,10 +514,10 @@ class _AdminTeacherDocumentsViewState extends State<AdminTeacherDocumentsView> {
                 padding: const EdgeInsets.all(40),
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.folder_open_rounded,
-                      size: 48,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    const MascotEmptyIllustration(
+                      state: MascotState.idle,
+                      size: 80,
+                      accentColor: Color(0xFFD97706),
                     ),
                     const SizedBox(height: 12),
                     const Text(

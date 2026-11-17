@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../../../core/config/app_config.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../../../core/ui/motion_kit.dart';
 import '../../auth_dependencies.dart';
 import '../../domain/entities/auth_session.dart';
@@ -151,11 +152,21 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _viewModel,
-      builder: (context, _) => AuthPageFrame(
-        title: 'Entrar',
-        subtitle: 'Acesse sua conta com email, senha ou Google.',
-        accentColor: const Color(0xFF5869D8),
-        child: Form(
+      builder: (context, _) {
+        final mascotState = _viewModel.errorMessage != null
+            ? MascotState.sad
+            : (_viewModel.isLoading ? MascotState.intense : MascotState.idle);
+        return AuthPageFrame(
+          title: 'Entrar',
+          subtitle: 'Acesse sua conta com email, senha ou Google.',
+          accentColor: const Color(0xFF5869D8),
+          mascotState: mascotState,
+          mascotTip: _viewModel.errorMessage != null
+              ? 'Ops! Confira seu email e senha para entrar no painel.'
+              : (_viewModel.isLoading
+                  ? 'Conectando ao servidor e preparando seus estudos...'
+                  : 'Toque no bode Duolinfo ou faça login para continuar!'),
+          child: Form(
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -325,7 +336,8 @@ class _LoginPageState extends State<LoginPage> {
             ],
           ),
         ),
-      ),
+      );
+      },
     );
   }
 }

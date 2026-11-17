@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../../../core/ui/motion_kit.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/student_enrollment.dart';
@@ -128,10 +129,10 @@ class StudentDashboardView extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.lightbulb_outline_rounded,
-                    color: _blue,
-                    size: 28,
+                  const MascotPoseEmblem(
+                    state: MascotState.clickHeart,
+                    size: 46,
+                    glowColor: _blue,
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -290,7 +291,16 @@ class StudentDashboardView extends StatelessWidget {
             activeClass: activeClass,
             onSectionSelected: onSectionSelected,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          InteractiveMascotStage(
+            initialState: MascotState.idle,
+            mascotSize: 82,
+            height: 120,
+            accentColor: _blue,
+            hintText:
+                'Toque ou arraste seu mascote! Veja todas as reações em Configurações.',
+          ),
+          const SizedBox(height: 16),
 
           // Cards com estatísticas rápidas (clicáveis)
           LayoutBuilder(
@@ -925,16 +935,18 @@ class _WelcomeBanner extends StatelessWidget {
         ),
         const SizedBox(width: 14),
         Container(
-          width: 58,
-          height: 58,
+          width: 72,
+          height: 72,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: .16),
             shape: BoxShape.circle,
           ),
-          child: const Icon(
-            Icons.school_rounded,
-            color: Colors.white,
-            size: 30,
+          child: const Center(
+            child: MascotSprite(
+              state: MascotState.idle,
+              size: 62,
+              glowColor: Colors.white,
+            ),
           ),
         ),
       ],
@@ -1258,8 +1270,12 @@ class _StudentInstitutionMembersViewState
           const SizedBox(height: 18),
           if (_loading)
             const Padding(
-              padding: EdgeInsets.all(40),
-              child: Center(child: CircularProgressIndicator()),
+              padding: EdgeInsets.all(24),
+              child: MascotLoader(
+                message: 'Buscando colegas e professores...',
+                state: MascotState.idle,
+                mascotSize: 78,
+              ),
             )
           else if (_error != null)
             Card(
@@ -1533,8 +1549,13 @@ class _StudentProgressSummaryCardState
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
               return const Padding(
-                padding: EdgeInsets.all(16),
-                child: Center(child: CircularProgressIndicator()),
+                padding: EdgeInsets.all(8),
+                child: MascotLoader(
+                  message: 'Calculando seu progresso diário...',
+                  compact: true,
+                  mascotSize: 58,
+                  showProgressBar: false,
+                ),
               );
             }
             if (snapshot.hasError) {
@@ -1608,6 +1629,13 @@ class _StudentProgressSummaryCardState
               children: [
                 Row(
                   children: [
+                    if (reached) ...[
+                      const MascotGifBadge(
+                        state: MascotState.celebrate,
+                        size: 46,
+                      ),
+                      const SizedBox(width: 10),
+                    ],
                     Expanded(
                       child: Text(
                         reached
@@ -2074,8 +2102,8 @@ class _StudentStreakDialogState extends State<_StudentStreakDialog>
               child: Row(
                 children: [
                   Container(
-                    width: 64,
-                    height: 64,
+                    width: 72,
+                    height: 72,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.25),
                       shape: BoxShape.circle,
@@ -2087,17 +2115,15 @@ class _StudentStreakDialogState extends State<_StudentStreakDialog>
                         ),
                       ],
                     ),
-                    child:
-                        const Icon(
-                          Icons.local_fire_department_rounded,
-                          color: Colors.white,
-                          size: 40,
-                        ).animate().scale(
-                          begin: const Offset(0.92, 0.92),
-                          end: const Offset(1.0, 1.0),
-                          duration: 400.ms,
-                          curve: Curves.easeOutBack,
-                        ),
+                    child: Center(
+                      child: MascotSprite(
+                        state: widget.currentStreak > 0
+                            ? MascotState.fireLoop
+                            : MascotState.intense,
+                        size: 62,
+                        glowColor: Colors.amberAccent,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 18),
                   Expanded(
@@ -2301,7 +2327,13 @@ class _StudentStreakDialogState extends State<_StudentStreakDialog>
                     ],
                   ),
                   _loadingClassmates
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const MascotLoader(
+                          message: 'Carregando ranking de ofensiva da turma...',
+                          state: MascotState.fireLoop,
+                          mascotSize: 78,
+                          useSpriteSheet: true,
+                          accentColor: Colors.deepOrange,
+                        )
                       : ListView(
                           padding: const EdgeInsets.all(18),
                           children: [

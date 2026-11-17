@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../../auth/presentation/pages/student_signup_page.dart';
 import '../../../auth/presentation/pages/teacher_signup_page.dart';
 import '../../domain/entities/dashboard_data.dart';
@@ -61,29 +62,45 @@ class UserDashboardView extends StatelessWidget {
                   ),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    const Icon(
-                      Icons.auto_awesome_rounded,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      '${data.welcomePrefix}, ${data.user.name.split(' ').first}!',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 25,
-                        fontWeight: FontWeight.w800,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${data.welcomePrefix}, ${data.user.name.split(' ').first}!',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 25,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Sua conta foi autenticada com sucesso! Para começar a usar a plataforma, escolha se você deseja continuar como ${data.isFemale ? 'Aluna ou Professora' : 'Aluno ou Professor'}.',
+                            style: const TextStyle(
+                              color: Color(0xEFFFFFFF),
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Sua conta foi autenticada com sucesso! Para começar a usar a plataforma, escolha se você deseja continuar como ${data.isFemale ? 'Aluna ou Professora' : 'Aluno ou Professor'}.',
-                      style: const TextStyle(
-                        color: Color(0xEFFFFFFF),
-                        height: 1.45,
+                    const SizedBox(width: 14),
+                    Container(
+                      width: 74,
+                      height: 74,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.16),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: MascotSprite(
+                          state: MascotState.clickHeart,
+                          size: 64,
+                          glowColor: Colors.white,
+                        ),
                       ),
                     ),
                   ],
@@ -178,12 +195,10 @@ class UserDashboardView extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    approved
-                        ? Icons.verified_user_rounded
-                        : Icons.pending_actions_rounded,
-                    size: 48,
-                    color: color,
+                  MascotSprite(
+                    state: approved ? MascotState.celebrate : MascotState.idle,
+                    size: 92,
+                    glowColor: color,
                   ),
                   const SizedBox(height: 16),
                   Text(

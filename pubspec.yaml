@@ -33,3 +33,9 @@ flutter:
   uses-material-design: true
   assets:
     - .env
+    - assets/mascot/sheets/
+    - assets/mascot/sheets_24fps/
+    - assets/mascot/sheets_interactive/
+    - assets/mascot/gifs/green/
+    - assets/mascot/gifs/white_24fps/
+    - assets/mascot/gifs/interactive/

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../../core/network/api_client.dart';
+import '../../../../../core/ui/mascot/mascot.dart';
 import '../responsive_layout.dart';
 
 class AdminSystemHealthView extends StatefulWidget {
@@ -267,10 +268,13 @@ class _AdminSystemHealthViewState extends State<AdminSystemHealthView> {
             ),
 
           if (_isLoading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(40),
-                child: CircularProgressIndicator(),
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: MascotLoader(
+                message: 'Monitorando saúde e serviços do sistema...',
+                state: MascotState.intense,
+                mascotSize: 80,
+                accentColor: Color(0xFFD97706),
               ),
             )
           else if (_healthData != null) ...[

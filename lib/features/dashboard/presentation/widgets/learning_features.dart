@@ -7,6 +7,7 @@ import '../../../../core/constants/supported_languages.dart';
 import 'dart:async';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/realtime_sync_service.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../../../core/ui/motion_kit.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/student_enrollment.dart';
@@ -190,7 +191,11 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
     future: _load,
     builder: (context, snapshot) {
       if (snapshot.connectionState != ConnectionState.done) {
-        return const Center(child: CircularProgressIndicator());
+        return const MascotLoader(
+          message: 'Carregando espaço docente...',
+          mascotSize: 80,
+          accentColor: Color(0xFF7651C8),
+        );
       }
       if (snapshot.hasError) {
         return _ErrorPanel(
@@ -2121,7 +2126,11 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
     future: _load,
     builder: (context, snapshot) {
       if (snapshot.connectionState != ConnectionState.done) {
-        return const Center(child: CircularProgressIndicator());
+        return const MascotLoader(
+          message: 'Carregando suas lições e atividades...',
+          mascotSize: 84,
+          accentColor: Color(0xFF3579E8),
+        );
       }
       if (snapshot.hasError) {
         return _ErrorPanel(
@@ -2932,15 +2941,17 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                             ),
-                            child: const Icon(
-                              Icons.play_circle_outline_rounded,
-                              color: Colors.white,
-                              size: 28,
+                            child: MascotSprite(
+                              state: urgent.isNotEmpty
+                                  ? MascotState.intense
+                                  : MascotState.idle,
+                              size: 48,
+                              glowColor: Colors.white,
                             ),
                           ),
                           const SizedBox(width: 14),
@@ -3214,10 +3225,19 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Icon(
-                            Icons.workspace_premium_rounded,
-                            color: colors.onPrimary,
-                            size: 32,
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: MascotSprite(
+                              state: earned > 0
+                                  ? MascotState.celebrate
+                                  : MascotState.clickSpin,
+                              size: 52,
+                              glowColor: Colors.white,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -3341,7 +3361,15 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
           _title,
           style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
+        MascotSpeechBanner(
+          title: grouped ? 'Disputa entre grupos' : 'Ranking em chamas',
+          message:
+              'Complete atividades no prazo e mantenha sua ofensiva acesa para subir no pódio!',
+          state: grouped ? MascotState.dragMoveUp : MascotState.fireLoop,
+          mascotSize: 56,
+        ),
+        const SizedBox(height: 12),
         DropdownButton<String>(
           value: _period,
           items: const [
@@ -3412,6 +3440,7 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
   bool _audioFallbackMode = false;
   String? _speechStatus;
   int _index = 0;
+  MascotState _buddyState = MascotState.idle;
 
   @override
   void initState() {
@@ -3430,6 +3459,9 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
   }
 
   Future<void> _speakCurrentPrompt({double rate = 1.0}) async {
+    if (mounted) {
+      setState(() => _buddyState = MascotState.clickBleat);
+    }
     final q = widget.exercise.questions[_index];
     final targetText = q.spokenReference.isNotEmpty
         ? q.spokenReference
@@ -3442,6 +3474,7 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
     if (!ok && mounted) {
       setState(() {
         _audioFallbackMode = true;
+        _buddyState = MascotState.clickPoke;
         _speechStatus =
             'Síntese de áudio indisponível neste dispositivo. Modo acessível ativado automaticamente.';
       });
@@ -3452,6 +3485,7 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
     if (_listening) return;
     setState(() {
       _listening = true;
+      _buddyState = MascotState.holdGrab;
       _speechStatus = 'Solicitando acesso ao microfone...';
     });
     try {
@@ -3492,6 +3526,7 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
         ? _text.text.trim()
         : (_selected[_index] ?? _text.text.trim());
     if (answer.isEmpty) {
+      setState(() => _buddyState = MascotState.clickShake);
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(
@@ -3507,6 +3542,7 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
     if (_index < widget.exercise.questions.length - 1) {
       setState(() {
         _index++;
+        _buddyState = MascotState.dragMoveRight;
         _speechStatus = null;
         _text.clear();
       });
@@ -3584,26 +3620,24 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                 ),
                 child: Column(
                   children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        shape: BoxShape.circle,
-                      ),
-                      child:
-                          const Icon(
-                                Icons.emoji_events_rounded,
-                                color: Color(0xFFFFD700),
-                                size: 34,
-                              )
-                              .animate(onPlay: (c) => c.repeat(reverse: true))
-                              .scale(
-                                begin: const Offset(0.9, 0.9),
-                                end: const Offset(1.15, 1.15),
-                                duration: 700.ms,
-                              ),
+                  Container(
+                    width: 96,
+                    height: 96,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      shape: BoxShape.circle,
                     ),
+                    child: Center(
+                      child: MascotGifBadge(
+                        state: percent >= 70
+                            ? MascotState.celebrate
+                            : (percent >= 40
+                                  ? MascotState.clickPoke
+                                  : MascotState.sad),
+                        size: 86,
+                      ),
+                    ),
+                  ),
                     const SizedBox(height: 12),
                     const Text(
                       'Parabéns!',
@@ -4080,6 +4114,48 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                 ],
               ),
               const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: colors.primary.withValues(alpha: 0.18),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    MascotSprite(
+                      state: _buddyState,
+                      size: 52,
+                      useMaster24FpsAtlas: true,
+                      onTap: () =>
+                          setState(() => _buddyState = MascotState.clickHeart),
+                      onCompleted: () {
+                        if (!mounted) return;
+                        if (!MascotAssets.specFor(_buddyState).loop) {
+                          setState(() => _buddyState = MascotState.idle);
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        MascotAssets.specFor(_buddyState).defaultQuote,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
               LinearProgressIndicator(
                 value: (_index + 1) / widget.exercise.questions.length,
                 minHeight: 8,
@@ -4263,6 +4339,7 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                   child: OutlinedButton(
                     onPressed: () => setState(() {
                       _selected[_index] = option;
+                      _buddyState = MascotState.clickPoke;
                       _text.clear();
                     }),
                     style: OutlinedButton.styleFrom(
@@ -4766,12 +4843,11 @@ class _LessonEmptyFilter extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 42, horizontal: 16),
       child: Column(
         children: [
-          Icon(
-            Icons.menu_book_outlined,
-            size: 42,
-            color: colors.onSurfaceVariant,
+          MascotEmptyIllustration(
+            state: filter == 'completed' ? MascotState.sad : MascotState.idle,
+            size: 80,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             message,
             textAlign: TextAlign.center,
@@ -5345,7 +5421,7 @@ class _EmptyPanel extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.inbox_outlined, size: 54, color: Colors.blueGrey),
+          const MascotEmptyIllustration(state: MascotState.idle, size: 88),
           const SizedBox(height: 12),
           Text(
             title,
@@ -5391,7 +5467,7 @@ class _DatabaseNotice extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.cloud_off_outlined, color: colors.onSurfaceVariant),
+            const MascotPoseEmblem(state: MascotState.sad, size: 42),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -5436,6 +5512,8 @@ class _ErrorPanel extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          const MascotErrorIllustration(state: MascotState.sad, size: 78),
+          const SizedBox(height: 12),
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 12),
           FilledButton(
@@ -6357,7 +6435,10 @@ class _StudentClassDashboardViewState
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const MascotLoader(
+        message: 'Carregando painel da turma...',
+        mascotSize: 80,
+      );
     }
 
     if (_error != null || _dashboard == null) {
@@ -7208,7 +7289,10 @@ class _StudentExerciseReviewDialogState
         width: 600,
         height: 520,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const MascotLoader(
+                message: 'Carregando revisão da atividade...',
+                mascotSize: 76,
+              )
             : _error != null
             ? Center(child: Text(_error!))
             : _buildReviewContent(),
@@ -8079,8 +8163,12 @@ class _TeacherClassManagementViewState
         const SizedBox(height: 18),
         if (_loadingDashboard)
           const Padding(
-            padding: EdgeInsets.all(36),
-            child: Center(child: CircularProgressIndicator()),
+            padding: EdgeInsets.all(20),
+            child: MascotLoader(
+              message: 'Carregando indicadores da turma...',
+              mascotSize: 78,
+              accentColor: Color(0xFF7651C8),
+            ),
           )
         else if (_dashboardError != null)
           _ErrorPanel(

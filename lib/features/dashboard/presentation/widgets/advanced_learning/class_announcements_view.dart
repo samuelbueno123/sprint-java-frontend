@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 
 class _NewAnnouncementDialog extends StatefulWidget {
   const _NewAnnouncementDialog();
@@ -250,7 +251,10 @@ class _ClassAnnouncementsViewState extends State<ClassAnnouncementsView> {
         future: _loadFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const MascotLoader(
+              message: 'Carregando mural de comunicados...',
+              mascotSize: 80,
+            );
           }
 
           if (_announcements.isEmpty) {
@@ -258,10 +262,9 @@ class _ClassAnnouncementsViewState extends State<ClassAnnouncementsView> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.campaign_outlined,
-                    size: 64,
-                    color: Colors.grey.shade400,
+                  const MascotEmptyIllustration(
+                    state: MascotState.clickBleat,
+                    size: 86,
                   ),
                   const SizedBox(height: 16),
                   const Text(

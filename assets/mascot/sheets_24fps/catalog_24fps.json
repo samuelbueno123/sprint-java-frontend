@@ -1,0 +1,38 @@
+[
+  {
+    "id": "idle",
+    "title": "Repouso & Respiração (Idle)",
+    "fps": 24,
+    "frames": 24,
+    "grid_path": "spritesheets_24fps/bode_branco_24fps_idle_grid.png",
+    "strip_path": "spritesheets_24fps/bode_branco_24fps_idle_strip.png",
+    "gif_path": "bode_branco_24fps_idle.gif"
+  },
+  {
+    "id": "celebrate",
+    "title": "Salto & Comemoração (Celebrate)",
+    "fps": 24,
+    "frames": 24,
+    "grid_path": "spritesheets_24fps/bode_branco_24fps_celebrate_grid.png",
+    "strip_path": "spritesheets_24fps/bode_branco_24fps_celebrate_strip.png",
+    "gif_path": "bode_branco_24fps_celebrate.gif"
+  },
+  {
+    "id": "sad",
+    "title": "Tristeza & Choro (Sad)",
+    "fps": 24,
+    "frames": 24,
+    "grid_path": "spritesheets_24fps/bode_branco_24fps_sad_grid.png",
+    "strip_path": "spritesheets_24fps/bode_branco_24fps_sad_strip.png",
+    "gif_path": "bode_branco_24fps_sad.gif"
+  },
+  {
+    "id": "intense",
+    "title": "Olhos de Fogo & Ofensiva (Intense)",
+    "fps": 24,
+    "frames": 24,
+    "grid_path": "spritesheets_24fps/bode_branco_24fps_intense_grid.png",
+    "strip_path": "spritesheets_24fps/bode_branco_24fps_intense_strip.png",
+    "gif_path": "bode_branco_24fps_intense.gif"
+  }
+]

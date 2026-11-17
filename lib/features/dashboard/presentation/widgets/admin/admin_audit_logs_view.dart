@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../../core/network/api_client.dart';
+import '../../../../../core/ui/mascot/mascot.dart';
 import '../responsive_layout.dart';
 
 class AdminAuditLogsView extends StatefulWidget {
@@ -551,10 +552,13 @@ class _AdminAuditLogsViewState extends State<AdminAuditLogsView> {
 
           // Loading state
           if (_isLoading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(40),
-                child: CircularProgressIndicator(),
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: MascotLoader(
+                message: 'Carregando logs de auditoria...',
+                state: MascotState.intense,
+                mascotSize: 78,
+                accentColor: Color(0xFFD97706),
               ),
             )
           else if (_logs.isEmpty)
@@ -563,10 +567,10 @@ class _AdminAuditLogsViewState extends State<AdminAuditLogsView> {
                 padding: const EdgeInsets.all(40),
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.inventory_2_outlined,
-                      size: 48,
-                      color: Colors.grey.shade400,
+                    const MascotEmptyIllustration(
+                      state: MascotState.idle,
+                      size: 80,
+                      accentColor: Color(0xFFD97706),
                     ),
                     const SizedBox(height: 12),
                     Text(

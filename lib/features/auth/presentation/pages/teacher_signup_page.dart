@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/session_store.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../../../core/ui/motion_kit.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../auth_dependencies.dart';
@@ -224,6 +225,12 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
               : 'Crie sua conta para continuar com o cadastro docente.',
           accentColor: const Color(0xFF7651C8),
           maxWidth: 560,
+          mascotState: _viewModel.errorMessage != null
+              ? MascotState.sad
+              : (_profileStep ? MascotState.intense : MascotState.idle),
+          mascotTip: _profileStep
+              ? 'Etapa 2/2: vincule sua instituição e seus idiomas lecionados.'
+              : 'Etapa 1/2: crie suas credenciais docentes no Duolinfo.',
           onBack: _handleBack,
           child: MotionSectionSwitcher(
             duration: const Duration(milliseconds: 280),

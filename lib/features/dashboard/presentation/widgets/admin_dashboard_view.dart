@@ -9,6 +9,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/realtime_sync_service.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../../../core/constants/supported_languages.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../../../core/ui/motion_kit.dart';
 import 'admin/admin_audit_logs_view.dart';
 import 'admin/admin_catalog_management_view.dart';
@@ -1470,6 +1471,22 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         ),
                       ],
                     ),
+                    const Spacer(),
+                    Container(
+                      width: 68,
+                      height: 68,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.16),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: MascotSprite(
+                          state: MascotState.intense,
+                          size: 58,
+                          glowColor: Colors.white,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -1713,8 +1730,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           const SizedBox(height: 12),
           if (_isLoadingOverview && _tables.isEmpty)
             const Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(child: CircularProgressIndicator()),
+              padding: EdgeInsets.all(20),
+              child: MascotLoader(
+                message: 'Carregando tabelas e métricas do sistema...',
+                state: MascotState.intense,
+                mascotSize: 78,
+                accentColor: Color(0xFFD97706),
+              ),
             )
           else
             LayoutBuilder(
@@ -2929,10 +2951,26 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           ],
           Expanded(
             child: _isLoadingTableData
-                ? const Center(child: CircularProgressIndicator())
+                ? const MascotLoader(
+                    message: 'Carregando registros da tabela...',
+                    state: MascotState.idle,
+                    mascotSize: 76,
+                    accentColor: Color(0xFFD97706),
+                  )
                 : tableData == null
                 ? const Center(
-                    child: Text('Selecione uma tabela para visualizar.'),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        MascotEmptyIllustration(
+                          state: MascotState.idle,
+                          size: 82,
+                          accentColor: Color(0xFFD97706),
+                        ),
+                        SizedBox(height: 12),
+                        Text('Selecione uma tabela para visualizar.'),
+                      ],
+                    ),
                   )
                 : _buildTableGridCard(context, tableData, totalPages),
           ),
@@ -3738,14 +3776,15 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
                       color: const Color(0xFFD97706).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
-                      Icons.admin_panel_settings_rounded,
-                      color: Color(0xFFD97706),
+                    child: const MascotPoseEmblem(
+                      state: MascotState.intense,
+                      size: 32,
+                      glowColor: Color(0xFFD97706),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -6259,14 +6298,15 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: const Color(0xFFD97706).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
-                  Icons.admin_panel_settings_outlined,
-                  color: Color(0xFFD97706),
+                child: const MascotPoseEmblem(
+                  state: MascotState.intense,
+                  size: 32,
+                  glowColor: Color(0xFFD97706),
                 ),
               ),
               const SizedBox(width: 12),
@@ -6996,10 +7036,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             ),
             const SizedBox(height: 20),
             if (_isLoadingInstDashboard) ...[
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(),
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: MascotLoader(
+                  message: 'Carregando dados da instituição...',
+                  state: MascotState.idle,
+                  mascotSize: 78,
+                  accentColor: Color(0xFFD97706),
                 ),
               ),
             ] else if (filteredTeachers.isEmpty) ...[
@@ -7385,10 +7428,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.05, end: 0),
         const SizedBox(height: 24),
         if (_isLoadingTeacherDetails) ...[
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(40),
-              child: CircularProgressIndicator(),
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: MascotLoader(
+              message: 'Carregando detalhes docentes...',
+              state: MascotState.idle,
+              mascotSize: 76,
+              accentColor: Color(0xFFD97706),
             ),
           ),
         ] else if (_teacherDetailsError != null) ...[
@@ -7861,7 +7907,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const SizedBox(
                     height: 320,
-                    child: Center(child: CircularProgressIndicator()),
+                    child: MascotLoader(
+                      message: 'Carregando resumo da turma...',
+                      state: MascotState.idle,
+                      mascotSize: 74,
+                      accentColor: Color(0xFFD97706),
+                    ),
                   );
                 }
                 if (snapshot.hasError ||
@@ -7872,10 +7923,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.error_outline_rounded,
-                          color: Colors.redAccent,
-                          size: 40,
+                        const MascotErrorIllustration(
+                          state: MascotState.sad,
+                          size: 76,
                         ),
                         const SizedBox(height: 12),
                         Text(

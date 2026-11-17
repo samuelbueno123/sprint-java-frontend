@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 import '../audio_speech_helper.dart';
 
 class PronunciationPracticeView extends StatefulWidget {
@@ -122,7 +123,10 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
       future: _loadFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const MascotLoader(
+            message: 'Carregando desafios de pronúncia...',
+            mascotSize: 80,
+          );
         }
 
         if (_error != null) {
@@ -130,7 +134,7 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.mic_off_rounded, size: 48, color: colors.error),
+                const MascotErrorIllustration(state: MascotState.sad, size: 78),
                 const SizedBox(height: 16),
                 Text(_error!, style: TextStyle(color: colors.error)),
                 const SizedBox(height: 16),
@@ -371,32 +375,49 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
             ),
             const SizedBox(height: 24),
 
-            // Microphone action
-            GestureDetector(
-              onTap: _startRecording,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _isListening ? Colors.red : const Color(0xFF3579E8),
-                  boxShadow: [
-                    BoxShadow(
-                      color:
-                          (_isListening ? Colors.red : const Color(0xFF3579E8))
-                              .withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      spreadRadius: _isListening ? 6 : 2,
+            // Microphone action + mascote ouvinte
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                MascotSprite(
+                  state: _isListening ? MascotState.holdGrab : MascotState.idle,
+                  size: 68,
+                  glowColor: _isListening ? Colors.red : const Color(0xFF3579E8),
+                ),
+                const SizedBox(width: 14),
+                GestureDetector(
+                  onTap: _startRecording,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _isListening
+                          ? Colors.red
+                          : const Color(0xFF3579E8),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              (_isListening
+                                      ? Colors.red
+                                      : const Color(0xFF3579E8))
+                                  .withValues(alpha: 0.3),
+                          blurRadius: 20,
+                          spreadRadius: _isListening ? 6 : 2,
+                        ),
+                      ],
                     ),
-                  ],
+                    child: Icon(
+                      _isListening
+                          ? Icons.graphic_eq_rounded
+                          : Icons.mic_rounded,
+                      size: 38,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
-                child: Icon(
-                  _isListening ? Icons.graphic_eq_rounded : Icons.mic_rounded,
-                  size: 38,
-                  color: Colors.white,
-                ),
-              ),
+              ],
             ),
             const SizedBox(height: 12),
             Text(
@@ -435,13 +456,12 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
             // Evaluation Results
             if (_evaluating)
               const Padding(
-                padding: EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 12),
-                    Text('Analisando acurácia fonética...'),
-                  ],
+                padding: EdgeInsets.all(16),
+                child: MascotLoader(
+                  message: 'Analisando acurácia fonética...',
+                  state: MascotState.clickSpin,
+                  mascotSize: 76,
+                  useSpriteSheet: true,
                 ),
               ),
 
@@ -484,6 +504,15 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
             children: [
               Row(
                 children: [
+                  MascotGifBadge(
+                    state: finalScore >= 80
+                        ? MascotState.celebrate
+                        : (finalScore >= 55
+                              ? MascotState.clickPoke
+                              : MascotState.sad),
+                    size: 58,
+                  ),
+                  const SizedBox(width: 10),
                   Text(
                     '${finalScore.toStringAsFixed(0)}%',
                     style: TextStyle(

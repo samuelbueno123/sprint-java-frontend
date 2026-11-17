@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 
 class StudentNotificationsDialog extends StatefulWidget {
   const StudentNotificationsDialog({super.key});
@@ -148,7 +149,10 @@ class _StudentNotificationsDialogState
           future: _loadFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const MascotLoader(
+                message: 'Buscando suas notificações...',
+                mascotSize: 78,
+              );
             }
 
             if (_notifications.isEmpty) {
@@ -156,12 +160,11 @@ class _StudentNotificationsDialogState
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.notifications_none_rounded,
-                      size: 56,
-                      color: Colors.grey.shade400,
+                    const MascotEmptyIllustration(
+                      state: MascotState.clickHeart,
+                      size: 84,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
                     const Text(
                       'Tudo em dia!',
                       style: TextStyle(
@@ -199,7 +202,16 @@ class _StudentNotificationsDialogState
                       : color.withValues(alpha: isDark ? 0.15 : 0.06),
                   leading: CircleAvatar(
                     backgroundColor: color.withValues(alpha: 0.15),
-                    child: Icon(icon, color: color, size: 20),
+                    child: isRead
+                        ? Icon(icon, color: color, size: 20)
+                        : MascotPoseEmblem(
+                            state: type.toUpperCase().contains('ACHIEV')
+                                ? MascotState.celebrate
+                                : (type.toUpperCase().contains('DEADLINE')
+                                      ? MascotState.intense
+                                      : MascotState.clickBleat),
+                            size: 28,
+                          ),
                   ),
                   title: Text(
                     n['title'] ?? '',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../domain/entities/user_profile_type.dart';
 
 class DashboardSidebar extends StatelessWidget {
@@ -377,10 +378,114 @@ class DashboardSidebar extends StatelessWidget {
                 isCollapsed: isCollapsed,
                 onTap: () => onSectionSelected('settings'),
               ),
+              const SizedBox(height: 12),
+              _SidebarMascotCard(
+                accentColor: _accentColor,
+                isCollapsed: isCollapsed,
+                profileType: profileType,
+              ),
               const SizedBox(height: 16),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SidebarMascotCard extends StatelessWidget {
+  const _SidebarMascotCard({
+    required this.accentColor,
+    required this.isCollapsed,
+    required this.profileType,
+  });
+
+  final Color accentColor;
+  final bool isCollapsed;
+  final UserProfileType profileType;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final state = switch (profileType) {
+      UserProfileType.student => MascotState.fireLoop,
+      UserProfileType.teacher => MascotState.idle,
+      UserProfileType.admin => MascotState.intense,
+      UserProfileType.user => MascotState.idle,
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final showDetails = !isCollapsed && constraints.maxWidth > 140;
+          return Tooltip(
+            message: 'Abrir estúdio do mascote Duolinfo',
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => MascotCompanionModal.show(context),
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: showDetails ? 10 : 6,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: isDark ? 0.14 : 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: accentColor.withValues(alpha: isDark ? 0.28 : 0.2),
+                  ),
+                ),
+                child: showDetails
+                    ? Row(
+                        children: [
+                          MascotPoseEmblem(
+                            state: state,
+                            size: 36,
+                            glowColor: accentColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Bode Duolinfo',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: accentColor,
+                                  ),
+                                ),
+                                Text(
+                                  'Ver animações',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isDark
+                                        ? Colors.grey[400]
+                                        : Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      )
+                    : Center(
+                        child: MascotPoseEmblem(
+                          state: state,
+                          size: 32,
+                          glowColor: accentColor,
+                        ),
+                      ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

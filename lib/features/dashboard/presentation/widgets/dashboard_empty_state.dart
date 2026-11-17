@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/ui/mascot/mascot.dart';
+
 class DashboardEmptyState extends StatelessWidget {
   const DashboardEmptyState({
     super.key,
@@ -8,6 +10,7 @@ class DashboardEmptyState extends StatelessWidget {
     required this.message,
     this.actionLabel,
     this.onAction,
+    this.mascotState = MascotState.idle,
   });
 
   final IconData icon;
@@ -15,6 +18,7 @@ class DashboardEmptyState extends StatelessWidget {
   final String message;
   final String? actionLabel;
   final VoidCallback? onAction;
+  final MascotState mascotState;
 
   @override
   Widget build(BuildContext context) {
@@ -42,19 +46,34 @@ class DashboardEmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(
-                alpha: isDark ? 0.16 : 0.08,
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              MascotEmptyIllustration(
+                state: mascotState,
+                size: 88,
+                accentColor: theme.colorScheme.primary,
               ),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 48,
-              color: theme.colorScheme.primary.withValues(alpha: 0.8),
-            ),
+              Positioned(
+                right: -2,
+                bottom: -2,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 18),
           Text(

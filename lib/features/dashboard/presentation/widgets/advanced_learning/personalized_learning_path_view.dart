@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 
 class PersonalizedLearningPathView extends StatefulWidget {
   const PersonalizedLearningPathView({super.key, required this.onBack});
@@ -346,7 +347,12 @@ class _PersonalizedLearningPathViewState
       future: _loadFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const MascotLoader(
+            message: 'Calculando sua trilha CEFR adaptativa...',
+            state: MascotState.dragMoveUp,
+            mascotSize: 82,
+            useSpriteSheet: true,
+          );
         }
 
         if (_error != null) {
@@ -354,11 +360,7 @@ class _PersonalizedLearningPathViewState
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.error_outline_rounded,
-                  size: 48,
-                  color: colors.error,
-                ),
+                const MascotErrorIllustration(state: MascotState.sad, size: 78),
                 const SizedBox(height: 16),
                 Text(_error!, style: TextStyle(color: colors.error)),
                 const SizedBox(height: 16),
@@ -419,7 +421,15 @@ class _PersonalizedLearningPathViewState
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 14),
+              MascotSpeechBanner(
+                title: 'Rumo ao nível $targetCefr ($cefr atual)',
+                message:
+                    'Você está com $streak dia(s) de ofensiva. Cada módulo concluído leva você mais perto da sua meta de $dailyGoal min/dia!',
+                state: streak >= 3 ? MascotState.fireLoop : MascotState.dragMoveUp,
+                mascotSize: 58,
+              ),
+              const SizedBox(height: 18),
 
               // Overview Cards
               Wrap(

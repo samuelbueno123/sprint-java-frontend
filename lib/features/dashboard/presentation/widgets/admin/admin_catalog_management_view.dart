@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../../core/constants/supported_languages.dart';
 import '../../../../../core/network/api_client.dart';
+import '../../../../../core/ui/mascot/mascot.dart';
 import '../../../../../core/ui/motion_kit.dart';
 import '../responsive_layout.dart';
 
@@ -651,8 +652,13 @@ class _AdminCatalogManagementViewState
 
           if (_isLoading)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
-              child: Center(child: CircularProgressIndicator()),
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: MascotLoader(
+                message: 'Carregando catálogo oficial...',
+                state: MascotState.idle,
+                mascotSize: 78,
+                accentColor: Color(0xFFD97706),
+              ),
             )
           else if (filtered.isEmpty)
             Card(
@@ -667,10 +673,10 @@ class _AdminCatalogManagementViewState
                 padding: const EdgeInsets.all(40),
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.search_off_rounded,
-                      size: 48,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    const MascotEmptyIllustration(
+                      state: MascotState.sad,
+                      size: 80,
+                      accentColor: Color(0xFFD97706),
                     ),
                     const SizedBox(height: 12),
                     const Text(

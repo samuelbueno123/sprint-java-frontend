@@ -11,6 +11,7 @@ import 'teacher_settings_view.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../../../core/ui/motion_kit.dart';
 import 'learning_features.dart';
 
@@ -261,7 +262,11 @@ class TeacherDashboardView extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.school_outlined, color: _purple, size: 28),
+                  const MascotPoseEmblem(
+                    state: MascotState.intense,
+                    size: 46,
+                    glowColor: _purple,
+                  ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -505,31 +510,48 @@ class TeacherDashboardView extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        isFemale
-                            ? 'Painel da Professora'
-                            : 'Painel do Professor',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const MascotPoseEmblem(
+                            state: MascotState.idle,
+                            size: 36,
+                            glowColor: Colors.white,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            isFemale
+                                ? 'Painel da Professora'
+                                : 'Painel do Professor',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                      IconButton(
-                        tooltip: 'Configurações',
-                        onPressed: () => onSectionSelected?.call('settings'),
-                        icon: const Icon(
-                          Icons.settings_rounded,
-                          color: Colors.white,
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Sair da conta',
-                        onPressed: onLogout,
-                        icon: const Icon(
-                          Icons.logout_rounded,
-                          color: Colors.white,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            tooltip: 'Configurações',
+                            onPressed: () =>
+                                onSectionSelected?.call('settings'),
+                            icon: const Icon(
+                              Icons.settings_rounded,
+                              color: Colors.white,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Sair da conta',
+                            onPressed: onLogout,
+                            icon: const Icon(
+                              Icons.logout_rounded,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -1179,16 +1201,18 @@ class _WelcomeBanner extends StatelessWidget {
         ),
         const SizedBox(width: 14),
         Container(
-          width: 58,
-          height: 58,
+          width: 72,
+          height: 72,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: .16),
             shape: BoxShape.circle,
           ),
-          child: const Icon(
-            Icons.co_present_rounded,
-            color: Colors.white,
-            size: 30,
+          child: const Center(
+            child: MascotSprite(
+              state: MascotState.idle,
+              size: 62,
+              glowColor: Colors.white,
+            ),
           ),
         ),
       ],

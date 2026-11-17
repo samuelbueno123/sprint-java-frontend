@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 
 class TeacherStudentNotesDialog extends StatefulWidget {
   const TeacherStudentNotesDialog({
@@ -179,14 +180,30 @@ class _TeacherStudentNotesDialogState extends State<TeacherStudentNotesDialog> {
                 future: _loadFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const MascotLoader(
+                      message: 'Carregando anotações do estudante...',
+                      mascotSize: 74,
+                      accentColor: Color(0xFF7651C8),
+                    );
                   }
 
                   if (_notes.isEmpty) {
                     return const Center(
-                      child: Text(
-                        'Nenhuma anotação registrada ainda para este estudante.',
-                        style: TextStyle(color: Colors.grey),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          MascotEmptyIllustration(
+                            state: MascotState.idle,
+                            size: 72,
+                            accentColor: Color(0xFF7651C8),
+                          ),
+                          SizedBox(height: 10),
+                          Text(
+                            'Nenhuma anotação registrada ainda para este estudante.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ],
                       ),
                     );
                   }

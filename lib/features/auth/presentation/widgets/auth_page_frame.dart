@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../../dashboard/presentation/widgets/responsive_layout.dart';
 
 class AuthPageFrame extends StatelessWidget {
@@ -12,6 +13,8 @@ class AuthPageFrame extends StatelessWidget {
     required this.child,
     this.maxWidth = 480,
     this.onBack,
+    this.mascotState = MascotState.idle,
+    this.mascotTip,
   });
 
   final String title;
@@ -20,6 +23,8 @@ class AuthPageFrame extends StatelessWidget {
   final Widget child;
   final double maxWidth;
   final VoidCallback? onBack;
+  final MascotState mascotState;
+  final String? mascotTip;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +71,12 @@ class AuthPageFrame extends StatelessWidget {
                           // Left column: Interactive showcase
                           Expanded(
                             flex: 6,
-                            child: _buildShowcaseColumn(context, reduceMotion),
+                            child: SingleChildScrollView(
+                              child: _buildShowcaseColumn(
+                                context,
+                                reduceMotion,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 48),
                           // Right column: Form card (strictly hugging its content and vertically centered)
@@ -168,10 +178,9 @@ class AuthPageFrame extends StatelessWidget {
                 ],
               ),
               child: const Center(
-                child: Icon(
-                  Icons.school_rounded,
-                  color: Colors.white,
-                  size: 28,
+                child: MascotPoseEmblem(
+                  state: MascotState.idle,
+                  size: 42,
                 ),
               ),
             ),
@@ -201,7 +210,17 @@ class AuthPageFrame extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 18),
+        InteractiveMascotStage(
+          initialState: mascotState,
+          mascotSize: 78,
+          height: 108,
+          accentColor: accentColor,
+          hintText:
+              mascotTip ??
+              'Toque ou arraste o bode Duolinfo enquanto acessa sua conta!',
+        ),
+        const SizedBox(height: 20),
         Text(
           'Aprenda e ensine idiomas com a potência da IA',
           style: TextStyle(
@@ -312,25 +331,21 @@ class AuthPageFrame extends StatelessWidget {
             ),
           ),
         Container(
-          width: 58,
-          height: 58,
+          width: 72,
+          height: 72,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF58CC02), Color(0xFF23A800)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+            color: accentColor.withValues(alpha: isDark ? 0.18 : 0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: accentColor.withValues(alpha: 0.3),
             ),
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF58CC02).withValues(alpha: 0.35),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
           ),
-          child: const Center(
-            child: Icon(Icons.school_rounded, color: Colors.white, size: 30),
+          child: Center(
+            child: MascotSprite(
+              state: mascotState,
+              size: 62,
+              glowColor: accentColor,
+            ),
           ),
         ),
         const SizedBox(height: 12),

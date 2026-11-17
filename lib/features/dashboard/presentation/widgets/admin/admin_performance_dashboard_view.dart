@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../../core/constants/supported_languages.dart';
 import '../../../../../core/network/api_client.dart';
+import '../../../../../core/ui/mascot/mascot.dart';
 import '../../../../../core/ui/motion_kit.dart';
 import '../responsive_layout.dart';
 
@@ -364,9 +365,18 @@ class _AdminPerformanceDashboardViewState
               ),
             ),
 
-          if (_isLoading && perf == null)
-            const AppShimmerDashboardLoader(cardCount: 4)
-          else if (perf != null) ...[
+          if (_isLoading && perf == null) ...[
+            const MascotLoader(
+              message: 'Coletando telemetria em tempo real...',
+              state: MascotState.intense,
+              compact: true,
+              mascotSize: 60,
+              showProgressBar: false,
+              accentColor: Color(0xFFD97706),
+            ),
+            const SizedBox(height: 12),
+            const AppShimmerDashboardLoader(cardCount: 4),
+          ] else if (perf != null) ...[
             // Navegação interna da suíte de monitoramento
             StaggeredReveal(
               index: 1,

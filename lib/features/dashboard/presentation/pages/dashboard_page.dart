@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../dashboard_dependencies.dart';
 import '../viewmodels/dashboard_state.dart';
@@ -52,25 +53,11 @@ class _DashboardPageState extends State<DashboardPage> {
         if (state is DashboardLoading || state is DashboardInitial) {
           return Scaffold(
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFF58CC02),
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Carregando seu painel Duolinfo...',
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
+            body: const MascotLoader(
+              message: 'Carregando seu painel Duolinfo...',
+              subtitle: 'Preparando suas lições, metas e progresso',
+              state: MascotState.idle,
+              mascotSize: 96,
             ),
           );
         }

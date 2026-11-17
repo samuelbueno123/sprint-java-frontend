@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../../../core/ui/motion_kit.dart';
 import 'login_page.dart';
 import '../widgets/auth_page_frame.dart';
@@ -21,6 +22,8 @@ class RegistrationChoicePage extends StatelessWidget {
     title: 'Criar perfil',
     subtitle: 'Escolha como você vai usar o Duolinfo.',
     accentColor: const Color(0xFF5869D8),
+    mascotState: MascotState.clickHeart,
+    mascotTip: 'Qual trilha combina com você hoje: estudante ou professor?',
     onBack: () => _openLogin(context),
     child: Column(
       children: [
@@ -31,7 +34,7 @@ class RegistrationChoicePage extends StatelessWidget {
             child: _RoleCard(
               title: 'Sou estudante',
               description: 'Cadastre os idiomas que deseja estudar.',
-              icon: Icons.school_rounded,
+              mascotState: MascotState.celebrate,
               color: const Color(0xFF3579E8),
               onTap: () => Navigator.of(context).push(
                 MotionPageRoute(
@@ -52,7 +55,7 @@ class RegistrationChoicePage extends StatelessWidget {
             child: _RoleCard(
               title: 'Sou professor',
               description: 'Informe sua instituição e as áreas que leciona.',
-              icon: Icons.co_present_rounded,
+              mascotState: MascotState.intense,
               color: const Color(0xFF7651C8),
               onTap: () => Navigator.of(context).push(
                 MotionPageRoute(
@@ -86,14 +89,14 @@ class _RoleCard extends StatelessWidget {
   const _RoleCard({
     required this.title,
     required this.description,
-    required this.icon,
+    required this.mascotState,
     required this.color,
     required this.onTap,
   });
 
   final String title;
   final String description;
-  final IconData icon;
+  final MascotState mascotState;
   final Color color;
   final VoidCallback onTap;
 
@@ -113,13 +116,15 @@ class _RoleCard extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
                 color: color.withValues(alpha: .12),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(icon, color: color),
+              child: Center(
+                child: MascotPoseEmblem(state: mascotState, size: 40),
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(

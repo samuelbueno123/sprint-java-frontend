@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/localization/app_locale_controller.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme_controller.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../data/datasources/dashboard_remote_datasource.dart';
 import '../../domain/entities/dashboard_data.dart';
 import 'app_theme_selector.dart';
@@ -829,6 +830,13 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                   .animate()
                   .fadeIn(duration: 350.ms, delay: 180.ms)
                   .slideY(begin: 0.05, end: 0),
+              const SizedBox(height: 16),
+              MascotSettingsCard(
+                accentColor: const Color(0xFF3579E8),
+                cardColor: cardBg,
+                borderColor: cardBorder,
+                padding: responsiveCardPadding(context),
+              ),
               const SizedBox(height: 16),
 
               // Card Novo: Experiência de Aprendizado & IA (Opções Avançadas)

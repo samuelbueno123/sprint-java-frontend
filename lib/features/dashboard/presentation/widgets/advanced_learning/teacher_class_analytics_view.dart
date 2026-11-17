@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 import 'package:frontend/features/dashboard/domain/entities/dashboard_data.dart';
 import 'teacher_student_notes_dialog.dart';
 
@@ -137,10 +138,13 @@ class _TeacherClassAnalyticsViewState extends State<TeacherClassAnalyticsView> {
                   future: _loadFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(40),
-                          child: CircularProgressIndicator(),
+                      return const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: MascotLoader(
+                          message: 'Calculando analytics da turma...',
+                          state: MascotState.intense,
+                          mascotSize: 78,
+                          accentColor: Color(0xFF7651C8),
                         ),
                       );
                     }

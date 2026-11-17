@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/session_store.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../../../core/ui/motion_kit.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../auth_dependencies.dart';
@@ -115,6 +116,12 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
             ? _selectedDropdownLanguage
             : null;
 
+        final companionState = _viewModel.errorMessage != null
+            ? MascotState.sad
+            : (_selectedLanguages.isNotEmpty
+                  ? MascotState.celebrate
+                  : MascotState.idle);
+
         return AuthPageFrame(
           title: _selectedGender == 'FEMININO'
               ? 'Cadastro de aluna'
@@ -122,12 +129,30 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
           subtitle: 'Crie seu perfil e escolha os idiomas que quer aprender.',
           accentColor: const Color(0xFF3579E8),
           maxWidth: 560,
+          mascotState: companionState,
+          mascotTip: _selectedLanguages.isEmpty
+              ? 'Escolha ao menos um idioma para montarmos sua trilha!'
+              : 'Ótima escolha! Vamos personalizar seus desafios.',
           onBack: () => Navigator.of(context).pop(),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                MascotSpeechBanner(
+                  title: _selectedLanguages.isEmpty
+                      ? 'Seu companheiro de estudos'
+                      : 'Idiomas selecionados: ${_selectedLanguages.length}',
+                  message: _viewModel.errorMessage != null
+                      ? 'Revise os campos destacados para concluir seu cadastro.'
+                      : (_selectedLanguages.isEmpty
+                            ? 'Preencha seus dados e adicione pelo menos 1 idioma.'
+                            : 'Bora! Toque no botão final assim que terminar.'),
+                  state: companionState,
+                  mascotSize: 56,
+                  accentColor: const Color(0xFF3579E8),
+                ),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: _nameController,
                   textCapitalization: TextCapitalization.words,

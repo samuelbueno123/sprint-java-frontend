@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../domain/entities/dashboard_data.dart';
 import 'responsive_layout.dart';
 import 'teacher_exercise_preview_screen.dart';
@@ -408,34 +409,58 @@ class _TeacherExercisesOverviewScreenState
         ),
         borderRadius: BorderRadius.circular(22),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            'Gerenciar conteúdos',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Gerenciar conteúdos',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Acompanhe as tarefas que você já passou para cada turma.',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.88),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: widget.onCreateExercise,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: BorderSide(
+                        color: colors.onPrimary.withValues(alpha: .7),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Criar atividade'),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Acompanhe as tarefas que você já passou para cada turma.',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Colors.white.withValues(alpha: 0.88),
+          const SizedBox(width: 14),
+          Container(
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
             ),
-          ),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: widget.onCreateExercise,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: BorderSide(color: colors.onPrimary.withValues(alpha: .7)),
+            child: const Center(
+              child: MascotSprite(
+                state: MascotState.idle,
+                size: 60,
+                glowColor: Colors.white,
               ),
-              icon: const Icon(Icons.add),
-              label: const Text('Criar atividade'),
             ),
           ),
         ],
@@ -857,10 +882,10 @@ class _TeacherExercisesOverviewScreenState
         padding: const EdgeInsets.all(28),
         child: Column(
           children: [
-            Icon(
-              Icons.menu_book_outlined,
-              size: 40,
-              color: colors.onSurfaceVariant,
+            const MascotEmptyIllustration(
+              state: MascotState.idle,
+              size: 78,
+              accentColor: Color(0xFF7651C8),
             ),
             const SizedBox(height: 10),
             Text(title, style: Theme.of(context).textTheme.titleMedium),
@@ -888,7 +913,7 @@ class _TeacherExercisesOverviewScreenState
     return Card(
       color: colors.surfaceContainerLow,
       child: ListTile(
-        leading: Icon(Icons.cloud_off_outlined, color: colors.onSurfaceVariant),
+        leading: const MascotPoseEmblem(state: MascotState.sad, size: 38),
         title: Text(title),
         subtitle: Text(message),
         trailing: IconButton(

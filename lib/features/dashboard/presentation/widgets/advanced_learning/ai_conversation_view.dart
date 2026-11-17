@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 import '../audio_speech_helper.dart';
 
 class AiConversationView extends StatefulWidget {
@@ -174,7 +175,11 @@ class _AiConversationViewState extends State<AiConversationView> {
     final colors = Theme.of(context).colorScheme;
 
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const MascotLoader(
+        message: 'Preparando tutor de conversação...',
+        state: MascotState.clickBleat,
+        mascotSize: 82,
+      );
     }
 
     if (_showMistakesDrawer) {
@@ -415,9 +420,9 @@ class _AiConversationViewState extends State<AiConversationView> {
               const SizedBox(width: 8),
               CircleAvatar(
                 backgroundColor: colors.primaryContainer,
-                child: const Icon(
-                  Icons.smart_toy_rounded,
-                  color: Color(0xFF3579E8),
+                child: const MascotSprite(
+                  state: MascotState.clickBleat,
+                  size: 34,
                 ),
               ),
               const SizedBox(width: 12),

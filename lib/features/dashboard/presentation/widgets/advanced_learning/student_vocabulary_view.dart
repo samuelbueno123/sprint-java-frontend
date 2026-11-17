@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 import '../audio_speech_helper.dart';
 
 class _AddVocabularyWordDialog extends StatefulWidget {
@@ -447,7 +448,10 @@ class _StudentVocabularyViewState extends State<StudentVocabularyView> {
               future: _loadFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const MascotLoader(
+                    message: 'Carregando seu vocabulário...',
+                    mascotSize: 78,
+                  );
                 }
 
                 if (_vocabulary.isEmpty) {
@@ -457,10 +461,9 @@ class _StudentVocabularyViewState extends State<StudentVocabularyView> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            Icons.auto_stories_rounded,
-                            size: 64,
-                            color: Colors.grey.shade400,
+                          const MascotEmptyIllustration(
+                            state: MascotState.idle,
+                            size: 86,
                           ),
                           const SizedBox(height: 16),
                           Text(

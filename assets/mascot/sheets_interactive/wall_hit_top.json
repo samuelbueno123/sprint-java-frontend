@@ -1,0 +1,228 @@
+{
+  "id": "wall_hit_top",
+  "title": "Bater no Teto (Accordion)",
+  "fps": 24,
+  "total_frames": 12,
+  "frame_size": {
+    "w": 256,
+    "h": 256
+  },
+  "grid": {
+    "cols": 6,
+    "rows": 2,
+    "w": 1536,
+    "h": 512
+  },
+  "strip": {
+    "cols": 12,
+    "rows": 1,
+    "w": 3072,
+    "h": 256
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frame_00.png",
+      "grid_pos": {
+        "col": 0,
+        "row": 0,
+        "x": 0,
+        "y": 0
+      },
+      "strip_pos": {
+        "col": 0,
+        "row": 0,
+        "x": 0,
+        "y": 0
+      },
+      "duration_ms": 41.67
+    },
+    {
+      "index": 1,
+      "file": "frame_01.png",
+      "grid_pos": {
+        "col": 1,
+        "row": 0,
+        "x": 256,
+        "y": 0
+      },
+      "strip_pos": {
+        "col": 1,
+        "row": 0,
+        "x": 256,
+        "y": 0
+      },
+      "duration_ms": 41.67
+    },
+    {
+      "index": 2,
+      "file": "frame_02.png",
+      "grid_pos": {
+        "col": 2,
+        "row": 0,
+        "x": 512,
+        "y": 0
+      },
+      "strip_pos": {
+        "col": 2,
+        "row": 0,
+        "x": 512,
+        "y": 0
+      },
+      "duration_ms": 41.67
+    },
+    {
+      "index": 3,
+      "file": "frame_03.png",
+      "grid_pos": {
+        "col": 3,
+        "row": 0,
+        "x": 768,
+        "y": 0
+      },
+      "strip_pos": {
+        "col": 3,
+        "row": 0,
+        "x": 768,
+        "y": 0
+      },
+      "duration_ms": 41.67
+    },
+    {
+      "index": 4,
+      "file": "frame_04.png",
+      "grid_pos": {
+        "col": 4,
+        "row": 0,
+        "x": 1024,
+        "y": 0
+      },
+      "strip_pos": {
+        "col": 4,
+        "row": 0,
+        "x": 1024,
+        "y": 0
+      },
+      "duration_ms": 41.67
+    },
+    {
+      "index": 5,
+      "file": "frame_05.png",
+      "grid_pos": {
+        "col": 5,
+        "row": 0,
+        "x": 1280,
+        "y": 0
+      },
+      "strip_pos": {
+        "col": 5,
+        "row": 0,
+        "x": 1280,
+        "y": 0
+      },
+      "duration_ms": 41.67
+    },
+    {
+      "index": 6,
+      "file": "frame_06.png",
+      "grid_pos": {
+        "col": 0,
+        "row": 1,
+        "x": 0,
+        "y": 256
+      },
+      "strip_pos": {
+        "col": 6,
+        "row": 0,
+        "x": 1536,
+        "y": 0
+      },
+      "duration_ms": 41.67
+    },
+    {
+      "index": 7,
+      "file": "frame_07.png",
+      "grid_pos": {
+        "col": 1,
+        "row": 1,
+        "x": 256,
+        "y": 256
+      },
+      "strip_pos": {
+        "col": 7,
+        "row": 0,
+        "x": 1792,
+        "y": 0
+      },
+      "duration_ms": 41.67
+    },
+    {
+      "index": 8,
+      "file": "frame_08.png",
+      "grid_pos": {
+        "col": 2,
+        "row": 1,
+        "x": 512,
+        "y": 256
+      },
+      "strip_pos": {
+        "col": 8,
+        "row": 0,
+        "x": 2048,
+        "y": 0
+      },
+      "duration_ms": 41.67
+    },
+    {
+      "index": 9,
+      "file": "frame_09.png",
+      "grid_pos": {
+        "col": 3,
+        "row": 1,
+        "x": 768,
+        "y": 256
+      },
+      "strip_pos": {
+        "col": 9,
+        "row": 0,
+        "x": 2304,
+        "y": 0
+      },
+      "duration_ms": 41.67
+    },
+    {
+      "index": 10,
+      "file": "frame_10.png",
+      "grid_pos": {
+        "col": 4,
+        "row": 1,
+        "x": 1024,
+        "y": 256
+      },
+      "strip_pos": {
+        "col": 10,
+        "row": 0,
+        "x": 2560,
+        "y": 0
+      },
+      "duration_ms": 41.67
+    },
+    {
+      "index": 11,
+      "file": "frame_11.png",
+      "grid_pos": {
+        "col": 5,
+        "row": 1,
+        "x": 1280,
+        "y": 256
+      },
+      "strip_pos": {
+        "col": 11,
+        "row": 0,
+        "x": 2816,
+        "y": 0
+      },
+      "duration_ms": 41.67
+    }
+  ]
+}

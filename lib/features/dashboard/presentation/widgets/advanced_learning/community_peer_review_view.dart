@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 
 class _CommunitySubmissionDialog extends StatefulWidget {
   const _CommunitySubmissionDialog({required this.onSubmit});
@@ -510,10 +511,11 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView>
           const SizedBox(height: 16),
 
           if (_loading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(40),
-                child: CircularProgressIndicator(),
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: MascotLoader(
+                message: 'Carregando textos da comunidade...',
+                mascotSize: 78,
               ),
             )
           else
@@ -538,7 +540,10 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.done_all_rounded, size: 48, color: Colors.green),
+            const MascotEmptyIllustration(
+              state: MascotState.celebrate,
+              size: 82,
+            ),
             const SizedBox(height: 12),
             const Text(
               'Nenhum exercício pendente no momento.',

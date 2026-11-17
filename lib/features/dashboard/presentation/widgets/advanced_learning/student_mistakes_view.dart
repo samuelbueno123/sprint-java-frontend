@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/mascot/mascot.dart';
 import '../audio_speech_helper.dart';
 
 class StudentMistakesView extends StatefulWidget {
@@ -141,7 +142,10 @@ class _StudentMistakesViewState extends State<StudentMistakesView> {
         future: _loadFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const MascotLoader(
+              message: 'Carregando seu caderno de erros...',
+              mascotSize: 80,
+            );
           }
 
           final unresolved = _stats['unresolvedCount'] ?? _mistakes.length;
@@ -296,10 +300,9 @@ class _StudentMistakesViewState extends State<StudentMistakesView> {
                   alignment: Alignment.center,
                   child: Column(
                     children: [
-                      const Icon(
-                        Icons.celebration_rounded,
-                        size: 64,
-                        color: Color(0xFF16A34A),
+                      const MascotGifBadge(
+                        state: MascotState.celebrate,
+                        size: 96,
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -566,13 +569,12 @@ class _AiExplanationDialogState extends State<_AiExplanationDialog> {
       content: SizedBox(
         width: 480,
         child: _loading
-            ? Column(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Gerando análise pedagógica e mnemônica...'),
-                ],
+            ? const MascotLoader(
+                message: 'Gerando análise pedagógica e mnemônica...',
+                state: MascotState.clickSpin,
+                mascotSize: 76,
+                useSpriteSheet: true,
+                accentColor: Color(0xFF7651C8),
               )
             : _error != null
             ? Text(_error!, style: const TextStyle(color: Colors.red))

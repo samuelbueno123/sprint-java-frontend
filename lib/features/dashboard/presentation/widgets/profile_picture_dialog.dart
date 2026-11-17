@@ -5,6 +5,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/ui/mascot/mascot.dart';
+
 /// Diálogo para alteração da foto de perfil com validação estrita:
 /// - Formatos aceitos: APENAS JPG e PNG.
 /// - Resolução máxima: 1024x1024 pixels.
@@ -140,7 +142,7 @@ class _ProfilePictureDialogState extends State<ProfilePictureDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Row(
         children: [
-          Icon(Icons.photo_camera_rounded, color: Color(0xFF5869D8)),
+          MascotPoseEmblem(state: MascotState.clickHeart, size: 32),
           SizedBox(width: 10),
           Text(
             'Alterar Foto de Perfil',

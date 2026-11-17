@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/ui/mascot/mascot.dart';
+
 class DashboardErrorState extends StatelessWidget {
   const DashboardErrorState({
     super.key,
@@ -37,17 +39,9 @@ class DashboardErrorState extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: isDark ? 0.2 : 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.error_outline_rounded,
-                      color: Colors.redAccent,
-                      size: 48,
-                    ),
+                  const MascotErrorIllustration(
+                    state: MascotState.sad,
+                    size: 86,
                   ),
                   const SizedBox(height: 16),
                   Text(

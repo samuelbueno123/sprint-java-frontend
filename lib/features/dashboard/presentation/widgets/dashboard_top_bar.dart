@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/user_profile_type.dart';
 import 'app_user_avatar.dart';
@@ -136,7 +137,13 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
             ),
             const SizedBox(width: 4),
           ],
-          Icon(Icons.menu_book_rounded, color: _roleColor, size: 26),
+          MascotPoseEmblem(
+            state: MascotState.idle,
+            size: 32,
+            glowColor: _roleColor,
+            semanticLabel: 'Abrir estúdio do mascote Duolinfo',
+            onTap: () => MascotCompanionModal.show(context),
+          ),
           SizedBox(width: isCompact ? 5 : 8),
           Text(
             'Duolinfo',

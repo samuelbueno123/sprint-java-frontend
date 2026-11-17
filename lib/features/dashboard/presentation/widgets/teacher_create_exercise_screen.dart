@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/ui/mascot/mascot.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/teacher_class_assignment.dart';
 import '../../domain/entities/teacher_profile.dart';
@@ -1480,6 +1481,19 @@ class _TeacherCreateExerciseScreenState
               ),
             ),
           ),
+          if (_generatingAi) ...[
+            const SizedBox(height: 12),
+            const MascotLoader(
+              message: 'Elaborando questões inéditas com IA...',
+              subtitle: 'Organizando enunciados, opções e gabarito',
+              state: MascotState.clickSpin,
+              compact: true,
+              mascotSize: 56,
+              useSpriteSheet: true,
+              showProgressBar: false,
+              accentColor: Color(0xFF7651C8),
+            ),
+          ],
           if (_aiStatusMessage != null) ...[
             const SizedBox(height: 12),
             Container(
