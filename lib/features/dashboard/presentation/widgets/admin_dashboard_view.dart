@@ -4,13 +4,16 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../../core/audio/system_sound_service.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/constants/app_feedback_widgets.dart';
+import '../../../../core/constants/brand_assets.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/realtime_sync_service.dart';
+import '../../../../core/theme/admin_geral_theme.dart';
+import '../../../../core/ui/language_flag.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../../../core/constants/supported_languages.dart';
-import '../../../../core/ui/mascot/mascot.dart';
-import '../../../../core/ui/motion_kit.dart';
 import 'admin/admin_audit_logs_view.dart';
 import 'admin/admin_catalog_management_view.dart';
 import 'admin/admin_performance_dashboard_view.dart';
@@ -277,14 +280,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           await _loadTableRows(_selectedTableName!, page: _tablePage);
         }
       } else {
-        final results = await Future.wait([
-          _dio.get<List<dynamic>>(_adminUri('/api/admin/users').toString()),
-          _dio.get<Map<String, dynamic>>(
-            _adminUri('/api/admin/dashboard/overview').toString(),
-          ),
-        ]);
-        final rawUsers = (results[0].data as List<dynamic>?) ?? const [];
-        final rawOverview = results[1].data as Map<String, dynamic>?;
+        final usersResp = await _dio.get<List<dynamic>>(
+          _adminUri('/api/admin/users').toString(),
+        );
+        final rawUsers = usersResp.data ?? const [];
         final parsedUsers = rawUsers
             .whereType<Map<String, dynamic>>()
             .map(_AdminUserItem.fromJson)
@@ -292,7 +291,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         if (!mounted) return;
         setState(() {
           _users = parsedUsers;
-          _overviewData = rawOverview;
         });
         await _loadInstitutionDashboard();
       }
@@ -751,11 +749,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         );
       });
       _showSnack(approve ? 'Instituição criada.' : 'Solicitação recusada.');
-      await _loadInstitutionDashboard();
+      SystemSoundService.success();
       await _loadNotifications();
-      await _loadAdminOverview();
-      widget.onRefresh();
+      await _refreshAllAfterMutation();
     } catch (error) {
+      SystemSoundService.defeat();
       _showSnack(
         _extractErrorMessage(error, 'Não foi possível processar o pedido.'),
         isError: true,
@@ -797,11 +795,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             ? 'Cadastro de professor aprovado com sucesso!'
             : 'Solicitação de professor recusada.',
       );
-      await _loadInstitutionDashboard();
+      SystemSoundService.success();
       await _loadNotifications();
-      await _loadAdminOverview();
-      widget.onRefresh();
+      await _refreshAllAfterMutation();
     } catch (error) {
+      SystemSoundService.defeat();
       _showSnack(
         _extractErrorMessage(
           error,
@@ -923,9 +921,15 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.notifications_active_outlined,
-                    color: Color(0xFFD97706),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: AdminGeralTheme.badgePillDecoration(
+                      borderRadius: 12,
+                    ),
+                    child: const Icon(
+                      Icons.notifications_active_outlined,
+                      color: AdminGeralTheme.goldHighlight,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Text(
@@ -1161,7 +1165,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                   : Icons.notifications_active_rounded,
                               color: notification.isRead
                                   ? Colors.grey
-                                  : const Color(0xFFD97706),
+                                  : AdminGeralTheme.goldMetallic,
                             ),
                             const SizedBox(width: 10),
                             Flexible(
@@ -1298,7 +1302,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
   Widget _buildStatusBadge(String status) {
     final (label, color) = switch (status.toUpperCase()) {
-      'PENDING' => ('PENDENTE', const Color(0xFFD97706)),
+      'PENDING' => ('PENDENTE', AdminGeralTheme.goldMetallic),
       'APPROVED' => ('APROVADA', const Color(0xFF15803D)),
       'REJECTED' => ('RECUSADA', const Color(0xFFB42318)),
       'EXPIRED' => ('EXPIRADA (LOG)', const Color(0xFF64748B)),
@@ -1379,6 +1383,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final totalRows = _tables.fold<int>(0, (acc, item) => acc + item.rowCount);
     final adminCount = _users.where((u) => u.isAdmin).length;
 
+    final isCompactMobile = isCompactLayout(context);
+    final showGold = AdminGeralTheme.useGoldContour(context);
     return SingleChildScrollView(
       padding: responsivePagePadding(context),
       child: Column(
@@ -1386,24 +1392,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         children: [
           Container(
             padding: responsiveBannerPadding(context),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFF4338CA),
-                  Color(0xFF6366F1),
-                  Color(0xFF8B5CF6),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(22),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+            decoration: AdminGeralTheme.heroDecoration(
+              context: context,
+              borderRadius: isCompactMobile ? 18 : 22,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1419,15 +1410,21 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.22),
+                            gradient: AdminGeralTheme.actionGradient,
                             borderRadius: BorderRadius.circular(20),
+                            border: showGold
+                                ? Border.all(
+                                    color: AdminGeralTheme.goldBright,
+                                    width: 1.2,
+                                  )
+                                : null,
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
                                 Icons.verified_user_rounded,
-                                color: Colors.white,
+                                color: AdminGeralTheme.goldHighlight,
                                 size: 14,
                               ),
                               SizedBox(width: 6),
@@ -1449,9 +1446,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         const SizedBox(height: 8),
                         Text(
                           widget.data.user.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
-                            fontSize: 24,
+                            fontSize: isCompactMobile ? 20 : 24,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -1459,7 +1456,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           widget.data.user.email,
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.9),
-                            fontSize: 14,
+                            fontSize: isCompactMobile ? 13 : 14,
                           ),
                         ),
                       ],
@@ -1468,26 +1465,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     final avatar = AppUserAvatar(
                       name: widget.data.user.name,
                       pictureUrl: widget.data.user.picture,
-                      radius: 34,
+                      radius: isCompactMobile ? 28 : 34,
                       backgroundColor: Colors.white.withValues(alpha: 0.22),
                       textColor: Colors.white,
                     );
 
-                    final mascotEmblem = Container(
-                      width: 68,
-                      height: 68,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.16),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: MascotSprite(
-                          state: MascotState.intense,
-                          size: 58,
-                          glowColor: Colors.white,
-                        ),
-                      ),
-                    );
+                    const brandBadge = AppBrandIcon(size: 54);
 
                     if (constraints.maxWidth >= 520) {
                       return Row(
@@ -1497,7 +1480,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           const SizedBox(width: 16),
                           Expanded(child: badgeAndIdentity),
                           const SizedBox(width: 16),
-                          mascotEmblem,
+                          brandBadge,
                         ],
                       );
                     }
@@ -1505,153 +1488,357 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(children: [avatar, const Spacer(), mascotEmblem]),
-                        const SizedBox(height: 14),
-                        badgeAndIdentity,
+                        Row(
+                          children: [
+                            avatar,
+                            const SizedBox(width: 12),
+                            Expanded(child: badgeAndIdentity),
+                          ],
+                        ),
                       ],
                     );
                   },
                 ),
-                const SizedBox(height: 20),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 10,
-                  children: [
-                    FilledButton.icon(
-                      onPressed: () => widget.onSectionSelected('tools'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF4338CA),
-                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      icon: const Icon(Icons.add_business_rounded, size: 18),
-                      label: const Text('Cadastros Rápidos'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => widget.onSectionSelected('database'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white, width: 1.4),
-                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      icon: const Icon(Icons.storage_rounded, size: 18),
-                      label: const Text('Banco de Dados'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () =>
-                          widget.onSectionSelected('institutionAdmins'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white, width: 1.4),
-                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      icon: const Icon(
-                        Icons.supervisor_account_rounded,
-                        size: 18,
-                      ),
-                      label: const Text('ADMs de Instituições'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () =>
-                          widget.onSectionSelected('studentAchievements'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white, width: 1.4),
-                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      icon: const Icon(
-                        Icons.workspace_premium_rounded,
-                        size: 18,
-                      ),
-                      label: const Text('Conquistas de Alunos'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => widget.onSectionSelected('auditLogs'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white, width: 1.4),
-                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      icon: const Icon(Icons.security_rounded, size: 18),
-                      label: const Text('Logs & Auditoria'),
-                    ),
-                    StaggeredReveal(
-                      index: 1,
-                      child: Wrap(
-                        spacing: 10,
-                        runSpacing: 8,
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: () =>
-                                widget.onSectionSelected('systemPerformance'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: const Color(0xFF4338CA),
-                              elevation: 0,
-                              textStyle: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
+                SizedBox(height: isCompactMobile ? 14 : 20),
+                if (isCompactMobile) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () => widget.onSectionSelected('tools'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF4338CA),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 10,
                             ),
-                            icon: const Icon(
-                              Icons.query_stats_rounded,
-                              size: 18,
+                            textStyle: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
                             ),
-                            label: const Text('Performance & FLChart'),
                           ),
-                          OutlinedButton.icon(
-                            onPressed: () =>
-                                widget.onSectionSelected('systemHealth'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              side: const BorderSide(
-                                color: Colors.white,
-                                width: 1.4,
-                              ),
-                              textStyle: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            icon: const Icon(
-                              Icons.monitor_heart_rounded,
-                              size: 18,
-                            ),
-                            label: const Text('Saúde & Diagnóstico'),
+                          icon: const Icon(
+                            Icons.add_business_rounded,
+                            size: 16,
                           ),
-                        ],
+                          label: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text('Cadastros Rápidos'),
+                          ),
+                        ),
                       ),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () =>
-                          widget.onSectionSelected('catalogManagement'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white, width: 1.4),
-                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () =>
+                              widget.onSectionSelected('database'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(
+                              color: Colors.white,
+                              width: 1.3,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 10,
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          icon: const Icon(Icons.storage_rounded, size: 16),
+                          label: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text('Banco de Dados'),
+                          ),
+                        ),
                       ),
-                      icon: const Icon(Icons.category_rounded, size: 18),
-                      label: const Text('Catálogo & Idiomas'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () =>
-                          widget.onSectionSelected('teacherDocuments'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white, width: 1.4),
-                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        onPressed: () => _loadAdminOverview(),
+                        tooltip: 'Atualizar indicadores',
+                        icon: const Icon(
+                          Icons.refresh_rounded,
+                          color: Colors.white,
+                        ),
                       ),
-                      icon: const Icon(Icons.folder_shared_rounded, size: 18),
-                      label: const Text('Documentos Docentes'),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              widget.onSectionSelected('institutionAdmins'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.75),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.supervisor_account_rounded,
+                            size: 16,
+                          ),
+                          label: const Text('ADMs'),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              widget.onSectionSelected('studentAchievements'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.75),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.workspace_premium_rounded,
+                            size: 16,
+                          ),
+                          label: const Text('Conquistas'),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              widget.onSectionSelected('auditLogs'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.75),
+                            ),
+                          ),
+                          icon: const Icon(Icons.security_rounded, size: 16),
+                          label: const Text('Logs'),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              widget.onSectionSelected('systemPerformance'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.75),
+                            ),
+                          ),
+                          icon: const Icon(Icons.query_stats_rounded, size: 16),
+                          label: const Text('Performance'),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              widget.onSectionSelected('systemHealth'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.75),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.monitor_heart_rounded,
+                            size: 16,
+                          ),
+                          label: const Text('Saúde'),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              widget.onSectionSelected('catalogManagement'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.75),
+                            ),
+                          ),
+                          icon: const Icon(Icons.category_rounded, size: 16),
+                          label: const Text('Catálogo'),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              widget.onSectionSelected('teacherDocuments'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.75),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.folder_shared_rounded,
+                            size: 16,
+                          ),
+                          label: const Text('Documentos'),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      onPressed: () => _loadAdminOverview(),
-                      tooltip: 'Atualizar indicadores',
-                      icon: const Icon(
-                        Icons.refresh_rounded,
-                        color: Colors.white,
+                  ),
+                ] else
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 10,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: () => widget.onSectionSelected('tools'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF4338CA),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        icon: const Icon(Icons.add_business_rounded, size: 18),
+                        label: const Text('Cadastros Rápidos'),
                       ),
-                    ),
-                  ],
-                ),
+                      OutlinedButton.icon(
+                        onPressed: () => widget.onSectionSelected('database'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(
+                            color: Colors.white,
+                            width: 1.4,
+                          ),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        icon: const Icon(Icons.storage_rounded, size: 18),
+                        label: const Text('Banco de Dados'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            widget.onSectionSelected('institutionAdmins'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(
+                            color: Colors.white,
+                            width: 1.4,
+                          ),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.supervisor_account_rounded,
+                          size: 18,
+                        ),
+                        label: const Text('ADMs de Instituições'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            widget.onSectionSelected('studentAchievements'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(
+                            color: Colors.white,
+                            width: 1.4,
+                          ),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.workspace_premium_rounded,
+                          size: 18,
+                        ),
+                        label: const Text('Conquistas de Alunos'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => widget.onSectionSelected('auditLogs'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(
+                            color: Colors.white,
+                            width: 1.4,
+                          ),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        icon: const Icon(Icons.security_rounded, size: 18),
+                        label: const Text('Logs & Auditoria'),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () =>
+                            widget.onSectionSelected('systemPerformance'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF4338CA),
+                          elevation: 0,
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        icon: const Icon(Icons.query_stats_rounded, size: 18),
+                        label: const Text('Performance & FLChart'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            widget.onSectionSelected('systemHealth'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(
+                            color: Colors.white,
+                            width: 1.4,
+                          ),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.monitor_heart_rounded,
+                          size: 18,
+                        ),
+                        label: const Text('Saúde & Diagnóstico'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            widget.onSectionSelected('catalogManagement'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(
+                            color: Colors.white,
+                            width: 1.4,
+                          ),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        icon: const Icon(Icons.category_rounded, size: 18),
+                        label: const Text('Catálogo & Idiomas'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            widget.onSectionSelected('teacherDocuments'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(
+                            color: Colors.white,
+                            width: 1.4,
+                          ),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.folder_shared_rounded,
+                          size: 18,
+                        ),
+                        label: const Text('Documentos Docentes'),
+                      ),
+                      IconButton(
+                        onPressed: () => _loadAdminOverview(),
+                        tooltip: 'Atualizar indicadores',
+                        icon: const Icon(
+                          Icons.refresh_rounded,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.05, end: 0),
@@ -1681,7 +1868,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           value: '${_tables.length}',
                           subtitle: 'Schema public ativo',
                           icon: Icons.table_view_rounded,
-                          accentColor: const Color(0xFF6366F1),
+                          accentColor: AdminGeralTheme.indigoMid,
+                          borderColor: AdminGeralTheme.goldMetallic,
                           onTap: () => widget.onSectionSelected('database'),
                         ),
                       ),
@@ -1692,7 +1880,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           value: '$totalRows',
                           subtitle: 'Soma em todas as tabelas',
                           icon: Icons.dataset_rounded,
-                          accentColor: const Color(0xFF2563EB),
+                          accentColor: AdminGeralTheme.bluePrimary,
+                          borderColor: AdminGeralTheme.goldMetallic,
                           onTap: () => widget.onSectionSelected('database'),
                         ),
                       ),
@@ -1703,7 +1892,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           value: '${_users.length}',
                           subtitle: 'Contas cadastradas no sistema',
                           icon: Icons.people_alt_rounded,
-                          accentColor: const Color(0xFF8B5CF6),
+                          accentColor: AdminGeralTheme.purplePrimary,
+                          borderColor: AdminGeralTheme.goldMetallic,
                           onTap: () => _openUsersWithFilter('ALL'),
                         ),
                       ),
@@ -1714,7 +1904,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           value: '$adminCount',
                           subtitle: 'Contas com permissão de gestão',
                           icon: Icons.shield_rounded,
-                          accentColor: const Color(0xFF059669),
+                          accentColor: AdminGeralTheme.goldMetallic,
+                          borderColor: AdminGeralTheme.goldMetallic,
                           onTap: () => _openUsersWithFilter('ADMIN'),
                         ),
                       ),
@@ -1774,11 +1965,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           if (_isLoadingOverview && _tables.isEmpty)
             const Padding(
               padding: EdgeInsets.all(20),
-              child: MascotLoader(
+              child: AppLoader(
                 message: 'Carregando tabelas e métricas do sistema...',
-                state: MascotState.intense,
-                mascotSize: 78,
-                accentColor: Color(0xFFD97706),
+                accentColor: AdminGeralTheme.indigoMid,
               ),
             )
           else
@@ -1804,6 +1993,17 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           child: AppHoverCard(
                             onTap: () => _openTableInEditor(table.tableName),
                             borderRadius: 14,
+                            borderColor: AdminGeralTheme.goldMetallic,
+                            borderWidth: 1.25,
+                            accentColor: AdminGeralTheme.purplePrimary,
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                AdminGeralTheme.bluePrimary.withValues(alpha: 0.06),
+                                AdminGeralTheme.purplePrimary.withValues(alpha: 0.08),
+                              ],
+                            ),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
                               vertical: 12,
@@ -1813,14 +2013,16 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: const Color(
-                                      0xFF6366F1,
-                                    ).withValues(alpha: 0.12),
+                                    gradient: AdminGeralTheme.actionGradient,
                                     borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: AdminGeralTheme.goldMetallic,
+                                      width: 1,
+                                    ),
                                   ),
                                   child: Icon(
                                     _iconForTable(table.tableName),
-                                    color: const Color(0xFF6366F1),
+                                    color: Colors.white,
                                     size: 20,
                                   ),
                                 ),
@@ -2062,9 +2264,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   }
 
   Widget _buildPlatformCharts(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     final profileDist =
         (_overviewData?['profileDistribution'] as Map<String, dynamic>?) ?? {};
     final students =
@@ -2103,21 +2302,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               width: cardWidth,
               child: Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white10
-                        : Colors.black.withValues(alpha: 0.06),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                decoration: AdminGeralTheme.surfaceCardDecoration(
+                  context,
+                  borderRadius: 18,
+                  borderWidth: 1.4,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2126,7 +2314,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       children: [
                         Icon(
                           Icons.pie_chart_rounded,
-                          color: Color(0xFF6366F1),
+                          color: AdminGeralTheme.indigoMid,
                           size: 20,
                         ),
                         SizedBox(width: 8),
@@ -2151,7 +2339,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       label: 'Estudantes',
                       count: students,
                       percentage: students / safeTotal,
-                      color: const Color(0xFF4F46E5),
+                      color: AdminGeralTheme.bluePrimary,
                       icon: Icons.school_rounded,
                     ),
                     const SizedBox(height: 12),
@@ -2159,7 +2347,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       label: 'Professores',
                       count: teachers,
                       percentage: teachers / safeTotal,
-                      color: const Color(0xFF0D9488),
+                      color: AdminGeralTheme.indigoMid,
                       icon: Icons.co_present_rounded,
                     ),
                     const SizedBox(height: 12),
@@ -2167,7 +2355,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       label: 'Administradores',
                       count: admins,
                       percentage: admins / safeTotal,
-                      color: const Color(0xFFD97706),
+                      color: AdminGeralTheme.goldMetallic,
                       icon: Icons.shield_rounded,
                     ),
                     const SizedBox(height: 12),
@@ -2175,7 +2363,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       label: 'Usuários Padrão',
                       count: userOnly,
                       percentage: userOnly / safeTotal,
-                      color: const Color(0xFF64748B),
+                      color: AdminGeralTheme.purplePrimary,
                       icon: Icons.person_rounded,
                     ),
                   ],
@@ -2188,21 +2376,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               width: cardWidth,
               child: Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white10
-                        : Colors.black.withValues(alpha: 0.06),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                decoration: AdminGeralTheme.surfaceCardDecoration(
+                  context,
+                  borderRadius: 18,
+                  borderWidth: 1.4,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2210,8 +2387,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     Row(
                       children: [
                         const Icon(
-                          Icons.language_rounded,
-                          color: Color(0xFF2563EB),
+                          Icons.translate_rounded,
+                          color: AdminGeralTheme.indigoMid,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
@@ -2248,32 +2425,32 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         label: 'Inglês',
                         count: 42,
                         percentage: 0.42,
-                        color: const Color(0xFF2563EB),
-                        icon: Icons.translate_rounded,
+                        color: AdminGeralTheme.bluePrimary,
+                        leadingWidget: LanguageFlag.forLanguage('Inglês', width: 20),
                       ),
                       const SizedBox(height: 12),
                       _buildProgressBarItem(
                         label: 'Espanhol',
                         count: 28,
                         percentage: 0.28,
-                        color: const Color(0xFF059669),
-                        icon: Icons.translate_rounded,
+                        color: AdminGeralTheme.indigoMid,
+                        leadingWidget: LanguageFlag.forLanguage('Espanhol', width: 20),
                       ),
                       const SizedBox(height: 12),
                       _buildProgressBarItem(
                         label: 'Francês',
                         count: 16,
                         percentage: 0.16,
-                        color: const Color(0xFF7C3AED),
-                        icon: Icons.translate_rounded,
+                        color: AdminGeralTheme.purplePrimary,
+                        leadingWidget: LanguageFlag.forLanguage('Francês', width: 20),
                       ),
                       const SizedBox(height: 12),
                       _buildProgressBarItem(
                         label: 'Alemão',
                         count: 14,
                         percentage: 0.14,
-                        color: const Color(0xFFEA580C),
-                        icon: Icons.translate_rounded,
+                        color: AdminGeralTheme.goldMetallic,
+                        leadingWidget: LanguageFlag.forLanguage('Alemão', width: 20),
                       ),
                     ] else ...[
                       ...topLanguages.take(4).map((langItem) {
@@ -2289,8 +2466,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             label: name,
                             count: count,
                             percentage: ratio,
-                            color: const Color(0xFF2563EB),
-                            icon: Icons.translate_rounded,
+                            color: AdminGeralTheme.bluePrimary,
+                            leadingWidget: LanguageFlag.forLanguage(name, width: 20),
                           ),
                         );
                       }),
@@ -2310,7 +2487,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     required int count,
     required double percentage,
     required Color color,
-    required IconData icon,
+    IconData? icon,
+    Widget? leadingWidget,
   }) {
     final pctText = '${(percentage * 100).toStringAsFixed(1)}%';
     return Column(
@@ -2318,7 +2496,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       children: [
         Row(
           children: [
-            Icon(icon, size: 15, color: color),
+            leadingWidget ?? Icon(icon ?? Icons.circle, size: 15, color: color),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -2493,7 +2671,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 final dotColor = isError
                     ? const Color(0xFFDC2626)
                     : isWarn
-                    ? const Color(0xFFD97706)
+                    ? const Color(0xFF4338CA)
                     : const Color(0xFF2563EB);
 
                 final action = event['action']?.toString() ?? 'AÇÃO';
@@ -2624,7 +2802,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final badgeColor = isError
         ? const Color(0xFFDC2626)
         : isWarn
-        ? const Color(0xFFD97706)
+        ? const Color(0xFF4338CA)
         : const Color(0xFF2563EB);
 
     showDialog<void>(
@@ -2835,13 +3013,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD97706).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
+                    decoration: AdminGeralTheme.badgePillDecoration(
+                      borderRadius: 12,
                     ),
                     child: const Icon(
                       Icons.storage_rounded,
-                      color: Color(0xFFD97706),
+                      color: AdminGeralTheme.goldHighlight,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -2916,7 +3093,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   return ChoiceChip(
                     selected: isSelected,
                     selectedColor: const Color(
-                      0xFFD97706,
+                      0xFFD4AF37,
                     ).withValues(alpha: 0.18),
                     label: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -2928,7 +3105,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                 ? FontWeight.w800
                                 : FontWeight.w600,
                             color: isSelected
-                                ? const Color(0xFFD97706)
+                                ? const Color(0xFF4338CA)
                                 : Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
@@ -2940,7 +3117,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? const Color(0xFFD97706)
+                                ? const Color(0xFF4338CA)
                                 : Colors.grey.withValues(alpha: 0.25),
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -3022,21 +3199,19 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           ],
           Expanded(
             child: _isLoadingTableData
-                ? const MascotLoader(
+                ? const AppLoader(
                     message: 'Carregando registros da tabela...',
-                    state: MascotState.idle,
-                    mascotSize: 76,
-                    accentColor: Color(0xFFD97706),
+                    accentColor: AdminGeralTheme.indigoMid,
                   )
                 : tableData == null
                 ? const Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        MascotEmptyIllustration(
-                          state: MascotState.idle,
-                          size: 82,
-                          accentColor: Color(0xFFD97706),
+                        AppEmptyIllustration(
+                          icon: Icons.table_chart_outlined,
+                          size: 76,
+                          accentColor: AdminGeralTheme.indigoMid,
                         ),
                         SizedBox(height: 12),
                         Text('Selecione uma tabela para visualizar.'),
@@ -3093,13 +3268,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFD97706).withValues(alpha: 0.14),
+                        color: const Color(0xFF4338CA).withValues(alpha: 0.14),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
                         '${tableData.totalCount} registro(s) • ${tableData.columns.length} colunas',
                         style: const TextStyle(
-                          color: Color(0xFFD97706),
+                          color: Color(0xFF4338CA),
                           fontWeight: FontWeight.w700,
                           fontSize: 12,
                         ),
@@ -3194,7 +3369,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                             const Icon(
                                               Icons.key_rounded,
                                               size: 14,
-                                              color: Color(0xFFD97706),
+                                              color: Color(0xFF4338CA),
                                             ),
                                             const SizedBox(width: 4),
                                           ],
@@ -3420,7 +3595,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 children: [
                   Icon(
                     isEditing ? Icons.edit_note_rounded : Icons.add_box_rounded,
-                    color: const Color(0xFFD97706),
+                    color: const Color(0xFF4338CA),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -3468,7 +3643,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                     const Icon(
                                       Icons.key_rounded,
                                       size: 14,
-                                      color: Color(0xFFD97706),
+                                      color: Color(0xFF4338CA),
                                     ),
                                     const SizedBox(width: 4),
                                   ],
@@ -3683,13 +3858,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                   ? 'Registro atualizado com sucesso!'
                                   : 'Registro inserido com sucesso!',
                             );
-                            await _loadAdminOverview(keepSelectedTable: true);
-                            await _loadTableRows(
-                              tableData.tableName,
-                              page: _tablePage,
-                            );
-                            widget.onRefresh();
+                            SystemSoundService.success();
+                            await _refreshAllAfterMutation();
                           } catch (e) {
+                            SystemSoundService.defeat();
                             setDialogState(() {
                               isSaving = false;
                               dialogError = _extractErrorMessage(
@@ -3699,10 +3871,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             });
                           }
                         },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFD97706),
-                    foregroundColor: Colors.white,
-                  ),
+                    style: AdminGeralTheme.filledButtonStyle(),
                   icon: isSaving
                       ? const SizedBox.square(
                           dimension: 16,
@@ -3766,10 +3935,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         data: keys,
       );
       _showSnack('Registro excluído com sucesso.');
-      await _loadAdminOverview(keepSelectedTable: true);
-      await _loadTableRows(tableData.tableName, page: _tablePage);
-      widget.onRefresh();
+      SystemSoundService.success();
+      await _refreshAllAfterMutation();
     } catch (e) {
+      SystemSoundService.defeat();
       _showSnack(
         _extractErrorMessage(e, 'Não foi possível excluir o registro.'),
         isError: true,
@@ -3847,15 +4016,15 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                      color: const Color(0xFF4338CA).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const MascotPoseEmblem(
-                      state: MascotState.intense,
-                      size: 32,
-                      glowColor: Color(0xFFD97706),
+                    child: const Icon(
+                      Icons.manage_accounts_rounded,
+                      color: Color(0xFF4338CA),
+                      size: 24,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -3889,7 +4058,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     FilledButton.icon(
                       onPressed: () => _showUserDialog(context, existing: null),
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFFD97706),
+                        backgroundColor: AdminGeralTheme.indigoMid,
                         foregroundColor: Colors.white,
                       ),
                       icon: const Icon(
@@ -3999,7 +4168,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     return ChoiceChip(
       label: Text(label),
       selected: selected,
-      selectedColor: const Color(0xFFD97706).withValues(alpha: 0.18),
+      selectedColor: const Color(0xFF4338CA).withValues(alpha: 0.18),
       onSelected: (_) => setState(() {
         _userFilter = value;
         _userPage = 0;
@@ -4017,17 +4186,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final canToggleAdmin =
         _isSuperAdmin && !isStudent && !isSuper && !isCurrentUser;
 
-    return Card(
-      elevation: 0,
+    return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: user.isAdmin
-              ? const Color(0xFFD97706).withValues(alpha: 0.5)
-              : Theme.of(context).colorScheme.outlineVariant,
-          width: user.isAdmin ? 1.4 : 1.0,
-        ),
+      decoration: AdminGeralTheme.surfaceCardDecoration(
+        context,
+        borderRadius: 14,
+        borderWidth: user.isAdmin ? 1.5 : 1.0,
+        emphasized: user.isAdmin,
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -4046,11 +4211,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   radius: 22,
                   backgroundColor:
                       (user.isAdmin
-                              ? const Color(0xFFD97706)
+                              ? AdminGeralTheme.indigoMid
                               : const Color(0xFF3579E8))
                           .withValues(alpha: 0.16),
                   textColor: user.isAdmin
-                      ? const Color(0xFFD97706)
+                      ? AdminGeralTheme.indigoMid
                       : const Color(0xFF3579E8),
                 ),
                 const SizedBox(width: 14),
@@ -4094,7 +4259,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             ),
                             decoration: BoxDecoration(
                               color: const Color(
-                                0xFFD97706,
+                                0xFFD4AF37,
                               ).withValues(alpha: 0.22),
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -4103,7 +4268,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFFD97706),
+                                color: Color(0xFF4338CA),
                               ),
                             ),
                           )
@@ -4136,7 +4301,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             ),
                             decoration: BoxDecoration(
                               color: const Color(
-                                0xFFD97706,
+                                0xFFD4AF37,
                               ).withValues(alpha: 0.16),
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -4145,7 +4310,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFFD97706),
+                                color: Color(0xFF4338CA),
                               ),
                             ),
                           ),
@@ -4253,9 +4418,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 FilterChip(
                   selected: user.isAdmin,
                   selectedColor: const Color(
-                    0xFFD97706,
+                    0xFFD4AF37,
                   ).withValues(alpha: 0.18),
-                  checkmarkColor: const Color(0xFFD97706),
+                  checkmarkColor: const Color(0xFF4338CA),
                   avatar: Icon(
                     isStudent
                         ? Icons.block_rounded
@@ -4264,7 +4429,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                               : Icons.shield_outlined),
                     size: 16,
                     color: user.isAdmin
-                        ? const Color(0xFFD97706)
+                        ? const Color(0xFF4338CA)
                         : Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   label: Text(
@@ -4277,7 +4442,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       fontWeight: FontWeight.w700,
                       fontSize: 12,
                       color: user.isAdmin
-                          ? const Color(0xFFD97706)
+                          ? const Color(0xFF4338CA)
                           : Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
@@ -4294,7 +4459,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           ? Icons.pause_circle_outline_rounded
                           : Icons.play_circle_outline_rounded,
                       color: user.active
-                          ? const Color(0xFFD97706)
+                          ? const Color(0xFF4338CA)
                           : const Color(0xFF059669),
                     ),
                   ),
@@ -4352,9 +4517,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             ? '${user.name} agora possui permissão de Administrador!'
             : 'Permissão de Administrador removida de ${user.name}.',
       );
-      await _loadAdminOverview();
-      widget.onRefresh();
+      SystemSoundService.success();
+      await _refreshAllAfterMutation();
     } catch (e) {
+      SystemSoundService.defeat();
       _showSnack(
         _extractErrorMessage(
           e,
@@ -4382,9 +4548,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         'Conta de "${user.name}" ${newStatus ? 'reativada' : 'suspensa'} com sucesso!',
         isError: !newStatus,
       );
-      await _loadAdminOverview();
-      widget.onRefresh();
+      SystemSoundService.success();
+      await _refreshAllAfterMutation();
     } catch (e) {
+      SystemSoundService.defeat();
       _showSnack(
         _extractErrorMessage(
           e,
@@ -4563,8 +4730,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                   ? 'Usuário atualizado com sucesso!'
                                   : 'Usuário criado com sucesso!',
                             );
-                            await _loadAdminOverview();
+                            SystemSoundService.success();
+                            await _refreshAllAfterMutation();
                           } catch (e) {
+                            SystemSoundService.defeat();
                             setDialogState(() {
                               isSaving = false;
                               dialogError = _extractErrorMessage(
@@ -4574,10 +4743,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             });
                           }
                         },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFD97706),
-                    foregroundColor: Colors.white,
-                  ),
+                    style: AdminGeralTheme.filledButtonStyle(),
                   icon: const Icon(Icons.save_rounded, size: 18),
                   label: Text(isSaving ? 'Salvando...' : 'Salvar'),
                 ),
@@ -4630,8 +4796,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         _adminUri('/api/admin/users/${user.id}').toString(),
       );
       _showSnack('Usuário excluído com sucesso.');
-      await _loadAdminOverview();
+      SystemSoundService.success();
+      await _refreshAllAfterMutation();
     } catch (e) {
+      SystemSoundService.defeat();
       _showSnack(
         _extractErrorMessage(e, 'Não foi possível excluir o usuário.'),
         isError: true,
@@ -4696,6 +4864,18 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     } catch (_) {}
   }
 
+  Future<void> _refreshAllAfterMutation() async {
+    await Future.wait([
+      _loadCatalogAuxData().catchError((_) {}),
+      _loadAdminOverview(keepSelectedTable: true).catchError((_) {}),
+      if (!_isSuperAdmin || _selectedInstitutionId != null)
+        _loadInstitutionDashboard().catchError((_) {}),
+      if (_isSuperAdmin && _selectedTableName != null)
+        _loadTableRows(_selectedTableName!, page: _tablePage).catchError((_) {}),
+    ]);
+    widget.onRefresh();
+  }
+
   Widget _buildFriendlyToolsSection(BuildContext context) {
     final myInstId =
         widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
@@ -4712,51 +4892,75 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD97706).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: AdminGeralTheme.heroDecoration(
+              context: context,
+              borderRadius: 20,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(14),
+                    border: AdminGeralTheme.useGoldContour(context)
+                        ? Border.all(
+                            color: AdminGeralTheme.goldMetallic,
+                            width: 1.2,
+                          )
+                        : null,
+                  ),
+                  child: const Icon(
+                    Icons.add_business_rounded,
+                    color: AdminGeralTheme.goldHighlight,
+                    size: 26,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.add_business_rounded,
-                  color: Color(0xFFD97706),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _isSuperAdmin
-                          ? 'Ferramentas Amigáveis de Cadastro Rápido'
-                          : 'Cadastros Rápidos da Instituição',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _isSuperAdmin
+                            ? 'Ferramentas Amigáveis de Cadastro Rápido'
+                            : 'Cadastros Rápidos da Instituição',
+                        style: const TextStyle(
+                          fontSize: 21,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                    Text(
-                      _isSuperAdmin
-                          ? 'Crie instituições, escolas, turmas, conquistas e usuários com formulários guiados fora da tela de tabelas.'
-                          : 'Cadastre escolas, turmas, professores, alunos, matrículas e atribuições para $instName de forma autônoma.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      const SizedBox(height: 4),
+                      Text(
+                        _isSuperAdmin
+                            ? 'Crie instituições, escolas, turmas, professores, alunos, matrículas e atribuições com atualização automática.'
+                            : 'Cadastre escolas, turmas, professores, alunos, matrículas e atribuições para $instName de forma autônoma.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              OutlinedButton.icon(
-                onPressed: _loadCatalogAuxData,
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Atualizar listas'),
-              ),
-            ],
+                const SizedBox(width: 10),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    SystemSoundService.click();
+                    _loadCatalogAuxData();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: AdminGeralTheme.goldMetallic),
+                  ),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Atualizar listas'),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 20),
           LayoutBuilder(
@@ -4873,9 +5077,53 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       icon: Icons.class_rounded,
                       title: 'Nova Turma',
                       subtitle:
-                          'Crie uma turma escolhendo a escola, turno, série e ano letivo.',
+                          'Crie uma turma por instituição ou escola (cria unidade padrão automaticamente se necessário).',
                       buttonLabel: 'Criar Turma',
                       onPressed: () => _openCreateClassToolDialog(context),
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: _buildToolActionCard(
+                      icon: Icons.badge_rounded,
+                      title: 'Novo Professor',
+                      subtitle:
+                          'Cadastre um professor com idiomas lecionados e vincule à instituição.',
+                      buttonLabel: 'Cadastrar Professor',
+                      onPressed: () => _openCreateTeacherDialog(context),
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: _buildToolActionCard(
+                      icon: Icons.person_add_alt_1_rounded,
+                      title: 'Novo Aluno',
+                      subtitle:
+                          'Cadastre um estudante com seu idioma inicial e instituição.',
+                      buttonLabel: 'Cadastrar Aluno',
+                      onPressed: () => _openCreateStudentDialog(context),
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: _buildToolActionCard(
+                      icon: Icons.assignment_ind_rounded,
+                      title: 'Atribuir Professor a Turma',
+                      subtitle:
+                          'Defina ou substitua o professor titular responsável por qualquer turma.',
+                      buttonLabel: 'Atribuir Professor',
+                      onPressed: () => _openAssignTeacherDialog(context),
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: _buildToolActionCard(
+                      icon: Icons.how_to_reg_rounded,
+                      title: 'Matricular Aluno em Turma',
+                      subtitle:
+                          'Matricule um aluno compatível em uma das turmas ativas do sistema.',
+                      buttonLabel: 'Matricular Aluno',
+                      onPressed: () => _openEnrollStudentDialog(context),
                     ),
                   ),
                   SizedBox(
@@ -4892,7 +5140,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   SizedBox(
                     width: width,
                     child: _buildToolActionCard(
-                      icon: Icons.person_add_alt_1_rounded,
+                      icon: Icons.admin_panel_settings_rounded,
                       title: 'Novo Administrador Geral / Usuário',
                       subtitle:
                           'Crie rapidamente uma nova conta com privilégios de acesso gerais.',
@@ -4904,6 +5152,117 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               );
             },
           ),
+          const SizedBox(height: 22),
+          _buildLiveClassesPreviewCard(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLiveClassesPreviewCard(BuildContext context) {
+    final myInstId =
+        widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
+    final visibleClasses = (!_isSuperAdmin && myInstId != null)
+        ? _classesList.where((c) {
+            final sId = (c['schoolId'] as num?)?.toInt();
+            final s = _schoolsList.firstWhere(
+              (sc) => (sc['id'] as num?)?.toInt() == sId,
+              orElse: () => <String, dynamic>{},
+            );
+            return (s['institutionId'] as num?)?.toInt() == myInstId ||
+                (c['institutionId'] as num?)?.toInt() == myInstId;
+          }).toList()
+        : _classesList;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: AdminGeralTheme.surfaceCardDecoration(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.groups_rounded,
+                color: AdminGeralTheme.indigoMid,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Turmas Cadastradas (${visibleClasses.length}) • Professores (${_teachersList.length}) • Alunos (${_studentsList.length})',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (visibleClasses.isEmpty)
+            Text(
+              'Nenhuma turma criada ainda. Use "Criar Turma" acima e a lista aparecerá aqui automaticamente.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: visibleClasses.map((cls) {
+                final lang = cls['languageName']?.toString() ?? kDefaultSupportedLanguage;
+                final teacherName = cls['currentTeacherName']?.toString();
+                final count = (cls['activeStudentsCount'] as num?)?.toInt() ?? 0;
+                return Container(
+                  width: 310,
+                  padding: const EdgeInsets.all(14),
+                  decoration: AdminGeralTheme.surfaceCardDecoration(
+                    context,
+                    borderRadius: 14,
+                    borderWidth: 1.1,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${cls['name'] ?? 'Turma'}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14.5,
+                              ),
+                            ),
+                          ),
+                          LanguageBadgePill(language: lang, compact: true),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Escola: ${cls['schoolName'] ?? '-'} • ${cls['schoolYear'] ?? ''} • ${cls['shift'] ?? ''}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Professor: ${teacherName != null && teacherName.isNotEmpty ? teacherName : 'Não atribuído'} • Alunos ativos: $count',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
         ],
       ),
     );
@@ -4916,59 +5275,61 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     required String buttonLabel,
     required VoidCallback onPressed,
   }) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+    return Container(
+      decoration: AdminGeralTheme.surfaceCardDecoration(
+        context,
+        borderRadius: 18,
+        borderWidth: 1.4,
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD97706).withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: const Color(0xFFD97706)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                    ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: AdminGeralTheme.actionGradient,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AdminGeralTheme.goldMetallic,
+                    width: 1.1,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 13,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                child: Icon(icon, color: Colors.white),
               ),
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onPressed,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFD97706),
-                foregroundColor: Colors.white,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: Text(buttonLabel),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: () {
+              SystemSoundService.click();
+              onPressed();
+            },
+            style: AdminGeralTheme.filledButtonStyle(),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: Text(buttonLabel),
+          ),
+        ],
       ),
     );
   }
@@ -5104,9 +5465,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         },
       );
       _showSnack('Instituição "$name" criada com sucesso!');
-      await _loadCatalogAuxData();
-      await _loadAdminOverview();
+      SystemSoundService.success();
+      await _refreshAllAfterMutation();
     } catch (e) {
+      SystemSoundService.defeat();
       _showSnack(
         _extractErrorMessage(e, 'Erro ao criar instituição.'),
         isError: true,
@@ -5225,9 +5587,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         data: {'name': name, 'inepCode': inep.isEmpty ? null : inep},
       );
       _showSnack('Escola "$name" criada com sucesso!');
-      await _loadCatalogAuxData();
-      await _loadAdminOverview();
+      SystemSoundService.success();
+      await _refreshAllAfterMutation();
     } catch (e) {
+      SystemSoundService.defeat();
       _showSnack(
         _extractErrorMessage(e, 'Erro ao criar escola.'),
         isError: true,
@@ -5240,19 +5603,37 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     if (!context.mounted) return;
     final myInstId =
         widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
-    final availableSchools = (!_isSuperAdmin && myInstId != null)
-        ? _schoolsList
-              .where((s) => (s['institutionId'] as num?)?.toInt() == myInstId)
-              .toList()
-        : _schoolsList;
 
-    if (availableSchools.isEmpty) {
+    final availableInstitutions = (!_isSuperAdmin && myInstId != null)
+        ? _institutionsList
+              .where((i) => (i['id'] as num?)?.toInt() == myInstId)
+              .toList()
+        : _institutionsList;
+
+    if (availableInstitutions.isEmpty && _schoolsList.isEmpty) {
+      SystemSoundService.defeat();
       _showSnack(
-        'Nenhuma escola cadastrada na sua instituição. Crie uma escola primeiro.',
+        'Nenhuma instituição cadastrada ainda. Crie uma instituição primeiro.',
         isError: true,
       );
       return;
     }
+
+    int? selectedInstitutionId = myInstId ??
+        (availableInstitutions.isNotEmpty
+            ? (availableInstitutions.first['id'] as num?)?.toInt()
+            : null);
+
+    List<Map<String, dynamic>> schoolsForInst(int? instId) {
+      if (instId == null) return _schoolsList;
+      return _schoolsList
+          .where((s) => (s['institutionId'] as num?)?.toInt() == instId)
+          .toList();
+    }
+
+    int? schoolId = schoolsForInst(selectedInstitutionId).isNotEmpty
+        ? (schoolsForInst(selectedInstitutionId).first['id'] as num?)?.toInt()
+        : null;
 
     final nameCtrl = TextEditingController();
     final yearCtrl = TextEditingController(
@@ -5261,114 +5642,185 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final gradeCtrl = TextEditingController(text: 'Geral');
     String shift = 'MANHÃ';
     String languageName = kDefaultSupportedLanguage;
-    int? schoolId = (availableSchools.first['id'] as num?)?.toInt();
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Criar Nova Turma'),
-          content: SizedBox(
-            width: 440,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<int>(
-                    isExpanded: true,
-                    initialValue: schoolId,
-                    decoration: const InputDecoration(
-                      labelText: 'Escola vinculada *',
-                    ),
-                    items: availableSchools
-                        .map(
-                          (s) => DropdownMenuItem<int>(
-                            value: (s['id'] as num?)?.toInt(),
-                            child: Text(
-                              '${s['name'] ?? ''}',
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
+        builder: (ctx, setDialogState) {
+          final matchingSchools = schoolsForInst(selectedInstitutionId);
+          if (schoolId != null &&
+              !matchingSchools.any((s) => (s['id'] as num?)?.toInt() == schoolId)) {
+            schoolId = matchingSchools.isNotEmpty
+                ? (matchingSchools.first['id'] as num?)?.toInt()
+                : null;
+          }
+
+          return AlertDialog(
+            title: const Text('Criar Nova Turma'),
+            content: SizedBox(
+              width: 460,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (availableInstitutions.isNotEmpty) ...[
+                      DropdownButtonFormField<int>(
+                        isExpanded: true,
+                        initialValue: selectedInstitutionId,
+                        decoration: const InputDecoration(
+                          labelText: 'Instituição *',
+                        ),
+                        items: availableInstitutions
+                            .map(
+                              (inst) => DropdownMenuItem<int>(
+                                value: (inst['id'] as num?)?.toInt(),
+                                child: Text(
+                                  '${inst['name'] ?? 'Instituição'}',
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (!_isSuperAdmin && myInstId != null)
+                            ? null
+                            : (v) {
+                                setDialogState(() {
+                                  selectedInstitutionId = v;
+                                  final scs = schoolsForInst(v);
+                                  schoolId = scs.isNotEmpty
+                                      ? (scs.first['id'] as num?)?.toInt()
+                                      : null;
+                                });
+                              },
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    if (matchingSchools.isNotEmpty) ...[
+                      DropdownButtonFormField<int>(
+                        isExpanded: true,
+                        initialValue: schoolId,
+                        decoration: const InputDecoration(
+                          labelText: 'Escola vinculada *',
+                        ),
+                        items: matchingSchools
+                            .map(
+                              (s) => DropdownMenuItem<int>(
+                                value: (s['id'] as num?)?.toInt(),
+                                child: Text(
+                                  '${s['name'] ?? ''}',
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (v) => setDialogState(() => schoolId = v),
+                      ),
+                      const SizedBox(height: 10),
+                    ] else
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AdminGeralTheme.bluePrimary.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: AdminGeralTheme.goldMetallic.withValues(alpha: 0.6),
                           ),
-                        )
-                        .toList(),
-                    onChanged: (v) => setDialogState(() => schoolId = v),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Nome da turma *',
-                      hintText: 'Ex: 1º Ano A',
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    initialValue: languageName,
-                    decoration: const InputDecoration(
-                      labelText: 'Idioma oficial da turma *',
-                    ),
-                    items: kSupportedLanguages.map((lang) {
-                      final meta = SupportedLanguages.metaFor(lang);
-                      return DropdownMenuItem(
-                        value: lang,
-                        child: Row(
+                        ),
+                        child: const Row(
                           children: [
-                            Icon(meta.icon, size: 16, color: meta.color),
-                            const SizedBox(width: 8),
-                            Text(lang),
+                            Icon(
+                              Icons.info_outline_rounded,
+                              size: 18,
+                              color: AdminGeralTheme.indigoMid,
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Nenhuma escola separada cadastrada nesta instituição. A unidade escolar padrão será criada automaticamente.',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ),
                           ],
                         ),
-                      );
-                    }).toList(),
-                    onChanged: (v) =>
-                        setDialogState(() => languageName = v ?? languageName),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: yearCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Ano letivo *',
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    initialValue: shift,
-                    decoration: const InputDecoration(labelText: 'Turno'),
-                    items: const [
-                      DropdownMenuItem(value: 'MANHÃ', child: Text('Manhã')),
-                      DropdownMenuItem(value: 'TARDE', child: Text('Tarde')),
-                      DropdownMenuItem(value: 'NOITE', child: Text('Noite')),
-                      DropdownMenuItem(
-                        value: 'INTEGRAL',
-                        child: Text('Integral'),
                       ),
-                    ],
-                    onChanged: (v) => setDialogState(() => shift = v ?? shift),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: gradeCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Nível / Série',
-                      hintText: 'Ex: 1º Ano ou Intermediário',
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Nome da turma *',
+                        hintText: 'Ex: 1º Ano A',
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      initialValue: languageName,
+                      decoration: const InputDecoration(
+                        labelText: 'Idioma oficial da turma *',
+                      ),
+                      items: kSupportedLanguages.map((lang) {
+                        return DropdownMenuItem(
+                          value: lang,
+                          child: Row(
+                            children: [
+                              LanguageFlag.forLanguage(lang, width: 20),
+                              const SizedBox(width: 8),
+                              Text(lang),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (v) =>
+                          setDialogState(() => languageName = v ?? languageName),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: yearCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Ano letivo *',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      initialValue: shift,
+                      decoration: const InputDecoration(labelText: 'Turno'),
+                      items: const [
+                        DropdownMenuItem(value: 'MANHÃ', child: Text('Manhã')),
+                        DropdownMenuItem(value: 'TARDE', child: Text('Tarde')),
+                        DropdownMenuItem(value: 'NOITE', child: Text('Noite')),
+                        DropdownMenuItem(
+                          value: 'INTEGRAL',
+                          child: Text('Integral'),
+                        ),
+                      ],
+                      onChanged: (v) => setDialogState(() => shift = v ?? shift),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: gradeCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Nível / Série',
+                        hintText: 'Ex: 1º Ano ou Intermediário',
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Criar Turma'),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                style: AdminGeralTheme.filledButtonStyle(),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Criar Turma'),
+              ),
+            ],
+          );
+        },
       ),
     );
 
@@ -5381,10 +5833,23 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       gradeCtrl.dispose();
     });
 
-    if (ok != true || name.isEmpty || schoolId == null) return;
+    if (ok != true || name.isEmpty) {
+      if (ok == true) {
+        SystemSoundService.defeat();
+        _showSnack('Informe o nome da turma.', isError: true);
+      }
+      return;
+    }
+
+    final endpoint = schoolId != null
+        ? '/api/classes/school/$schoolId'
+        : selectedInstitutionId != null
+        ? '/api/classes/institution/$selectedInstitutionId'
+        : '/api/classes/my-institution';
+
     try {
       await _dio.post(
-        _adminUri('/api/classes/school/$schoolId').toString(),
+        _adminUri(endpoint).toString(),
         data: {
           'name': name,
           'schoolYear': year.isEmpty ? DateTime.now().year.toString() : year,
@@ -5395,9 +5860,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         },
       );
       _showSnack('Turma "$name" criada com sucesso!');
-      await _loadCatalogAuxData();
-      await _loadAdminOverview();
+      SystemSoundService.success();
+      await _refreshAllAfterMutation();
     } catch (e) {
+      SystemSoundService.defeat();
       _showSnack(
         _extractErrorMessage(e, 'Erro ao criar turma.'),
         isError: true,
@@ -5410,8 +5876,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     if (!context.mounted) return;
     final myInstId =
         widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
-    if (myInstId == null) {
-      _showSnack('Instituição não identificada.', isError: true);
+    int? targetInstId = myInstId ??
+        (_institutionsList.isNotEmpty
+            ? (_institutionsList.first['id'] as num?)?.toInt()
+            : null);
+    if (targetInstId == null) {
+      SystemSoundService.defeat();
+      _showSnack('Instituição não identificada. Cadastre uma instituição primeiro.', isError: true);
       return;
     }
 
@@ -5587,18 +6058,17 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           'email': email,
           'password': pass,
           'gender': gender,
-          'institutionId': myInstId,
+          'institutionId': targetInstId,
           'taughtLanguages': langs,
           'specializationAreas': specs,
           'bibliography': bio.isEmpty ? null : bio,
         },
       );
       _showSnack('Professor "$name" cadastrado com sucesso!');
-      await _loadCatalogAuxData();
-      await _loadInstitutionDashboard();
-      await _loadAdminOverview();
-      widget.onRefresh();
+      SystemSoundService.success();
+      await _refreshAllAfterMutation();
     } catch (e) {
+      SystemSoundService.defeat();
       _showSnack(
         _extractErrorMessage(e, 'Erro ao cadastrar professor.'),
         isError: true,
@@ -5611,6 +6081,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     if (!context.mounted) return;
     final myInstId =
         widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
+    final targetInstId = myInstId ??
+        (_institutionsList.isNotEmpty
+            ? (_institutionsList.first['id'] as num?)?.toInt()
+            : null);
 
     final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
@@ -5684,12 +6158,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       labelText: 'Idioma oficial inicial *',
                     ),
                     items: kSupportedLanguages.map((lang) {
-                      final meta = SupportedLanguages.metaFor(lang);
                       return DropdownMenuItem(
                         value: lang,
                         child: Row(
                           children: [
-                            Icon(meta.icon, size: 16, color: meta.color),
+                            LanguageFlag.forLanguage(lang, width: 20),
                             const SizedBox(width: 8),
                             Text(lang),
                           ],
@@ -5767,7 +6240,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           'email': email,
           'password': pass,
           'gender': gender,
-          'institutionId': myInstId,
+          'institutionId': targetInstId,
           'languages': [
             {
               'languageName': selectedLanguage,
@@ -5778,11 +6251,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         },
       );
       _showSnack('Aluno "$name" cadastrado com sucesso!');
-      await _loadCatalogAuxData();
-      await _loadInstitutionDashboard();
-      await _loadAdminOverview();
-      widget.onRefresh();
+      SystemSoundService.success();
+      await _refreshAllAfterMutation();
     } catch (e) {
+      SystemSoundService.defeat();
       _showSnack(
         _extractErrorMessage(e, 'Erro ao cadastrar aluno.'),
         isError: true,
@@ -5796,36 +6268,66 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final myInstId =
         widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
 
+    int? classInstId(Map<String, dynamic> c) {
+      final direct = (c['institutionId'] as num?)?.toInt();
+      if (direct != null) return direct;
+      final sId = (c['schoolId'] as num?)?.toInt();
+      final s = _schoolsList.firstWhere(
+        (sc) => (sc['id'] as num?)?.toInt() == sId,
+        orElse: () => <String, dynamic>{},
+      );
+      return (s['institutionId'] as num?)?.toInt();
+    }
+
     final availableClasses = (!_isSuperAdmin && myInstId != null)
-        ? _classesList.where((c) {
-            final sId = (c['schoolId'] as num?)?.toInt();
-            final s = _schoolsList.firstWhere(
-              (sc) => (sc['id'] as num?)?.toInt() == sId,
-              orElse: () => <String, dynamic>{},
-            );
-            return (s['institutionId'] as num?)?.toInt() == myInstId ||
-                (c['institutionId'] as num?)?.toInt() == myInstId;
-          }).toList()
+        ? _classesList.where((c) => classInstId(c) == myInstId).toList()
         : _classesList;
 
+    final selfEmail = widget.data.user.email.trim().toLowerCase();
     final availableTeachers = (!_isSuperAdmin && myInstId != null)
         ? _teachersList
-              .where((t) => (t['institutionId'] as num?)?.toInt() == myInstId)
+              .where((t) {
+                final tInst = (t['institutionId'] as num?)?.toInt();
+                final tEmail = (t['email'] ?? '').toString().trim().toLowerCase();
+                return tInst == myInstId &&
+                    tEmail != selfEmail &&
+                    t['isSuperAdmin'] != true;
+              })
               .toList()
-        : _teachersList;
+        : _teachersList
+              .where((t) =>
+                  (t['email'] ?? '').toString().trim().toLowerCase() !=
+                      selfEmail &&
+                  t['isSuperAdmin'] != true)
+              .toList();
 
     if (availableClasses.isEmpty || availableTeachers.isEmpty) {
+      SystemSoundService.defeat();
       _showSnack(
         availableClasses.isEmpty
             ? 'Cadastre primeiro uma turma para realizar a atribuição.'
-            : 'Cadastre primeiro um professor para realizar a atribuição.',
+            : 'Cadastre primeiro um professor da instituição para realizar a atribuição.',
         isError: true,
       );
       return;
     }
 
     int? classId = (availableClasses.first['id'] as num?)?.toInt();
-    int? teacherId = (availableTeachers.first['id'] as num?)?.toInt();
+    final selectedClassInst = classInstId(availableClasses.first);
+
+    List<Map<String, dynamic>> sortedTeachersForClass(int? targetInst) {
+      final filtered = availableTeachers.where((t) {
+        if (targetInst == null) return true;
+        final tInst = (t['institutionId'] as num?)?.toInt();
+        return tInst == targetInst;
+      }).toList();
+      return filtered.isNotEmpty
+          ? filtered
+          : List<Map<String, dynamic>>.from(availableTeachers);
+    }
+
+    final initialSorted = sortedTeachersForClass(selectedClassInst);
+    int? teacherId = (initialSorted.first['id'] as num?)?.toInt();
     final reasonCtrl = TextEditingController(text: 'Professor Titular');
     final startCtrl = TextEditingController(
       text: DateTime.now().toIso8601String().substring(0, 10),
@@ -5834,78 +6336,152 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Atribuir Professor à Turma'),
-          content: SizedBox(
-            width: 440,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<int>(
-                  isExpanded: true,
-                  initialValue: classId,
-                  decoration: const InputDecoration(labelText: 'Turma *'),
-                  items: availableClasses
-                      .map(
-                        (c) => DropdownMenuItem<int>(
+        builder: (ctx, setDialogState) {
+          final currentClass = availableClasses.firstWhere(
+            (c) => (c['id'] as num?)?.toInt() == classId,
+            orElse: () => availableClasses.first,
+          );
+          final targetInst = classInstId(currentClass);
+          final teachersSorted = sortedTeachersForClass(targetInst);
+          final selectedTeacher = teachersSorted.firstWhere(
+            (t) => (t['id'] as num?)?.toInt() == teacherId,
+            orElse: () => teachersSorted.first,
+          );
+          final teacherInstId = (selectedTeacher['institutionId'] as num?)?.toInt();
+          final instMatches =
+              targetInst != null && teacherInstId != null && targetInst == teacherInstId;
+
+          return AlertDialog(
+            title: const Text('Atribuir Professor à Turma'),
+            content: SizedBox(
+              width: 460,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DropdownButtonFormField<int>(
+                      isExpanded: true,
+                      initialValue: classId,
+                      decoration: const InputDecoration(labelText: 'Turma *'),
+                      items: availableClasses.map((c) {
+                        final lang = SupportedLanguages.normalizeOrDefault(
+                          c['languageName']?.toString(),
+                          SupportedLanguages.inferFromClassName(c['name']?.toString()),
+                        );
+                        return DropdownMenuItem<int>(
                           value: (c['id'] as num?)?.toInt(),
-                          child: Text(
-                            '${c['name'] ?? ''}',
-                            overflow: TextOverflow.ellipsis,
+                          child: Row(
+                            children: [
+                              LanguageFlag.forLanguage(lang, width: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${c['name'] ?? ''} (${c['schoolName'] ?? lang})',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) => setDialogState(() => classId = v),
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<int>(
-                  isExpanded: true,
-                  initialValue: teacherId,
-                  decoration: const InputDecoration(labelText: 'Professor *'),
-                  items: availableTeachers
-                      .map(
-                        (t) => DropdownMenuItem<int>(
+                        );
+                      }).toList(),
+                      onChanged: (v) {
+                        setDialogState(() {
+                          classId = v;
+                          final nextClass = availableClasses.firstWhere(
+                            (c) => (c['id'] as num?)?.toInt() == v,
+                            orElse: () => availableClasses.first,
+                          );
+                          final nextInst = classInstId(nextClass);
+                          final nextSorted = sortedTeachersForClass(nextInst);
+                          if (nextSorted.isNotEmpty) {
+                            teacherId = (nextSorted.first['id'] as num?)?.toInt();
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<int>(
+                      isExpanded: true,
+                      initialValue: teacherId,
+                      decoration: const InputDecoration(labelText: 'Professor *'),
+                      items: teachersSorted.map((t) {
+                        final sameInst =
+                            targetInst != null &&
+                            (t['institutionId'] as num?)?.toInt() == targetInst;
+                        final instLabel = t['institutionName']?.toString() ?? 'Sem instituição';
+                        return DropdownMenuItem<int>(
                           value: (t['id'] as num?)?.toInt(),
                           child: Text(
-                            '${t['name'] ?? ''} (${t['email'] ?? ''})',
+                            '${sameInst ? '✓' : '⚠'} ${t['name'] ?? ''} • $instLabel (${t['email'] ?? ''})',
                             overflow: TextOverflow.ellipsis,
                           ),
+                        );
+                      }).toList(),
+                      onChanged: (v) => setDialogState(() => teacherId = v),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: (instMatches
+                                ? const Color(0xFF10B981)
+                                : AdminGeralTheme.goldMetallic)
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: (instMatches
+                                  ? const Color(0xFF10B981)
+                                  : AdminGeralTheme.goldMetallic)
+                              .withValues(alpha: 0.5),
                         ),
-                      )
-                      .toList(),
-                  onChanged: (v) => setDialogState(() => teacherId = v),
+                      ),
+                      child: Text(
+                        instMatches
+                            ? '✓ Professor pertence à mesma instituição da turma.'
+                            : 'Atenção: para atribuir, o professor deve pertencer à mesma instituição desta turma.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: instMatches
+                              ? const Color(0xFF059669)
+                              : AdminGeralTheme.goldDark,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: startCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Data de início (AAAA-MM-DD) *',
+                        hintText: '2026-02-01',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: reasonCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Motivo / Cargo da atribuição',
+                        hintText: 'Ex: Professor Titular ou Substituto',
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: startCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Data de início (AAAA-MM-DD) *',
-                    hintText: '2026-02-01',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: reasonCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Motivo / Cargo da atribuição',
-                    hintText: 'Ex: Professor Titular ou Substituto',
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Salvar Atribuição'),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                style: AdminGeralTheme.filledButtonStyle(),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Salvar Atribuição'),
+              ),
+            ],
+          );
+        },
       ),
     );
 
@@ -5929,11 +6505,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         },
       );
       _showSnack('Professor atribuído à turma com sucesso!');
-      await _loadCatalogAuxData();
-      await _loadInstitutionDashboard();
-      await _loadAdminOverview();
-      widget.onRefresh();
+      SystemSoundService.success();
+      await _refreshAllAfterMutation();
     } catch (e) {
+      SystemSoundService.defeat();
       _showSnack(
         _extractErrorMessage(e, 'Erro ao atribuir professor à turma.'),
         isError: true,
@@ -5947,40 +6522,49 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final myInstId =
         widget.data.teacherProfile?.institutionId ?? _selectedInstitutionId;
 
+    int? classInstId(Map<String, dynamic> c) {
+      final direct = (c['institutionId'] as num?)?.toInt();
+      if (direct != null) return direct;
+      final sId = (c['schoolId'] as num?)?.toInt();
+      final s = _schoolsList.firstWhere(
+        (sc) => (sc['id'] as num?)?.toInt() == sId,
+        orElse: () => <String, dynamic>{},
+      );
+      return (s['institutionId'] as num?)?.toInt();
+    }
+
     final availableClasses = (!_isSuperAdmin && myInstId != null)
-        ? _classesList.where((c) {
-            final sId = (c['schoolId'] as num?)?.toInt();
-            final s = _schoolsList.firstWhere(
-              (sc) => (sc['id'] as num?)?.toInt() == sId,
-              orElse: () => <String, dynamic>{},
-            );
-            return (s['institutionId'] as num?)?.toInt() == myInstId ||
-                (c['institutionId'] as num?)?.toInt() == myInstId;
-          }).toList()
+        ? _classesList.where((c) => classInstId(c) == myInstId).toList()
         : _classesList;
 
+    final selfEmail = widget.data.user.email.trim().toLowerCase();
     final availableStudents = (!_isSuperAdmin && myInstId != null)
         ? _studentsList
-              .where((s) => (s['institutionId'] as num?)?.toInt() == myInstId)
+              .where((s) {
+                final sInst = (s['institutionId'] as num?)?.toInt();
+                final sEmail = (s['email'] ?? '').toString().trim().toLowerCase();
+                return sInst == myInstId &&
+                    sEmail != selfEmail &&
+                    s['isSuperAdmin'] != true;
+              })
               .toList()
-        : _studentsList;
+        : _studentsList
+              .where((s) =>
+                  (s['email'] ?? '').toString().trim().toLowerCase() !=
+                      selfEmail &&
+                  s['isSuperAdmin'] != true)
+              .toList();
 
     if (availableClasses.isEmpty || availableStudents.isEmpty) {
+      SystemSoundService.defeat();
       _showSnack(
         availableClasses.isEmpty
             ? 'Cadastre primeiro uma turma para realizar matrículas.'
-            : 'Cadastre primeiro alunos na instituição para matriculá-los.',
+            : 'Cadastre primeiro alunos para matriculá-los.',
         isError: true,
       );
       return;
     }
-
-    int? classId = (availableClasses.first['id'] as num?)?.toInt();
-    int? studentId = (availableStudents.first['id'] as num?)?.toInt();
-    final notesCtrl = TextEditingController(text: 'Matrícula regular');
-    final enrollDateCtrl = TextEditingController(
-      text: DateTime.now().toIso8601String().substring(0, 10),
-    );
 
     String resolveClassLang(int? targetClassId) {
       final cls = availableClasses.firstWhere(
@@ -6010,21 +6594,41 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       return false;
     }
 
+    List<Map<String, dynamic>> sortedStudentsForLang(String lang) {
+      final list = List<Map<String, dynamic>>.from(availableStudents);
+      list.sort((a, b) {
+        final aOk = studentHasLang(a, lang) ? 0 : 1;
+        final bOk = studentHasLang(b, lang) ? 0 : 1;
+        return aOk.compareTo(bOk);
+      });
+      return list;
+    }
+
+    int? classId = (availableClasses.first['id'] as num?)?.toInt();
+    final initialLang = resolveClassLang(classId);
+    final initialSortedStudents = sortedStudentsForLang(initialLang);
+    int? studentId = (initialSortedStudents.first['id'] as num?)?.toInt();
+    final notesCtrl = TextEditingController(text: 'Matrícula regular');
+    final enrollDateCtrl = TextEditingController(
+      text: DateTime.now().toIso8601String().substring(0, 10),
+    );
+
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           final classLang = resolveClassLang(classId);
-          final selectedStudent = availableStudents.firstWhere(
+          final studentsSorted = sortedStudentsForLang(classLang);
+          final selectedStudent = studentsSorted.firstWhere(
             (s) => (s['id'] as num?)?.toInt() == studentId,
-            orElse: () => availableStudents.first,
+            orElse: () => studentsSorted.first,
           );
           final studentMatches = studentHasLang(selectedStudent, classLang);
 
           return AlertDialog(
             title: const Text('Matricular Aluno na Turma'),
             content: SizedBox(
-              width: 440,
+              width: 460,
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -6041,23 +6645,40 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             c['name']?.toString(),
                           ),
                         );
-                        final code = SupportedLanguages.metaFor(lang).shortCode;
                         return DropdownMenuItem<int>(
                           value: (c['id'] as num?)?.toInt(),
-                          child: Text(
-                            '[$code] ${c['name'] ?? ''} ($lang)',
-                            overflow: TextOverflow.ellipsis,
+                          child: Row(
+                            children: [
+                              LanguageFlag.forLanguage(lang, width: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${c['name'] ?? ''} ($lang)',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
                         );
                       }).toList(),
-                      onChanged: (v) => setDialogState(() => classId = v),
+                      onChanged: (v) {
+                        setDialogState(() {
+                          classId = v;
+                          final nextLang = resolveClassLang(v);
+                          final nextSorted = sortedStudentsForLang(nextLang);
+                          if (nextSorted.isNotEmpty) {
+                            studentId =
+                                (nextSorted.first['id'] as num?)?.toInt();
+                          }
+                        });
+                      },
                     ),
                     const SizedBox(height: 10),
                     DropdownButtonFormField<int>(
                       isExpanded: true,
                       initialValue: studentId,
                       decoration: const InputDecoration(labelText: 'Aluno *'),
-                      items: availableStudents.map((s) {
+                      items: studentsSorted.map((s) {
                         final okLang = studentHasLang(s, classLang);
                         return DropdownMenuItem<int>(
                           value: (s['id'] as num?)?.toInt(),
@@ -6076,9 +6697,15 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         color:
                             (studentMatches
                                     ? const Color(0xFF10B981)
-                                    : const Color(0xFFD97706))
+                                    : AdminGeralTheme.goldMetallic)
                                 .withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: (studentMatches
+                                  ? const Color(0xFF10B981)
+                                  : AdminGeralTheme.goldMetallic)
+                              .withValues(alpha: 0.5),
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -6088,13 +6715,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             child: Text(
                               studentMatches
                                   ? 'Aluno compatível com $classLang.'
-                                  : 'Atenção: o aluno não possui $classLang no perfil.',
+                                  : 'Atenção: o aluno precisa ter $classLang cadastrado no perfil para se matricular nesta turma.',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 color: studentMatches
                                     ? const Color(0xFF059669)
-                                    : const Color(0xFFB45309),
+                                    : AdminGeralTheme.goldDark,
                               ),
                             ),
                           ),
@@ -6127,6 +6754,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 child: const Text('Cancelar'),
               ),
               FilledButton(
+                style: AdminGeralTheme.filledButtonStyle(),
                 onPressed: studentMatches
                     ? () => Navigator.pop(ctx, true)
                     : null,
@@ -6158,11 +6786,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         },
       );
       _showSnack('Aluno matriculado na turma com sucesso!');
-      await _loadCatalogAuxData();
-      await _loadInstitutionDashboard();
-      await _loadAdminOverview();
-      widget.onRefresh();
+      SystemSoundService.success();
+      await _refreshAllAfterMutation();
     } catch (e) {
+      SystemSoundService.defeat();
       _showSnack(
         _extractErrorMessage(e, 'Erro ao matricular aluno na turma.'),
         isError: true,
@@ -6250,10 +6877,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         },
       );
       _showSnack('Conquista "$title" adicionada ao catálogo!');
+      SystemSoundService.success();
       await _loadStudentAchievements();
-      await _loadAdminOverview();
-      widget.onRefresh();
+      await _refreshAllAfterMutation();
     } catch (e) {
+      SystemSoundService.defeat();
       _showSnack(
         _extractErrorMessage(e, 'Erro ao criar conquista.'),
         isError: true,
@@ -6329,11 +6957,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         }
       });
       _showSnack('Permissão de administrador de instituição atualizada!');
+      SystemSoundService.success();
       await _loadTeachersForInstitutionAdmin();
-      await _loadInstitutionDashboard();
-      await _loadAdminOverview();
-      widget.onRefresh();
+      await _refreshAllAfterMutation();
     } catch (e) {
+      SystemSoundService.defeat();
       _showSnack(
         _extractErrorMessage(
           e,
@@ -6369,15 +6997,15 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                  color: const Color(0xFF4338CA).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const MascotPoseEmblem(
-                  state: MascotState.intense,
-                  size: 32,
-                  glowColor: Color(0xFFD97706),
+                child: const Icon(
+                  Icons.supervisor_account_rounded,
+                  color: Color(0xFF4338CA),
+                  size: 24,
                 ),
               ),
               const SizedBox(width: 12),
@@ -6541,7 +7169,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: const Color(
-                                    0xFFD97706,
+                                    0xFFD4AF37,
                                   ).withValues(alpha: 0.18),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -6550,7 +7178,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w800,
-                                    color: Color(0xFFD97706),
+                                    color: Color(0xFF4338CA),
                                   ),
                                 ),
                               ),
@@ -6701,12 +7329,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD97706).withValues(alpha: 0.14),
+                      color: const Color(0xFF4338CA).withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
                       Icons.business_rounded,
-                      color: Color(0xFFD97706),
+                      color: Color(0xFF4338CA),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -6765,6 +7393,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         },
                       ),
                     ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: () => _openAssignTeacherDialog(context),
+                    icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                    label: const Text('Atribuir Professor à Turma'),
+                  ),
                   const SizedBox(width: 8),
                   IconButton(
                     tooltip: 'Atualizar',
@@ -6839,7 +7473,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       value: '$totalExercises',
                       subtitle: 'Exercícios nas turmas da instituição',
                       icon: Icons.menu_book_rounded,
-                      accentColor: const Color(0xFFD97706),
+                      accentColor: const Color(0xFF4338CA),
                     ),
                   ),
                 ],
@@ -6929,6 +7563,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   ),
                   subtitle: Text(
                     'Ano: ${c['schoolYear'] ?? ''} • Turno: ${c['shift'] ?? ''} • Nível: ${c['gradeLevel'] ?? ''}',
+                  ),
+                  trailing: FilledButton.tonalIcon(
+                    onPressed: () => _openAssignTeacherDialog(context),
+                    icon: const Icon(Icons.person_add_alt_rounded, size: 16),
+                    label: const Text('Add Professor'),
                   ),
                 ),
               ),
@@ -7109,11 +7748,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             if (_isLoadingInstDashboard) ...[
               const Padding(
                 padding: EdgeInsets.all(20),
-                child: MascotLoader(
+                child: AppLoader(
                   message: 'Carregando dados da instituição...',
-                  state: MascotState.idle,
-                  mascotSize: 78,
-                  accentColor: Color(0xFFD97706),
+                  accentColor: AdminGeralTheme.indigoMid,
                 ),
               ),
             ] else if (filteredTeachers.isEmpty) ...[
@@ -7501,11 +8138,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         if (_isLoadingTeacherDetails) ...[
           const Padding(
             padding: EdgeInsets.all(24),
-            child: MascotLoader(
+            child: AppLoader(
               message: 'Carregando detalhes docentes...',
-              state: MascotState.idle,
-              mascotSize: 76,
-              accentColor: Color(0xFFD97706),
+              accentColor: AdminGeralTheme.indigoMid,
             ),
           ),
         ] else if (_teacherDetailsError != null) ...[
@@ -7538,13 +8173,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
                                 color: const Color(
-                                  0xFFD97706,
+                                  0xFFD4AF37,
                                 ).withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Icon(
                                 Icons.menu_book_rounded,
-                                color: Color(0xFFD97706),
+                                color: Color(0xFF4338CA),
                                 size: 20,
                               ),
                             ),
@@ -7624,7 +8259,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                           ),
                                           decoration: BoxDecoration(
                                             color: const Color(
-                                              0xFFD97706,
+                                              0xFFD4AF37,
                                             ).withValues(alpha: 0.12),
                                             borderRadius: BorderRadius.circular(
                                               8,
@@ -7633,7 +8268,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                           child: Text(
                                             '$lang • $level',
                                             style: const TextStyle(
-                                              color: Color(0xFFD97706),
+                                              color: Color(0xFF4338CA),
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
                                             ),
@@ -7978,11 +8613,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const SizedBox(
                     height: 320,
-                    child: MascotLoader(
+                    child: AppLoader(
                       message: 'Carregando resumo da turma...',
-                      state: MascotState.idle,
-                      mascotSize: 74,
-                      accentColor: Color(0xFFD97706),
+                      accentColor: AdminGeralTheme.indigoMid,
                     ),
                   );
                 }
@@ -7994,10 +8627,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const MascotErrorIllustration(
-                          state: MascotState.sad,
-                          size: 76,
-                        ),
+                        const AppErrorIllustration(size: 72),
                         const SizedBox(height: 12),
                         Text(
                           'Não foi possível carregar o dashboard da turma $className.',
@@ -8148,7 +8778,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                               title: 'Atividades',
                               value: '$totalExercises',
                               icon: Icons.menu_book_rounded,
-                              color: const Color(0xFFD97706),
+                              color: const Color(0xFF4338CA),
                               isDark: isDark,
                             ),
                             const SizedBox(width: 10),
@@ -8289,7 +8919,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                                     ),
                                                 decoration: BoxDecoration(
                                                   color: const Color(
-                                                    0xFFD97706,
+                                                    0xFFD4AF37,
                                                   ).withValues(alpha: 0.12),
                                                   borderRadius:
                                                       BorderRadius.circular(8),
@@ -8297,7 +8927,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                                 child: Text(
                                                   '⚡ $sXp XP',
                                                   style: const TextStyle(
-                                                    color: Color(0xFFD97706),
+                                                    color: Color(0xFF4338CA),
                                                     fontSize: 11,
                                                     fontWeight: FontWeight.bold,
                                                   ),
@@ -8360,14 +8990,14 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                             padding: const EdgeInsets.all(8),
                                             decoration: BoxDecoration(
                                               color: const Color(
-                                                0xFFD97706,
+                                                0xFFD4AF37,
                                               ).withValues(alpha: 0.12),
                                               borderRadius:
                                                   BorderRadius.circular(10),
                                             ),
                                             child: const Icon(
                                               Icons.menu_book_rounded,
-                                              color: Color(0xFFD97706),
+                                              color: Color(0xFF4338CA),
                                               size: 20,
                                             ),
                                           ),
@@ -8547,9 +9177,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             ? 'Conquista concedida ao aluno!'
             : 'Conquista removida do aluno.',
       );
+      SystemSoundService.success();
       await _loadStudentAchievements();
-      widget.onRefresh();
+      await _refreshAllAfterMutation();
     } catch (e) {
+      SystemSoundService.defeat();
       _showSnack(
         _extractErrorMessage(e, 'Erro ao atualizar conquista do estudante.'),
         isError: true,
@@ -8574,13 +9206,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD97706).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+                decoration: AdminGeralTheme.badgePillDecoration(
+                  borderRadius: 12,
                 ),
                 child: const Icon(
                   Icons.workspace_premium_rounded,
-                  color: Color(0xFFD97706),
+                  color: AdminGeralTheme.goldHighlight,
                 ),
               ),
               const SizedBox(width: 12),

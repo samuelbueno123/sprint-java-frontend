@@ -1,651 +1,479 @@
-import 'package:flutter/material.dart';
+import 'dart:math';
 
-/// Variantes disponíveis do mascote Duolinfo.
+import '../../audio/system_sound_service.dart';
+
 enum MascotVariant {
-  /// Bode Branco (Mascote principal CEFET-NI / Duolinfo 24 FPS + Interativo).
-  white('white', 'Bode Branco', 'Edição 24 FPS interativa'),
-
-  /// Bode Verde (Mascote clássico Duolinfo).
-  green('green', 'Bode Verde', 'Edição clássica retrô');
-
-  const MascotVariant(this.id, this.label, this.description);
-
-  final String id;
-  final String label;
-  final String description;
-
-  static MascotVariant fromId(String? raw) {
-    for (final v in MascotVariant.values) {
-      if (v.id == raw) return v;
-    }
-    return MascotVariant.white;
-  }
+  white,
+  fire,
 }
 
-/// Estados e animações disponíveis para o mascote.
 enum MascotState {
-  // 4 estados principais (24 FPS branco + 4 FPS verde)
   idle,
   celebrate,
   sad,
   intense,
-
-  // 19 animações interativas (12 quadros a 24 FPS)
-  fireLoop,
   clickPoke,
+  clickHeart,
+  clickSpin,
   clickBleat,
   clickShake,
-  clickSpin,
-  clickHeart,
-  dragStartRight,
-  dragMoveRight,
-  dragStartLeft,
-  dragMoveLeft,
-  dragStartUp,
-  dragMoveUp,
-  dragStartDown,
-  dragMoveDown,
   holdGrab,
+  dragStartRight,
+  dragStartLeft,
+  dragStartUp,
+  dragStartDown,
+  dragMoveRight,
+  dragMoveLeft,
+  dragMoveUp,
+  dragMoveDown,
   wallHitRight,
   wallHitLeft,
   wallHitTop,
   wallHitBottom,
+  fireLoop,
 }
 
-/// Metadados técnicos de uma animação do mascote.
-class MascotAnimationSpec {
-  const MascotAnimationSpec({
+class MascotStateSpec {
+  const MascotStateSpec({
     required this.state,
     required this.id,
     required this.title,
-    required this.fps,
-    required this.frameCount,
-    required this.cols,
-    required this.rows,
-    required this.loop,
-    required this.gridAssetPath,
-    required this.jsonAssetPath,
-    required this.gifAssetPath,
-    required this.masterRow,
-    required this.masterCol,
-    required this.defaultQuote,
     required this.category,
-    this.fallbackIcon = Icons.pets_rounded,
+    required this.description,
+    required this.defaultQuote,
+    required this.gifPath,
+    required this.spriteSheetPath,
+    required this.jsonPath,
+    required this.frameCount,
+    required this.columns,
+    required this.rows,
+    required this.frameWidth,
+    required this.frameHeight,
+    required this.fps,
+    required this.loop,
+    this.sfx,
+    this.triggerHint = '',
   });
 
   final MascotState state;
   final String id;
   final String title;
-  final int fps;
-  final int frameCount;
-  final int cols;
-  final int rows;
-  final bool loop;
-  final String gridAssetPath;
-  final String jsonAssetPath;
-  final String gifAssetPath;
-
-  /// Linha e coluna correspondentes na spritesheet master 4x4 (256x256 por célula).
-  final int masterRow;
-  final int masterCol;
-
-  final String defaultQuote;
   final String category;
-  final IconData fallbackIcon;
+  final String description;
+  final String defaultQuote;
+  final String gifPath;
+  final String spriteSheetPath;
+  final String jsonPath;
+  final int frameCount;
+  final int columns;
+  final int rows;
+  final int frameWidth;
+  final int frameHeight;
+  final int fps;
+  final bool loop;
+  final SystemSfxType? sfx;
+  final String triggerHint;
 
-  Duration get frameDuration => Duration(
-    microseconds: (1000000 / (fps <= 0 ? 24 : fps)).round(),
-  );
-
-  bool get isCoreState =>
-      state == MascotState.idle ||
-      state == MascotState.celebrate ||
-      state == MascotState.sad ||
-      state == MascotState.intense;
+  int get cols => columns;
+  String get gifAssetPath => gifPath;
 }
 
-/// Registro centralizado de todos os spritesheets, GIFs e catálogos JSON do mascote.
-/// Evita caminhos espalhados e duplicados pelo projeto.
 abstract final class MascotAssets {
   MascotAssets._();
 
-  static const double frameSize = 256.0;
-
-  // Masters 4x4 (1024x1024) e atlas verde
-  static const String whiteMasterSheet =
-      'assets/mascot/sheets/bode_branco_spritesheet_master.png';
-  static const String greenMasterSheet =
-      'assets/mascot/sheets/bode_spritesheet_transparent.png';
-  static const String greenAtlasJson =
-      'assets/mascot/sheets/bode_spritesheet.json';
-
-  // Master 24fps (3072x2048 -> 12x8 = 96 quadros) & catálogos JSON
-  static const String white24FpsMasterGrid =
-      'assets/mascot/sheets_24fps/bode_branco_24fps_master_grid.png';
-  static const String white24FpsMasterJson =
-      'assets/mascot/sheets_24fps/bode_branco_24fps_master.json';
+  static const String baseDir = 'assets/duo_goat_spritesheet';
   static const String catalog24FpsJson =
-      'assets/mascot/sheets_24fps/catalog_24fps.json';
+      '$baseDir/spritesheets_24fps/catalog_24fps.json';
   static const String catalogInteractiveJson =
-      'assets/mascot/sheets_interactive/catalog_interactive.json';
+      '$baseDir/spritesheets_interactive/catalog_interactive.json';
+  static const String masterGrid24Fps =
+      '$baseDir/bode_branco_24fps_master_grid.png';
+  static const String masterInteractiveGrid =
+      '$baseDir/bode_branco_interactive_master.png';
+  static const String masterSpritesheetJson = '$baseDir/bode_spritesheet.json';
 
-  // GIFs do Bode Verde
-  static const String greenIdleGif = 'assets/mascot/gifs/green/bode_idle.gif';
-  static const String greenCelebrateGif =
-      'assets/mascot/gifs/green/bode_celebrate.gif';
-  static const String greenSadGif = 'assets/mascot/gifs/green/bode_sad.gif';
-  static const String greenIntenseGif =
-      'assets/mascot/gifs/green/bode_intense.gif';
+  static String variantName(MascotVariant variant) => switch (variant) {
+    MascotVariant.white => 'Bode Duo Branco',
+    MascotVariant.fire => 'Bode Duo Modo Chama',
+  };
 
-  // GIFs 24 FPS do Bode Branco
-  static const String whiteIdleGif =
-      'assets/mascot/gifs/white_24fps/bode_branco_24fps_idle.gif';
-  static const String whiteCelebrateGif =
-      'assets/mascot/gifs/white_24fps/bode_branco_24fps_celebrate.gif';
-  static const String whiteSadGif =
-      'assets/mascot/gifs/white_24fps/bode_branco_24fps_sad.gif';
-  static const String whiteIntenseGif =
-      'assets/mascot/gifs/white_24fps/bode_branco_24fps_intense.gif';
+  static String variantSubtitle(MascotVariant variant) => switch (variant) {
+    MascotVariant.white =>
+      'Sprite oficial da pasta duo_goat_spritesheet em 24 FPS fluidos',
+    MascotVariant.fire =>
+      'Aura incandescente inspirada no Modo Fogo (Ofensiva Ativa)',
+  };
 
-  /// Catálogo completo das 23 animações (4 principais 24 FPS + 19 interativas).
-  static const Map<MascotState, MascotAnimationSpec> specs = {
-    MascotState.idle: MascotAnimationSpec(
+  static MascotStateSpec _coreSpec({
+    required MascotState state,
+    required String id,
+    required String title,
+    required String description,
+    required String defaultQuote,
+    required bool loop,
+    SystemSfxType? sfx,
+  }) {
+    return MascotStateSpec(
+      state: state,
+      id: id,
+      title: title,
+      category: 'Base 24 FPS',
+      description: description,
+      defaultQuote: defaultQuote,
+      gifPath: '$baseDir/bode_branco_24fps_$id.gif',
+      spriteSheetPath: '$baseDir/spritesheets_24fps/bode_branco_24fps_${id}_grid.png',
+      jsonPath: '$baseDir/spritesheets_24fps/bode_branco_24fps_$id.json',
+      frameCount: 24,
+      columns: 6,
+      rows: 4,
+      frameWidth: 256,
+      frameHeight: 256,
+      fps: 24,
+      loop: loop,
+      sfx: sfx,
+      triggerHint: 'Estado emocional principal do Duolinfo',
+    );
+  }
+
+  static MascotStateSpec _interactiveSpec({
+    required MascotState state,
+    required String id,
+    required String title,
+    required String category,
+    required String description,
+    required String defaultQuote,
+    required bool loop,
+    SystemSfxType? sfx,
+    String triggerHint = '',
+  }) {
+    return MascotStateSpec(
+      state: state,
+      id: id,
+      title: title,
+      category: category,
+      description: description,
+      defaultQuote: defaultQuote,
+      gifPath: '$baseDir/$id.gif',
+      spriteSheetPath: '$baseDir/spritesheets_interactive/${id}_grid.png',
+      jsonPath: '$baseDir/spritesheets_interactive/$id.json',
+      frameCount: 12,
+      columns: 6,
+      rows: 2,
+      frameWidth: 256,
+      frameHeight: 256,
+      fps: 24,
+      loop: loop,
+      sfx: sfx,
+      triggerHint: triggerHint,
+    );
+  }
+
+  static final Map<MascotState, MascotStateSpec> specs = Map.unmodifiable({
+    MascotState.idle: _coreSpec(
       state: MascotState.idle,
       id: 'idle',
       title: 'Repouso & Respiração',
-      fps: 24,
-      frameCount: 24,
-      cols: 6,
-      rows: 4,
+      description: 'Balanço suave e piscar atento acompanhando seu painel.',
+      defaultQuote: 'Estou aqui torcendo por você! Vamos aprender hoje?',
       loop: true,
-      gridAssetPath:
-          'assets/mascot/sheets_24fps/bode_branco_24fps_idle_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_24fps/bode_branco_24fps_idle.json',
-      gifAssetPath: whiteIdleGif,
-      masterRow: 0,
-      masterCol: 0,
-      defaultQuote: 'Bora praticar mais um pouco hoje?',
-      category: 'Principais',
-      fallbackIcon: Icons.sentiment_satisfied_alt_rounded,
     ),
-    MascotState.celebrate: MascotAnimationSpec(
+    MascotState.celebrate: _coreSpec(
       state: MascotState.celebrate,
       id: 'celebrate',
-      title: 'Salto & Comemoração',
-      fps: 24,
-      frameCount: 24,
-      cols: 6,
-      rows: 4,
-      loop: true,
-      gridAssetPath:
-          'assets/mascot/sheets_24fps/bode_branco_24fps_celebrate_grid.png',
-      jsonAssetPath:
-          'assets/mascot/sheets_24fps/bode_branco_24fps_celebrate.json',
-      gifAssetPath: whiteCelebrateGif,
-      masterRow: 1,
-      masterCol: 1,
-      defaultQuote: 'Mandou bem demais! Continue evoluindo!',
-      category: 'Principais',
-      fallbackIcon: Icons.celebration_rounded,
+      title: 'Celebração & Vitória',
+      description: 'Salto e chifres brilhando ao concluir metas e lições.',
+      defaultQuote: 'Mandou bem demais! Mais XP direto na conta!',
+      loop: false,
+      sfx: SystemSfxType.success,
     ),
-    MascotState.sad: MascotAnimationSpec(
+    MascotState.sad: _coreSpec(
       state: MascotState.sad,
       id: 'sad',
-      title: 'Atenção & Empatia',
-      fps: 24,
-      frameCount: 24,
-      cols: 6,
-      rows: 4,
+      title: 'Tristeza & Apoio',
+      description: 'Orelhas caídas com incentivo gentil para tentar de novo.',
+      defaultQuote: 'Não desanime! Todo erro nos aproxima da fluência.',
       loop: true,
-      gridAssetPath:
-          'assets/mascot/sheets_24fps/bode_branco_24fps_sad_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_24fps/bode_branco_24fps_sad.json',
-      gifAssetPath: whiteSadGif,
-      masterRow: 2,
-      masterCol: 2,
-      defaultQuote: 'Sem problemas! Errar faz parte do aprendizado.',
-      category: 'Principais',
-      fallbackIcon: Icons.sentiment_dissatisfied_rounded,
+      sfx: SystemSfxType.defeat,
     ),
-    MascotState.intense: MascotAnimationSpec(
+    MascotState.intense: _coreSpec(
       state: MascotState.intense,
       id: 'intense',
-      title: 'Foco & Ofensiva',
-      fps: 24,
-      frameCount: 24,
-      cols: 6,
-      rows: 4,
+      title: 'Foco & Intensidade',
+      description: 'Olhar determinado pronto para desafios e pronúncia.',
+      defaultQuote: 'Modo foco ativado! Você consegue dominar isso agora.',
       loop: true,
-      gridAssetPath:
-          'assets/mascot/sheets_24fps/bode_branco_24fps_intense_grid.png',
-      jsonAssetPath:
-          'assets/mascot/sheets_24fps/bode_branco_24fps_intense.json',
-      gifAssetPath: whiteIntenseGif,
-      masterRow: 3,
-      masterCol: 3,
-      defaultQuote: 'Foco total! Não deixe sua sequência apagar!',
-      category: 'Principais',
-      fallbackIcon: Icons.local_fire_department_rounded,
+      sfx: SystemSfxType.transition,
     ),
-    MascotState.fireLoop: MascotAnimationSpec(
-      state: MascotState.fireLoop,
-      id: 'fire_loop',
-      title: 'Chamas da Ofensiva',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
-      loop: true,
-      gridAssetPath: 'assets/mascot/sheets_interactive/fire_loop_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/fire_loop.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/fire_loop.gif',
-      masterRow: 3,
-      masterCol: 3,
-      defaultQuote: 'Ofensiva em chamas! Ritmo imparável nos estudos!',
-      category: 'Principais',
-      fallbackIcon: Icons.local_fire_department_rounded,
-    ),
-    MascotState.clickPoke: MascotAnimationSpec(
+    MascotState.clickPoke: _interactiveSpec(
       state: MascotState.clickPoke,
       id: 'click_poke',
-      title: 'Pulinho de Atenção',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
-      loop: false,
-      gridAssetPath: 'assets/mascot/sheets_interactive/click_poke_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/click_poke.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/click_poke.gif',
-      masterRow: 0,
-      masterCol: 3,
-      defaultQuote: 'Opa! Pronto para o próximo desafio?',
+      title: 'Cutucão Curioso',
       category: 'Cliques',
-      fallbackIcon: Icons.touch_app_rounded,
-    ),
-    MascotState.clickBleat: MascotAnimationSpec(
-      state: MascotState.clickBleat,
-      id: 'click_bleat',
-      title: 'Berro Musical (Pronúncia)',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
+      description: 'Pulinho surpreso ao tocar no Bode Duo.',
+      defaultQuote: 'Opa! Me cutucou! Pronto para a próxima lição?',
       loop: false,
-      gridAssetPath: 'assets/mascot/sheets_interactive/click_bleat_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/click_bleat.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/click_bleat.gif',
-      masterRow: 0,
-      masterCol: 2,
-      defaultQuote: 'Bééé! Vamos praticar a pronúncia juntos!',
-      category: 'Cliques',
-      fallbackIcon: Icons.record_voice_over_rounded,
+      sfx: SystemSfxType.pop,
+      triggerHint: 'Clique simples no mascote',
     ),
-    MascotState.clickShake: MascotAnimationSpec(
-      state: MascotState.clickShake,
-      id: 'click_shake',
-      title: 'Sacudida de Cabeça',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
-      loop: false,
-      gridAssetPath: 'assets/mascot/sheets_interactive/click_shake_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/click_shake.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/click_shake.gif',
-      masterRow: 3,
-      masterCol: 1,
-      defaultQuote: 'Sacudindo a poeira e tentando de novo!',
-      category: 'Cliques',
-      fallbackIcon: Icons.vibration_rounded,
-    ),
-    MascotState.clickSpin: MascotAnimationSpec(
-      state: MascotState.clickSpin,
-      id: 'click_spin',
-      title: 'Pirueta 360 com Estrelas',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
-      loop: false,
-      gridAssetPath: 'assets/mascot/sheets_interactive/click_spin_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/click_spin.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/click_spin.gif',
-      masterRow: 1,
-      masterCol: 2,
-      defaultQuote: 'Giro de mestre! Mais uma conquista desbloqueada!',
-      category: 'Cliques',
-      fallbackIcon: Icons.auto_awesome_rounded,
-    ),
-    MascotState.clickHeart: MascotAnimationSpec(
+    MascotState.clickHeart: _interactiveSpec(
       state: MascotState.clickHeart,
       id: 'click_heart',
-      title: 'Carinho com Corações',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
-      loop: false,
-      gridAssetPath: 'assets/mascot/sheets_interactive/click_heart_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/click_heart.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/click_heart.gif',
-      masterRow: 0,
-      masterCol: 1,
-      defaultQuote: 'Que ótimo te ver por aqui no Duolinfo!',
+      title: 'Carinho & Corações',
       category: 'Cliques',
-      fallbackIcon: Icons.favorite_rounded,
-    ),
-    MascotState.dragStartRight: MascotAnimationSpec(
-      state: MascotState.dragStartRight,
-      id: 'drag_start_right',
-      title: 'Arrastar: Início Direita',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
+      description: 'Sopro de carinho agradecendo pela sua dedicação.',
+      defaultQuote: 'Você é o melhor estudante do universo! ❤️',
       loop: false,
-      gridAssetPath:
-          'assets/mascot/sheets_interactive/drag_start_right_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/drag_start_right.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/drag_start_right.gif',
-      masterRow: 1,
-      masterCol: 0,
-      defaultQuote: 'Avançando para a próxima etapa!',
-      category: 'Movimento',
-      fallbackIcon: Icons.arrow_forward_rounded,
+      sfx: SystemSfxType.pop,
+      triggerHint: 'Clique / aprovação / avaliação alta',
     ),
-    MascotState.dragMoveRight: MascotAnimationSpec(
-      state: MascotState.dragMoveRight,
-      id: 'drag_move_right',
-      title: 'Voando para a Direita',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
-      loop: true,
-      gridAssetPath:
-          'assets/mascot/sheets_interactive/drag_move_right_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/drag_move_right.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/drag_move_right.gif',
-      masterRow: 1,
-      masterCol: 1,
-      defaultQuote: 'Acelerando rumo à fluência!',
-      category: 'Movimento',
-      fallbackIcon: Icons.fast_forward_rounded,
-    ),
-    MascotState.dragStartLeft: MascotAnimationSpec(
-      state: MascotState.dragStartLeft,
-      id: 'drag_start_left',
-      title: 'Arrastar: Início Esquerda',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
+    MascotState.clickSpin: _interactiveSpec(
+      state: MascotState.clickSpin,
+      id: 'click_spin',
+      title: 'Giro Rápido 360°',
+      category: 'Cliques',
+      description: 'Pirueta energética processando insights de IA.',
+      defaultQuote: 'Processando ideias em alta rotação!',
       loop: false,
-      gridAssetPath:
-          'assets/mascot/sheets_interactive/drag_start_left_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/drag_start_left.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/drag_start_left.gif',
-      masterRow: 1,
-      masterCol: 0,
-      defaultQuote: 'Revisando passos anteriores!',
-      category: 'Movimento',
-      fallbackIcon: Icons.arrow_back_rounded,
+      sfx: SystemSfxType.jump,
+      triggerHint: 'Análise IA / clique consecutivo',
     ),
-    MascotState.dragMoveLeft: MascotAnimationSpec(
-      state: MascotState.dragMoveLeft,
-      id: 'drag_move_left',
-      title: 'Voando para a Esquerda',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
-      loop: true,
-      gridAssetPath:
-          'assets/mascot/sheets_interactive/drag_move_left_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/drag_move_left.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/drag_move_left.gif',
-      masterRow: 1,
-      masterCol: 1,
-      defaultQuote: 'Deslizando pelo mapa de estudos!',
-      category: 'Movimento',
-      fallbackIcon: Icons.fast_rewind_rounded,
-    ),
-    MascotState.dragStartUp: MascotAnimationSpec(
-      state: MascotState.dragStartUp,
-      id: 'drag_start_up',
-      title: 'Arrastar: Início Cima',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
+    MascotState.clickBleat: _interactiveSpec(
+      state: MascotState.clickBleat,
+      id: 'click_bleat',
+      title: 'Balido "Bééé!"',
+      category: 'Cliques',
+      description: 'Conversando e incentivando na prática de diálogo.',
+      defaultQuote: 'Bééé! Que tal praticar pronúncia ou conversação agora?',
       loop: false,
-      gridAssetPath: 'assets/mascot/sheets_interactive/drag_start_up_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/drag_start_up.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/drag_start_up.gif',
-      masterRow: 1,
-      masterCol: 2,
-      defaultQuote: 'Decolando no ranking!',
-      category: 'Movimento',
-      fallbackIcon: Icons.arrow_upward_rounded,
+      sfx: SystemSfxType.bleat,
+      triggerHint: 'Chat IA / avisos / clique',
     ),
-    MascotState.dragMoveUp: MascotAnimationSpec(
-      state: MascotState.dragMoveUp,
-      id: 'drag_move_up',
-      title: 'Subindo no Ranking',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
-      loop: true,
-      gridAssetPath: 'assets/mascot/sheets_interactive/drag_move_up_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/drag_move_up.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/drag_move_up.gif',
-      masterRow: 1,
-      masterCol: 2,
-      defaultQuote: 'Rumo ao topo da turma!',
-      category: 'Movimento',
-      fallbackIcon: Icons.trending_up_rounded,
-    ),
-    MascotState.dragStartDown: MascotAnimationSpec(
-      state: MascotState.dragStartDown,
-      id: 'drag_start_down',
-      title: 'Arrastar: Início Baixo',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
+    MascotState.clickShake: _interactiveSpec(
+      state: MascotState.clickShake,
+      id: 'click_shake',
+      title: 'Sacudida de Alerta',
+      category: 'Cliques',
+      description: 'Balanço divertido para chamar atenção a detalhes.',
+      defaultQuote: 'Psiu! Confira esse detalhe antes de enviar!',
       loop: false,
-      gridAssetPath:
-          'assets/mascot/sheets_interactive/drag_start_down_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/drag_start_down.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/drag_start_down.gif',
-      masterRow: 1,
-      masterCol: 3,
-      defaultQuote: 'Preparando aterrissagem!',
-      category: 'Movimento',
-      fallbackIcon: Icons.arrow_downward_rounded,
+      sfx: SystemSfxType.pop,
+      triggerHint: 'Validação pendente / clique',
     ),
-    MascotState.dragMoveDown: MascotAnimationSpec(
-      state: MascotState.dragMoveDown,
-      id: 'drag_move_down',
-      title: 'Pressionado Baixo',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
-      loop: true,
-      gridAssetPath:
-          'assets/mascot/sheets_interactive/drag_move_down_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/drag_move_down.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/drag_move_down.gif',
-      masterRow: 1,
-      masterCol: 3,
-      defaultQuote: 'Pouso firme! Mantendo a concentração!',
-      category: 'Movimento',
-      fallbackIcon: Icons.south_rounded,
-    ),
-    MascotState.holdGrab: MascotAnimationSpec(
+    MascotState.holdGrab: _interactiveSpec(
       state: MascotState.holdGrab,
       id: 'hold_grab',
-      title: 'Suspenso no Ar (Grab)',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
+      title: 'Segurando o Bode',
+      category: 'Interação Física',
+      description: 'Patas balançando ao segurar o mascote por 250ms.',
+      defaultQuote: 'Ei, me segura direito! Para onde vamos voar?',
       loop: true,
-      gridAssetPath: 'assets/mascot/sheets_interactive/hold_grab_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/hold_grab.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/hold_grab.gif',
-      masterRow: 1,
-      masterCol: 2,
-      defaultQuote: 'Ouvindo com atenção! Pode falar!',
-      category: 'Interação',
-      fallbackIcon: Icons.pan_tool_rounded,
+      sfx: SystemSfxType.pop,
+      triggerHint: 'Pressionar e segurar',
     ),
-    MascotState.wallHitRight: MascotAnimationSpec(
+    MascotState.dragStartRight: _interactiveSpec(
+      state: MascotState.dragStartRight,
+      id: 'drag_start_right',
+      title: 'Impulso para Direita',
+      category: 'Arrasto',
+      description: 'Inclinação inicial ao puxar o bode para a direita.',
+      defaultQuote: 'Avançando para a direita!',
+      loop: false,
+      sfx: SystemSfxType.jump,
+    ),
+    MascotState.dragStartLeft: _interactiveSpec(
+      state: MascotState.dragStartLeft,
+      id: 'drag_start_left',
+      title: 'Impulso para Esquerda',
+      category: 'Arrasto',
+      description: 'Inclinação inicial ao puxar o bode para a esquerda.',
+      defaultQuote: 'Voltando um passo para revisar!',
+      loop: false,
+      sfx: SystemSfxType.jump,
+    ),
+    MascotState.dragStartUp: _interactiveSpec(
+      state: MascotState.dragStartUp,
+      id: 'drag_start_up',
+      title: 'Decolagem para Cima',
+      category: 'Arrasto',
+      description: 'Decolagem ao impulsionar o bode para o alto.',
+      defaultQuote: 'Subindo de nível sem parar!',
+      loop: false,
+      sfx: SystemSfxType.jump,
+    ),
+    MascotState.dragStartDown: _interactiveSpec(
+      state: MascotState.dragStartDown,
+      id: 'drag_start_down',
+      title: 'Mergulho para Baixo',
+      category: 'Arrasto',
+      description: 'Aterrissagem veloz descendo pela tela.',
+      defaultQuote: 'Descendo para explorar os detalhes!',
+      loop: false,
+      sfx: SystemSfxType.jump,
+    ),
+    MascotState.dragMoveRight: _interactiveSpec(
+      state: MascotState.dragMoveRight,
+      id: 'drag_move_right',
+      title: 'Voo Contínuo à Direita',
+      category: 'Arrasto',
+      description: 'Flutuando continuamente enquanto avança à direita.',
+      defaultQuote: 'Próxima questão a caminho!',
+      loop: true,
+    ),
+    MascotState.dragMoveLeft: _interactiveSpec(
+      state: MascotState.dragMoveLeft,
+      id: 'drag_move_left',
+      title: 'Voo Contínuo à Esquerda',
+      category: 'Arrasto',
+      description: 'Flutuando continuamente retornando para a esquerda.',
+      defaultQuote: 'Revisando conteúdo anterior!',
+      loop: true,
+    ),
+    MascotState.dragMoveUp: _interactiveSpec(
+      state: MascotState.dragMoveUp,
+      id: 'drag_move_up',
+      title: 'Ascensão na Trilha',
+      category: 'Arrasto',
+      description: 'Subindo firmemente pelos módulos da trilha.',
+      defaultQuote: 'Cada módulo desbloqueado leva você ao topo!',
+      loop: true,
+    ),
+    MascotState.dragMoveDown: _interactiveSpec(
+      state: MascotState.dragMoveDown,
+      id: 'drag_move_down',
+      title: 'Queda Controlada',
+      category: 'Arrasto',
+      description: 'Descida estável deslizando pelo palco.',
+      defaultQuote: 'Descendo suavemente pela área de estudos!',
+      loop: true,
+    ),
+    MascotState.wallHitRight: _interactiveSpec(
       state: MascotState.wallHitRight,
       id: 'wall_hit_right',
-      title: 'Impacto Parede Direita',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
-      loop: false,
-      gridAssetPath:
-          'assets/mascot/sheets_interactive/wall_hit_right_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/wall_hit_right.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/wall_hit_right.gif',
-      masterRow: 2,
-      masterCol: 0,
-      defaultQuote: 'POW! Cabeça dura para não desistir!',
+      title: 'Impacto na Borda Direita',
       category: 'Colisões',
-      fallbackIcon: Icons.flash_on_rounded,
+      description: 'Quique cômico ao atingir a parede direita.',
+      defaultQuote: 'Pof! Borda direita alcançada!',
+      loop: false,
+      sfx: SystemSfxType.splat,
     ),
-    MascotState.wallHitLeft: MascotAnimationSpec(
+    MascotState.wallHitLeft: _interactiveSpec(
       state: MascotState.wallHitLeft,
       id: 'wall_hit_left',
-      title: 'Impacto Parede Esquerda',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
-      loop: false,
-      gridAssetPath:
-          'assets/mascot/sheets_interactive/wall_hit_left_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/wall_hit_left.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/wall_hit_left.gif',
-      masterRow: 2,
-      masterCol: 0,
-      defaultQuote: 'CLANG! Ricochete direto para os estudos!',
+      title: 'Impacto na Borda Esquerda',
       category: 'Colisões',
-      fallbackIcon: Icons.flash_on_rounded,
+      description: 'Quique cômico ao atingir a parede esquerda.',
+      defaultQuote: 'Tum! Borda esquerda!',
+      loop: false,
+      sfx: SystemSfxType.splat,
     ),
-    MascotState.wallHitTop: MascotAnimationSpec(
+    MascotState.wallHitTop: _interactiveSpec(
       state: MascotState.wallHitTop,
       id: 'wall_hit_top',
-      title: 'Impacto no Teto (Bonk)',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
-      loop: false,
-      gridAssetPath: 'assets/mascot/sheets_interactive/wall_hit_top_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/wall_hit_top.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/wall_hit_top.gif',
-      masterRow: 2,
-      masterCol: 1,
-      defaultQuote: 'BONK! Quase saiu pela órbita!',
+      title: 'Batida no Teto',
       category: 'Colisões',
-      fallbackIcon: Icons.stars_rounded,
+      description: 'Chifrada leve no topo do palco de física.',
+      defaultQuote: 'Topo máximo atingido!',
+      loop: false,
+      sfx: SystemSfxType.splat,
     ),
-    MascotState.wallHitBottom: MascotAnimationSpec(
+    MascotState.wallHitBottom: _interactiveSpec(
       state: MascotState.wallHitBottom,
       id: 'wall_hit_bottom',
-      title: 'Impacto no Chão (Splat)',
-      fps: 24,
-      frameCount: 12,
-      cols: 6,
-      rows: 2,
-      loop: false,
-      gridAssetPath:
-          'assets/mascot/sheets_interactive/wall_hit_bottom_grid.png',
-      jsonAssetPath: 'assets/mascot/sheets_interactive/wall_hit_bottom.json',
-      gifAssetPath: 'assets/mascot/gifs/interactive/wall_hit_bottom.gif',
-      masterRow: 2,
-      masterCol: 3,
-      defaultQuote: 'SPLAT! Já levantando firme para tentar de novo!',
+      title: 'Aterrissagem no Chão',
       category: 'Colisões',
-      fallbackIcon: Icons.warning_amber_rounded,
+      description: 'Quique amaciado ao tocar o piso do palco.',
+      defaultQuote: 'Pés firmes de volta ao chão!',
+      loop: false,
+      sfx: SystemSfxType.splat,
     ),
-  };
+    MascotState.fireLoop: _interactiveSpec(
+      state: MascotState.fireLoop,
+      id: 'fire_loop',
+      title: 'Modo Chama da Ofensiva',
+      category: 'Modo Chama',
+      description: 'Energia máxima quando sua sequência de estudos está pegando fogo!',
+      defaultQuote: 'Sua ofensiva está em chamas! Continue imparável!',
+      loop: true,
+      sfx: SystemSfxType.fire,
+      triggerHint: 'Ofensiva ativa / Botão Fogo',
+    ),
+  });
 
-  static MascotAnimationSpec specFor(MascotState state) => specs[state]!;
+  static MascotStateSpec specFor(MascotState state) => specs[state]!;
 
-  static List<MascotState> get clickReactions => const [
+  static List<MascotState> get allStates => MascotState.values;
+
+  static const List<MascotState> coreStates = [
+    MascotState.idle,
+    MascotState.celebrate,
+    MascotState.sad,
+    MascotState.intense,
+  ];
+
+  static const List<MascotState> clickReactions = [
     MascotState.clickPoke,
+    MascotState.clickHeart,
+    MascotState.clickSpin,
     MascotState.clickBleat,
     MascotState.clickShake,
-    MascotState.clickSpin,
-    MascotState.clickHeart,
   ];
 
-  static String masterSheetFor(MascotVariant variant) =>
-      variant == MascotVariant.green ? greenMasterSheet : whiteMasterSheet;
+  static const List<MascotState> dragStates = [
+    MascotState.dragStartRight,
+    MascotState.dragStartLeft,
+    MascotState.dragStartUp,
+    MascotState.dragStartDown,
+    MascotState.dragMoveRight,
+    MascotState.dragMoveLeft,
+    MascotState.dragMoveUp,
+    MascotState.dragMoveDown,
+  ];
 
-  /// Retorna o GIF apropriado para a variante e estado solicitados.
-  static String gifFor(MascotState state, {MascotVariant variant = MascotVariant.white}) {
-    if (variant == MascotVariant.green) {
-      switch (state) {
-        case MascotState.idle:
-        case MascotState.clickPoke:
-        case MascotState.clickBleat:
-        case MascotState.clickHeart:
-        case MascotState.holdGrab:
-          return greenIdleGif;
-        case MascotState.celebrate:
-        case MascotState.clickSpin:
-        case MascotState.dragStartRight:
-        case MascotState.dragMoveRight:
-        case MascotState.dragStartUp:
-        case MascotState.dragMoveUp:
-          return greenCelebrateGif;
-        case MascotState.sad:
-        case MascotState.wallHitBottom:
-        case MascotState.wallHitLeft:
-        case MascotState.wallHitRight:
-        case MascotState.wallHitTop:
-        case MascotState.dragStartLeft:
-        case MascotState.dragMoveLeft:
-        case MascotState.dragStartDown:
-        case MascotState.dragMoveDown:
-          return greenSadGif;
-        case MascotState.intense:
-        case MascotState.fireLoop:
-        case MascotState.clickShake:
-          return greenIntenseGif;
-      }
+  static const List<MascotState> wallHitStates = [
+    MascotState.wallHitRight,
+    MascotState.wallHitLeft,
+    MascotState.wallHitTop,
+    MascotState.wallHitBottom,
+  ];
+
+  static String gifFor(
+    MascotState state, {
+    MascotVariant variant = MascotVariant.white,
+  }) => specFor(state).gifPath;
+
+  static String sheetFor(
+    MascotState state, {
+    MascotVariant variant = MascotVariant.white,
+  }) => specFor(state).spriteSheetPath;
+
+  static String jsonFor(MascotState state) => specFor(state).jsonPath;
+
+  static List<String> get allDeclaredAssetPaths {
+    final paths = <String>{
+      catalog24FpsJson,
+      catalogInteractiveJson,
+      masterGrid24Fps,
+      masterInteractiveGrid,
+      masterSpritesheetJson,
+    };
+    for (final spec in specs.values) {
+      paths.add(spec.gifPath);
+      paths.add(spec.spriteSheetPath);
+      paths.add(spec.jsonPath);
     }
-    return specFor(state).gifAssetPath;
+    return List.unmodifiable(paths);
   }
 
-  /// Lista completa de todos os 80 assets empacotados para validação em testes.
-  static List<String> get allDeclaredAssetPaths => [
-    whiteMasterSheet,
-    greenMasterSheet,
-    greenAtlasJson,
-    white24FpsMasterGrid,
-    white24FpsMasterJson,
-    catalog24FpsJson,
-    catalogInteractiveJson,
-    greenIdleGif,
-    greenCelebrateGif,
-    greenSadGif,
-    greenIntenseGif,
-    for (final spec in specs.values) ...[
-      spec.gridAssetPath,
-      spec.jsonAssetPath,
-      spec.gifAssetPath,
-    ],
+  static const List<String> _idleQuotes = [
+    'Cinco minutinhos por dia já mantêm sua ofensiva viva!',
+    'Clique, segure ou arraste o Bode Duo para brincar entre as lições!',
+    'Revisão espaçada + pronúncia = confiança real ao falar.',
+    'Complete lições para ver seu anel de XP brilhar na página inicial!',
+    'Ative o Modo Fogo quando estiver pronto para superar seus recordes!',
   ];
+
+  static String randomIdleQuote([int? seed]) {
+    final rng = seed == null ? Random() : Random(seed);
+    return _idleQuotes[rng.nextInt(_idleQuotes.length)];
+  }
 }

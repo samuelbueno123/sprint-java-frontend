@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/app_feedback_widgets.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../../core/ui/mascot/mascot.dart';
 import '../../domain/entities/dashboard_data.dart';
 import 'responsive_layout.dart';
 import 'teacher_exercise_preview_screen.dart';
@@ -449,17 +449,17 @@ class _TeacherExercisesOverviewScreenState
           ),
           const SizedBox(width: 14),
           Container(
-            width: 70,
-            height: 70,
+            width: 64,
+            height: 64,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.16),
               shape: BoxShape.circle,
             ),
             child: const Center(
-              child: MascotSprite(
-                state: MascotState.idle,
-                size: 60,
-                glowColor: Colors.white,
+              child: Icon(
+                Icons.assignment_turned_in_rounded,
+                color: Colors.white,
+                size: 32,
               ),
             ),
           ),
@@ -882,9 +882,9 @@ class _TeacherExercisesOverviewScreenState
         padding: const EdgeInsets.all(28),
         child: Column(
           children: [
-            const MascotEmptyIllustration(
-              state: MascotState.idle,
-              size: 78,
+            const AppEmptyIllustration(
+              icon: Icons.assignment_outlined,
+              size: 76,
               accentColor: Color(0xFF7651C8),
             ),
             const SizedBox(height: 10),
@@ -913,7 +913,11 @@ class _TeacherExercisesOverviewScreenState
     return Card(
       color: colors.surfaceContainerLow,
       child: ListTile(
-        leading: const MascotPoseEmblem(state: MascotState.sad, size: 38),
+        leading: const Icon(
+          Icons.info_outline_rounded,
+          color: Color(0xFF7651C8),
+          size: 30,
+        ),
         title: Text(title),
         subtitle: Text(message),
         trailing: IconButton(

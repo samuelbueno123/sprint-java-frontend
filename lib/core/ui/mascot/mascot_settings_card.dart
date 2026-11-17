@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../audio/system_sound_service.dart';
 import 'interactive_mascot_stage.dart';
 import 'mascot_assets.dart';
 import 'mascot_preference_controller.dart';
 import 'mascot_sprite_widget.dart';
 
-/// Cartão reutilizável de personalização do mascote para todas as telas de
-/// configurações (Aluno, Professor, Usuário e Administrador).
 class MascotSettingsCard extends StatelessWidget {
   const MascotSettingsCard({
     super.key,
-    this.accentColor = const Color(0xFF58CC02),
+    this.accentColor = const Color(0xFF4F46E5),
     this.cardColor,
     this.borderColor,
     this.padding = const EdgeInsets.all(20),
@@ -23,27 +22,19 @@ class MascotSettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final systemReduced =
-        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-
+    final colors = Theme.of(context).colorScheme;
     return Card(
       elevation: 0,
-      color: cardColor ?? theme.colorScheme.surface,
+      color: cardColor ?? colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color:
-              borderColor ??
-              theme.colorScheme.outlineVariant.withValues(alpha: 0.7),
-        ),
+        side: BorderSide(color: borderColor ?? colors.outlineVariant),
       ),
       child: Padding(
         padding: padding,
         child: ValueListenableBuilder<MascotVariant>(
           valueListenable: MascotPreferenceController.variant,
-          builder: (context, selectedVariant, _) {
+          builder: (context, currentVariant, _) {
             return ValueListenableBuilder<bool>(
               valueListenable: MascotPreferenceController.animationsEnabled,
               builder: (context, animEnabled, _) {
@@ -52,17 +43,11 @@ class MascotSettingsCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: accentColor.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: MascotPoseEmblem(
-                            state: MascotState.idle,
-                            size: 32,
-                            glowColor: accentColor,
-                          ),
+                        MascotPoseEmblem(
+                          state: currentVariant == MascotVariant.fire
+                              ? MascotState.fireLoop
+                              : MascotState.clickHeart,
+                          size: 52,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -70,23 +55,29 @@ class MascotSettingsCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'Mascote & Animações',
+                                'Bode Duo — Mascote Interativo (23 Animações)',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
                               Text(
-                                'Escolha a versão do bode Duolinfo e controle o movimento das animações.',
+                                MascotAssets.variantSubtitle(currentVariant),
                                 style: TextStyle(
-                                  fontSize: 12.5,
-                                  color: isDark
-                                      ? Colors.grey[400]
-                                      : Colors.grey[600],
+                                  fontSize: 12,
+                                  color: colors.onSurfaceVariant,
                                 ),
                               ),
                             ],
                           ),
+                        ),
+                        FilledButton.tonalIcon(
+                          onPressed: () {
+                            SystemSoundService.click();
+                            MascotCompanionModal.show(context);
+                          },
+                          icon: const Icon(Icons.animation_rounded, size: 18),
+                          label: const Text('Estúdio (23)'),
                         ),
                       ],
                     ),
@@ -94,66 +85,46 @@ class MascotSettingsCard extends StatelessWidget {
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
-                      children: MascotVariant.values.map((variant) {
-                        final selected = variant == selectedVariant;
+                      children: MascotVariant.values.map((v) {
+                        final selected = v == currentVariant;
                         return ChoiceChip(
-                          avatar: MascotPoseEmblem(
-                            overrideVariant: variant,
-                            size: 22,
+                          avatar: MascotSprite(
+                            state: v == MascotVariant.fire
+                                ? MascotState.fireLoop
+                                : MascotState.idle,
+                            size: 24,
+                            overrideVariant: v,
                           ),
-                          label: Text('${variant.label} • ${variant.description}'),
+                          label: Text(MascotAssets.variantName(v)),
                           selected: selected,
-                          selectedColor: accentColor.withValues(alpha: 0.2),
-                          onSelected: (_) =>
-                              MascotPreferenceController.setVariant(variant),
+                          selectedColor: accentColor.withValues(alpha: 0.16),
+                          onSelected: (_) {
+                            SystemSoundService.pop();
+                            MascotPreferenceController.setVariant(v);
+                          },
                         );
                       }).toList(),
                     ),
                     const SizedBox(height: 12),
-                    SwitchListTile.adaptive(
+                    SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      activeTrackColor: accentColor,
                       title: const Text(
-                        'Animar sprites e GIFs do mascote',
+                        'Animações fluidas (24 FPS)',
                         style: TextStyle(
-                          fontSize: 14,
                           fontWeight: FontWeight.w600,
+                          fontSize: 14,
                         ),
                       ),
-                      subtitle: Text(
-                        systemReduced
-                            ? 'Redução de movimento ativa no sistema — poses estáticas priorizadas automaticamente.'
-                            : 'Quando desativado, exibe poses nítidas estáticas com menor consumo.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.grey[400] : Colors.grey[600],
-                        ),
+                      subtitle: const Text(
+                        'Ative ou pause os quadros animados do spritesheet Duo Goat',
+                        style: TextStyle(fontSize: 12),
                       ),
-                      value: animEnabled && !systemReduced,
-                      onChanged: systemReduced
-                          ? null
-                          : (value) =>
-                                MascotPreferenceController.setAnimationsEnabled(
-                                  value,
-                                ),
-                    ),
-                    const SizedBox(height: 10),
-                    InteractiveMascotStage(
-                      accentColor: accentColor,
-                      mascotSize: 82,
-                      height: 132,
-                      showControls: true,
-                      hintText:
-                          'Teste toques, arraste direcional e reações de colisão aqui.',
-                    ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: OutlinedButton.icon(
-                        onPressed: () => MascotCompanionModal.show(context),
-                        icon: const Icon(Icons.auto_awesome_motion_rounded),
-                        label: const Text('Abrir Estúdio (27 GIFs & Sprites)'),
-                      ),
+                      value: animEnabled,
+                      activeThumbColor: accentColor,
+                      onChanged: (val) {
+                        SystemSoundService.click();
+                        MascotPreferenceController.setAnimationsEnabled(val);
+                      },
                     ),
                   ],
                 );

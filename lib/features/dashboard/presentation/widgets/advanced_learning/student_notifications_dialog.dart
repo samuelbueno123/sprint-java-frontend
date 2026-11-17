@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
+import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/core/ui/mascot/mascot.dart';
 
 class StudentNotificationsDialog extends StatefulWidget {
   const StudentNotificationsDialog({super.key});
@@ -90,6 +90,10 @@ class _StudentNotificationsDialogState
     switch (type?.toUpperCase()) {
       case 'ANNOUNCEMENT':
         return Icons.campaign_rounded;
+      case 'TEACHER_NOTE':
+        return Icons.sticky_note_2_rounded;
+      case 'CLASS_INVITE':
+        return Icons.group_add_rounded;
       case 'DEADLINE':
         return Icons.alarm_rounded;
       case 'STREAK':
@@ -105,6 +109,10 @@ class _StudentNotificationsDialogState
     switch (type?.toUpperCase()) {
       case 'ANNOUNCEMENT':
         return Colors.deepPurple;
+      case 'TEACHER_NOTE':
+        return const Color(0xFF7651C8);
+      case 'CLASS_INVITE':
+        return const Color(0xFF10B981);
       case 'DEADLINE':
         return Colors.redAccent;
       case 'STREAK':
@@ -149,9 +157,8 @@ class _StudentNotificationsDialogState
           future: _loadFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const MascotLoader(
+              return const AppLoader(
                 message: 'Buscando suas notificações...',
-                mascotSize: 78,
               );
             }
 
@@ -160,9 +167,9 @@ class _StudentNotificationsDialogState
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const MascotEmptyIllustration(
-                      state: MascotState.clickHeart,
-                      size: 84,
+                    const AppEmptyIllustration(
+                      icon: Icons.notifications_none_rounded,
+                      size: 76,
                     ),
                     const SizedBox(height: 14),
                     const Text(
@@ -202,16 +209,7 @@ class _StudentNotificationsDialogState
                       : color.withValues(alpha: isDark ? 0.15 : 0.06),
                   leading: CircleAvatar(
                     backgroundColor: color.withValues(alpha: 0.15),
-                    child: isRead
-                        ? Icon(icon, color: color, size: 20)
-                        : MascotPoseEmblem(
-                            state: type.toUpperCase().contains('ACHIEV')
-                                ? MascotState.celebrate
-                                : (type.toUpperCase().contains('DEADLINE')
-                                      ? MascotState.intense
-                                      : MascotState.clickBleat),
-                            size: 28,
-                          ),
+                    child: Icon(icon, color: color, size: 20),
                   ),
                   title: Text(
                     n['title'] ?? '',

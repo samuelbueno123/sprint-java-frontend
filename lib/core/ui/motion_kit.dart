@@ -4,8 +4,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:shimmer/shimmer.dart';
 
-import 'mascot/mascot.dart';
-
 /// Indica se o código está executando sob o harness automatizado de testes Flutter.
 /// Usado exclusivamente para impedir que animações contínuas infinitas (shimmer/pulse)
 /// travem chamadas `tester.pumpAndSettle()`.
@@ -445,20 +443,20 @@ class AppAnimatedFeedback {
     if (messenger == null) return;
 
     final Color accent;
-    final MascotState mascotState;
+    final IconData toneIcon;
     switch (tone) {
       case AppFeedbackTone.success:
         accent = const Color(0xFF16A34A);
-        mascotState = MascotState.celebrate;
+        toneIcon = Icons.check_circle_rounded;
       case AppFeedbackTone.error:
         accent = const Color(0xFFDC2626);
-        mascotState = MascotState.sad;
+        toneIcon = Icons.error_rounded;
       case AppFeedbackTone.warning:
         accent = const Color(0xFFD97706);
-        mascotState = MascotState.intense;
+        toneIcon = Icons.warning_amber_rounded;
       case AppFeedbackTone.info:
         accent = const Color(0xFF2563EB);
-        mascotState = MascotState.clickBleat;
+        toneIcon = Icons.info_rounded;
     }
 
     messenger
@@ -496,14 +494,15 @@ class AppAnimatedFeedback {
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: MascotPoseEmblem(
-                            state: mascotState,
-                            size: 32,
+                          child: Icon(
+                            toneIcon,
+                            color: Colors.white,
+                            size: 24,
                           ),
                         ),
                         const SizedBox(width: 12),

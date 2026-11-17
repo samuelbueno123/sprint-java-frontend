@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/ui/mascot/mascot.dart';
+import '../../../../core/constants/brand_assets.dart';
 import '../pages/student_signup_page.dart';
 import '../pages/teacher_signup_page.dart';
 
@@ -56,10 +56,7 @@ class RegistrationChoiceDialog extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Center(
-                      child: MascotSprite(
-                        state: MascotState.clickHeart,
-                        size: 46,
-                      ),
+                      child: AppBrandIcon(size: 38),
                     ),
                   ),
                   IconButton(
@@ -94,7 +91,7 @@ class RegistrationChoiceDialog extends StatelessWidget {
                 title: 'Sou Estudante',
                 description:
                     'Cadastre os idiomas que deseja aprender e acompanhe seu nível.',
-                mascotState: MascotState.celebrate,
+                icon: Icons.school_rounded,
                 color: const Color(0xFF3579E8),
                 onTap: () {
                   Navigator.of(context).pop();
@@ -113,7 +110,7 @@ class RegistrationChoiceDialog extends StatelessWidget {
                 title: 'Sou Professor',
                 description:
                     'Vincule sua instituição, turmas, idiomas lecionados e currículo.',
-                mascotState: MascotState.intense,
+                icon: Icons.co_present_rounded,
                 color: const Color(0xFF7651C8),
                 onTap: () {
                   Navigator.of(context).pop();
@@ -139,14 +136,14 @@ class _ChoiceCard extends StatelessWidget {
   const _ChoiceCard({
     required this.title,
     required this.description,
-    required this.mascotState,
+    required this.icon,
     required this.color,
     required this.onTap,
   });
 
   final String title;
   final String description;
-  final MascotState mascotState;
+  final IconData icon;
   final Color color;
   final VoidCallback onTap;
 
@@ -174,7 +171,7 @@ class _ChoiceCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
-                  child: MascotPoseEmblem(state: mascotState, size: 36),
+                  child: Icon(icon, color: color, size: 26),
                 ),
               ),
               const SizedBox(width: 14),

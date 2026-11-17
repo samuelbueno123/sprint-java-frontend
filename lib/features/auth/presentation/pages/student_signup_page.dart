@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/constants/supported_languages.dart';
+import '../../../../core/constants/app_feedback_widgets.dart';
 import '../../../../core/network/session_store.dart';
-import '../../../../core/ui/mascot/mascot.dart';
+import '../../../../core/ui/language_flag.dart';
 import '../../../../core/ui/motion_kit.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../auth_dependencies.dart';
@@ -116,12 +116,6 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
             ? _selectedDropdownLanguage
             : null;
 
-        final companionState = _viewModel.errorMessage != null
-            ? MascotState.sad
-            : (_selectedLanguages.isNotEmpty
-                  ? MascotState.celebrate
-                  : MascotState.idle);
-
         return AuthPageFrame(
           title: _selectedGender == 'FEMININO'
               ? 'Cadastro de aluna'
@@ -129,28 +123,29 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
           subtitle: 'Crie seu perfil e escolha os idiomas que quer aprender.',
           accentColor: const Color(0xFF3579E8),
           maxWidth: 560,
-          mascotState: companionState,
-          mascotTip: _selectedLanguages.isEmpty
-              ? 'Escolha ao menos um idioma para montarmos sua trilha!'
-              : 'Ótima escolha! Vamos personalizar seus desafios.',
           onBack: () => Navigator.of(context).pop(),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                MascotSpeechBanner(
+                AppInfoBanner(
                   title: _selectedLanguages.isEmpty
-                      ? 'Seu companheiro de estudos'
+                      ? 'Trilha de estudos'
                       : 'Idiomas selecionados: ${_selectedLanguages.length}',
                   message: _viewModel.errorMessage != null
                       ? 'Revise os campos destacados para concluir seu cadastro.'
                       : (_selectedLanguages.isEmpty
                             ? 'Preencha seus dados e adicione pelo menos 1 idioma.'
-                            : 'Bora! Toque no botão final assim que terminar.'),
-                  state: companionState,
-                  mascotSize: 56,
-                  accentColor: const Color(0xFF3579E8),
+                            : 'Ótima escolha! Toque no botão final para concluir.'),
+                  icon: _viewModel.errorMessage != null
+                      ? Icons.error_outline_rounded
+                      : (_selectedLanguages.isNotEmpty
+                            ? Icons.check_circle_outline_rounded
+                            : Icons.translate_rounded),
+                  accentColor: _viewModel.errorMessage != null
+                      ? Theme.of(context).colorScheme.error
+                      : const Color(0xFF3579E8),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -300,12 +295,11 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                     prefixIcon: Icon(Icons.language_rounded),
                   ),
                   items: availableLanguages.map((lang) {
-                    final meta = SupportedLanguages.metaFor(lang);
                     return DropdownMenuItem<String>(
                       value: lang,
                       child: Row(
                         children: [
-                          Icon(meta.icon, size: 16, color: meta.color),
+                          LanguageFlag.forLanguage(lang, width: 22),
                           const SizedBox(width: 8),
                           Text(lang),
                         ],
@@ -369,10 +363,9 @@ class _StudentSignupPageState extends State<StudentSignupPage> {
                             children: [
                               Row(
                                 children: [
-                                  const Icon(
-                                    Icons.translate_rounded,
-                                    size: 18,
-                                    color: Color(0xFF3579E8),
+                                  LanguageFlag.forLanguage(
+                                    item.languageName,
+                                    width: 24,
                                   ),
                                   const SizedBox(width: 8),
                                   Text(

@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/audio/system_sound_service.dart';
 import '../../../../core/localization/app_locale_controller.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme_controller.dart';
-import '../../../../core/ui/mascot/mascot.dart';
+import '../../../../core/ui/language_flag.dart';
 import '../../data/datasources/dashboard_remote_datasource.dart';
 import '../../domain/entities/dashboard_data.dart';
 import 'app_theme_selector.dart';
@@ -799,18 +800,45 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                             initialValue: _language,
                             isExpanded: true,
                             decoration: _inputDecoration(context, 'Idioma'),
-                            items: const [
+                            items: [
                               DropdownMenuItem(
                                 value: 'pt',
-                                child: Text('Português (Brasil)'),
+                                child: Row(
+                                  children: [
+                                    const LanguageFlag(
+                                      code: CountryFlagCode.br,
+                                      width: 22,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text('Português (Brasil)'),
+                                  ],
+                                ),
                               ),
                               DropdownMenuItem(
                                 value: 'en',
-                                child: Text('English'),
+                                child: Row(
+                                  children: [
+                                    const LanguageFlag(
+                                      code: CountryFlagCode.us,
+                                      width: 22,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text('English'),
+                                  ],
+                                ),
                               ),
                               DropdownMenuItem(
                                 value: 'es',
-                                child: Text('Español'),
+                                child: Row(
+                                  children: [
+                                    const LanguageFlag(
+                                      code: CountryFlagCode.es,
+                                      width: 22,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text('Español'),
+                                  ],
+                                ),
                               ),
                             ],
                             onChanged: (val) async {
@@ -830,13 +858,6 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                   .animate()
                   .fadeIn(duration: 350.ms, delay: 180.ms)
                   .slideY(begin: 0.05, end: 0),
-              const SizedBox(height: 16),
-              MascotSettingsCard(
-                accentColor: const Color(0xFF3579E8),
-                cardColor: cardBg,
-                borderColor: cardBorder,
-                padding: responsiveCardPadding(context),
-              ),
               const SizedBox(height: 16),
 
               // Card Novo: Experiência de Aprendizado & IA (Opções Avançadas)
@@ -978,6 +999,8 @@ class _StudentSettingsViewState extends State<StudentSettingsView> {
                         onChanged: (val) {
                           setState(() => _soundEffects = val);
                           _saveLocalPref('sound_effects_enabled', val);
+                          SystemSoundService.setEnabled(val);
+                          if (val) SystemSoundService.pop();
                         },
                         contentPadding: EdgeInsets.zero,
                       ),

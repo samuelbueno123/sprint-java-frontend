@@ -2,8 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../../../core/constants/app_feedback_widgets.dart';
 import '../../../../../core/network/api_client.dart';
-import '../../../../../core/ui/mascot/mascot.dart';
+import '../../../../../core/theme/admin_geral_theme.dart';
 import '../responsive_layout.dart';
 
 class AdminAuditLogsView extends StatefulWidget {
@@ -123,21 +124,21 @@ class _AdminAuditLogsViewState extends State<AdminAuditLogsView> {
       case 'ERROR':
         return const Color(0xFFEF4444);
       case 'WARN':
-        return const Color(0xFFF59E0B);
+        return AdminGeralTheme.goldMetallic;
       case 'INFO':
       default:
-        return const Color(0xFF3B82F6);
+        return AdminGeralTheme.bluePrimary;
     }
   }
 
   Color _categoryColor(String? category) {
     switch (category?.toUpperCase()) {
       case 'AUTH':
-        return const Color(0xFF8B5CF6);
+        return AdminGeralTheme.purplePrimary;
       case 'SECURITY':
-        return const Color(0xFFEA580C);
+        return AdminGeralTheme.goldBronze;
       case 'ADMIN':
-        return const Color(0xFF4F46E5);
+        return AdminGeralTheme.indigoMid;
       case 'USER':
         return const Color(0xFF0D9488);
       case 'CATALOG':
@@ -307,24 +308,9 @@ class _AdminAuditLogsViewState extends State<AdminAuditLogsView> {
           // Banner
           Container(
             padding: responsiveBannerPadding(context),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFF0F172A),
-                  Color(0xFF1E293B),
-                  Color(0xFF334155),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(22),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+            decoration: AdminGeralTheme.heroDecoration(
+              context: context,
+              borderRadius: 22,
             ),
             child: Row(
               children: [
@@ -376,10 +362,10 @@ class _AdminAuditLogsViewState extends State<AdminAuditLogsView> {
           const SizedBox(height: 20),
 
           // Filters Card
-          Card(
-            elevation: 1,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+          Container(
+            decoration: AdminGeralTheme.surfaceCardDecoration(
+              context,
+              borderRadius: 16,
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -554,11 +540,9 @@ class _AdminAuditLogsViewState extends State<AdminAuditLogsView> {
           if (_isLoading)
             const Padding(
               padding: EdgeInsets.all(24),
-              child: MascotLoader(
+              child: AppLoader(
                 message: 'Carregando logs de auditoria...',
-                state: MascotState.intense,
-                mascotSize: 78,
-                accentColor: Color(0xFFD97706),
+                accentColor: AdminGeralTheme.indigoMid,
               ),
             )
           else if (_logs.isEmpty)
@@ -567,10 +551,10 @@ class _AdminAuditLogsViewState extends State<AdminAuditLogsView> {
                 padding: const EdgeInsets.all(40),
                 child: Column(
                   children: [
-                    const MascotEmptyIllustration(
-                      state: MascotState.idle,
-                      size: 80,
-                      accentColor: Color(0xFFD97706),
+                    const AppEmptyIllustration(
+                      icon: Icons.security_rounded,
+                      size: 76,
+                      accentColor: AdminGeralTheme.indigoMid,
                     ),
                     const SizedBox(height: 12),
                     Text(

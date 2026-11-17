@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../ui/language_flag.dart';
+
 /// Os exatamente 6 idiomas oficiais suportados pela plataforma Duolinfo.
 /// Português é usado exclusivamente como idioma da interface e explicações pedagógicas.
 const List<String> kSupportedLanguages = <String>[
@@ -20,6 +22,7 @@ class LanguageVisualMeta {
     required this.nativeLabel,
     required this.color,
     required this.icon,
+    required this.flagCode,
   });
 
   final String canonicalName;
@@ -27,6 +30,7 @@ class LanguageVisualMeta {
   final String nativeLabel;
   final Color color;
   final IconData icon;
+  final CountryFlagCode flagCode;
 }
 
 class SupportedLanguages {
@@ -44,42 +48,48 @@ class SupportedLanguages {
       shortCode: 'DE',
       nativeLabel: 'Deutsch',
       color: Color(0xFFD97706),
-      icon: Icons.castle_rounded,
+      icon: Icons.flag_rounded,
+      flagCode: CountryFlagCode.de,
     ),
     'Espanhol': LanguageVisualMeta(
       canonicalName: 'Espanhol',
       shortCode: 'ES',
       nativeLabel: 'Español',
       color: Color(0xFFEA580C),
-      icon: Icons.wb_sunny_rounded,
+      icon: Icons.flag_rounded,
+      flagCode: CountryFlagCode.es,
     ),
     'Francês': LanguageVisualMeta(
       canonicalName: 'Francês',
       shortCode: 'FR',
       nativeLabel: 'Français',
       color: Color(0xFF6366F1),
-      icon: Icons.menu_book_rounded,
+      icon: Icons.flag_rounded,
+      flagCode: CountryFlagCode.fr,
     ),
     'Inglês': LanguageVisualMeta(
       canonicalName: 'Inglês',
       shortCode: 'EN',
       nativeLabel: 'English',
       color: Color(0xFF2563EB),
-      icon: Icons.public_rounded,
+      icon: Icons.flag_rounded,
+      flagCode: CountryFlagCode.us,
     ),
     'Italiano': LanguageVisualMeta(
       canonicalName: 'Italiano',
       shortCode: 'IT',
       nativeLabel: 'Italiano',
       color: Color(0xFF16A34A),
-      icon: Icons.palette_rounded,
+      icon: Icons.flag_rounded,
+      flagCode: CountryFlagCode.it,
     ),
     'Japonês': LanguageVisualMeta(
       canonicalName: 'Japonês',
       shortCode: 'JA',
       nativeLabel: '日本語',
       color: Color(0xFFE11D48),
-      icon: Icons.temple_buddhist_rounded,
+      icon: Icons.flag_rounded,
+      flagCode: CountryFlagCode.jp,
     ),
   };
 
@@ -94,11 +104,76 @@ class SupportedLanguages {
         .replaceAll('ç', 'c');
   }
 
+  /// Extrai nome do idioma e nível opcional de rótulos como "Inglês:Básico".
+  static ({String language, String? level}) splitLanguageAndLevel(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.contains(':')) {
+      final parts = trimmed.split(':');
+      final lang = parts.first.trim();
+      final level = parts.sublist(1).join(':').trim();
+      return (language: lang, level: level.isEmpty ? null : level);
+    }
+    return (language: trimmed, level: null);
+  }
+
   /// Normaliza um nome de idioma para a forma canônica (um dos 6 base),
   /// ou retorna null se não pertencer ao conjunto oficial.
   static String? normalize(String? raw) {
     if (raw == null || raw.trim().isEmpty) return null;
-    return _lookup[_stripAccentsLower(raw)];
+    final clean = splitLanguageAndLevel(raw).language;
+    return _lookup[_stripAccentsLower(clean)];
+  }
+
+  static String levelEmoji(String? rawLevel) {
+    final clean = _stripAccentsLower(rawLevel ?? '');
+    if (clean.contains('avanc') ||
+        clean.contains('c1') ||
+        clean.contains('c2') ||
+        clean.contains('fluen') ||
+        clean.contains('profic')) {
+      return '🚀';
+    }
+    if (clean.contains('interm') ||
+        clean.contains('b1') ||
+        clean.contains('b2')) {
+      return '⚡';
+    }
+    if (clean.contains('basic') ||
+        clean.contains('inici') ||
+        clean.contains('a1') ||
+        clean.contains('a2')) {
+      return '🌱';
+    }
+    return '🎯';
+  }
+
+  static String formatLevelWithEmoji(String? rawLevel) {
+    final trimmed = (rawLevel ?? '').trim();
+    if (trimmed.isEmpty) return '';
+    return '${levelEmoji(trimmed)} $trimmed';
+  }
+
+  static String specializationEmoji(String? raw) {
+    final clean = _stripAccentsLower(raw ?? '');
+    if (clean.contains('convers') || clean.contains('fala') || clean.contains('oral')) {
+      return '🗣️';
+    }
+    if (clean.contains('gramat') || clean.contains('escrita') || clean.contains('redac')) {
+      return '✍️';
+    }
+    if (clean.contains('negoc') || clean.contains('busin') || clean.contains('corp')) {
+      return '💼';
+    }
+    if (clean.contains('exame') || clean.contains('prep') || clean.contains('cert')) {
+      return '🎓';
+    }
+    if (clean.contains('leitura') || clean.contains('liter') || clean.contains('cultur')) {
+      return '📚';
+    }
+    if (clean.contains('viag') || clean.contains('turis')) {
+      return '✈️';
+    }
+    return '✨';
   }
 
   static String normalizeOrDefault(
@@ -178,6 +253,12 @@ class LanguageBadgePill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          LanguageFlag(
+            code: meta.flagCode,
+            width: compact ? 16 : 20,
+            borderRadius: 3,
+          ),
+          const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
             decoration: BoxDecoration(

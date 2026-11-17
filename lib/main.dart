@@ -2,10 +2,12 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
 
 import 'app.dart';
+import 'core/audio/system_sound_service.dart';
 import 'core/localization/app_locale_controller.dart';
 import 'core/network/session_store.dart';
 import 'core/theme/app_theme_controller.dart';
 import 'core/ui/mascot/mascot.dart';
+import 'core/xp/xp_animation_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +21,8 @@ Future<void> main() async {
     await AppThemeController.load();
     await AppLocaleController.load();
     await MascotPreferenceController.load();
+    await SystemSoundService.load();
+    await XpAnimationController.load();
   } catch (_) {
     // Use default theme/locale/mascot preferences if local storage is unavailable.
   }

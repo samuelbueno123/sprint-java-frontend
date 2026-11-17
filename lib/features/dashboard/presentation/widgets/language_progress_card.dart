@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/ui/language_flag.dart';
 import '../../domain/entities/student_language_entity.dart';
 
 class LanguageProgressCard extends StatelessWidget {
@@ -29,15 +30,15 @@ class LanguageProgressCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: studentGreen.withValues(alpha: isDark ? 0.22 : 0.12),
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Icons.translate_rounded,
-                    color: studentGreen,
-                    size: 22,
+                  child: LanguageFlag.forLanguage(
+                    language.languageName,
+                    width: 30,
+                    borderRadius: 5,
                   ),
                 ),
                 const SizedBox(width: 12),

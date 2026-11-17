@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
+import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/core/ui/mascot/mascot.dart';
 
 class TeacherStudentNotesDialog extends StatefulWidget {
   const TeacherStudentNotesDialog({
@@ -180,9 +180,8 @@ class _TeacherStudentNotesDialogState extends State<TeacherStudentNotesDialog> {
                 future: _loadFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const MascotLoader(
+                    return const AppLoader(
                       message: 'Carregando anotações do estudante...',
-                      mascotSize: 74,
                       accentColor: Color(0xFF7651C8),
                     );
                   }
@@ -192,8 +191,8 @@ class _TeacherStudentNotesDialogState extends State<TeacherStudentNotesDialog> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          MascotEmptyIllustration(
-                            state: MascotState.idle,
+                          AppEmptyIllustration(
+                            icon: Icons.sticky_note_2_outlined,
                             size: 72,
                             accentColor: Color(0xFF7651C8),
                           ),

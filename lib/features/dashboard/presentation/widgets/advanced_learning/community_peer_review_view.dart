@@ -1,12 +1,20 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/core/audio/system_sound_service.dart';
+import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/core/ui/mascot/mascot.dart';
+import 'package:frontend/core/ui/language_flag.dart';
+import 'package:frontend/core/xp/xp_animation_controller.dart';
+import '../responsive_layout.dart';
 
 class _CommunitySubmissionDialog extends StatefulWidget {
-  const _CommunitySubmissionDialog({required this.onSubmit});
+  const _CommunitySubmissionDialog({
+    required this.allowedLevelsByLanguage,
+    required this.onSubmit,
+  });
 
+  final Map<String, List<String>> allowedLevelsByLanguage;
   final Future<void> Function(Map<String, dynamic> payload) onSubmit;
 
   @override
@@ -18,10 +26,22 @@ class _CommunitySubmissionDialogState
     extends State<_CommunitySubmissionDialog> {
   final TextEditingController _titleCtrl = TextEditingController();
   final TextEditingController _contentCtrl = TextEditingController();
-  String _language = 'Inglês';
-  String _targetLevel = 'A2';
+  late String _language;
+  late String _targetLevel;
   bool _saving = false;
   String? _validationError;
+
+  @override
+  void initState() {
+    super.initState();
+    _language = widget.allowedLevelsByLanguage.keys.isNotEmpty
+        ? widget.allowedLevelsByLanguage.keys.first
+        : kDefaultSupportedLanguage;
+    _targetLevel = _levelsFor(_language).first;
+  }
+
+  List<String> _levelsFor(String lang) =>
+      widget.allowedLevelsByLanguage[lang] ?? const ['A1', 'A2'];
 
   @override
   void dispose() {
@@ -81,25 +101,46 @@ class _CommunitySubmissionDialogState
                 border: OutlineInputBorder(),
               ),
               items: kSupportedLanguages
-                  .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+                  .map(
+                    (l) => DropdownMenuItem(
+                      value: l,
+                      child: Row(
+                        children: [
+                          LanguageFlag.forLanguage(l, width: 18),
+                          const SizedBox(width: 8),
+                          Text(l),
+                        ],
+                      ),
+                    ),
+                  )
                   .toList(),
-              onChanged: (v) => setState(() => _language = v ?? 'Inglês'),
+              onChanged: (v) {
+                final next = v ?? 'Inglês';
+                setState(() {
+                  _language = next;
+                  final allowed = _levelsFor(next);
+                  if (!allowed.contains(_targetLevel)) {
+                    _targetLevel = allowed.first;
+                  }
+                });
+              },
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              initialValue: _targetLevel,
+              initialValue: _levelsFor(_language).contains(_targetLevel)
+                  ? _targetLevel
+                  : _levelsFor(_language).first,
               decoration: const InputDecoration(
-                labelText: 'Nível Pretendido',
+                labelText: 'Nível do seu perfil',
+                helperText:
+                    'Você pode publicar e avaliar apenas textos do seu nível.',
                 border: OutlineInputBorder(),
               ),
-              items: [
-                'A1',
-                'A2',
-                'B1',
-                'B2',
-                'C1',
-              ].map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
-              onChanged: (v) => setState(() => _targetLevel = v ?? 'A2'),
+              items: _levelsFor(
+                _language,
+              ).map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
+              onChanged: (v) =>
+                  setState(() => _targetLevel = v ?? _levelsFor(_language).first),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -365,26 +406,37 @@ class CommunityPeerReviewView extends StatefulWidget {
       _CommunityPeerReviewViewState();
 }
 
-class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView>
-    with SingleTickerProviderStateMixin {
+class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView> {
   final Dio _dio = ApiClient().dio;
-  late TabController _tabController;
 
   List<Map<String, dynamic>> _feedSubmissions = [];
   List<Map<String, dynamic>> _mySubmissions = [];
+  Map<String, List<String>> _allowedLevelsByLanguage = {
+    for (final lang in kSupportedLanguages) lang: ['A1', 'A2'],
+  };
+  int _selectedTab = 0;
   bool _loading = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _loadAll();
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  List<String> _tierLevelsForRawLevel(String raw) {
+    final lower = raw.trim().toLowerCase();
+    if (lower.contains('avanç') ||
+        lower.contains('avanc') ||
+        lower.contains('c1') ||
+        lower.contains('c2')) {
+      return const ['C1', 'C2'];
+    }
+    if (lower.contains('interm') ||
+        lower.contains('b1') ||
+        lower.contains('b2')) {
+      return const ['B1', 'B2'];
+    }
+    return const ['A1', 'A2'];
   }
 
   Future<void> _loadAll() async {
@@ -393,10 +445,28 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView>
       final res = await Future.wait([
         _dio.get('/api/community/feed'),
         _dio.get('/api/community/my-submissions'),
+        _dio.get('/api/home').catchError((_) => Response(requestOptions: RequestOptions())),
       ]);
+
+      final homeMap = res[2].data is Map ? Map<String, dynamic>.from(res[2].data as Map) : const <String, dynamic>{};
+      final studentProfile = homeMap['studentProfile'] is Map ? Map<String, dynamic>.from(homeMap['studentProfile'] as Map) : const <String, dynamic>{};
+      final rawLangs = (studentProfile['languages'] as List?) ?? const [];
+      final resolvedLevels = <String, List<String>>{};
+      for (final item in rawLangs) {
+        final s = item.toString();
+        final parts = s.split(':');
+        final lang = SupportedLanguages.normalize(parts.first);
+        if (lang != null) {
+          final lvl = parts.length > 1 ? parts.last : 'Básico';
+          resolvedLevels[lang] = _tierLevelsForRawLevel(lvl);
+        }
+      }
 
       if (!mounted) return;
       setState(() {
+        if (resolvedLevels.isNotEmpty) {
+          _allowedLevelsByLanguage = resolvedLevels;
+        }
         _feedSubmissions = (res[0].data as List)
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
@@ -420,6 +490,7 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView>
     final published = await showDialog<bool>(
       context: context,
       builder: (ctx) => _CommunitySubmissionDialog(
+        allowedLevelsByLanguage: _allowedLevelsByLanguage,
         onSubmit: (payload) =>
             _dio.post('/api/community/submissions', data: payload),
       ),
@@ -445,6 +516,11 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView>
       ),
     );
     if (!mounted || submitted != true) return;
+    await XpAnimationController.recordXpGain(
+      25,
+      source: 'Correção Comunitária',
+    );
+    SystemSoundService.success();
     await _loadAll();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -458,38 +534,47 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView>
     final colors = Theme.of(context).colorScheme;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: responsivePagePadding(context),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
-          Row(
+          // Responsive Header
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                onPressed: widget.onBack,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Correção Colaborativa & Comunidade',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    onPressed: widget.onBack,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Correção Colaborativa & Comunidade',
+                          style: TextStyle(
+                            fontSize: isCompactLayout(context) ? 19 : 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Pratique escrita e avalie colegas do seu nível (+25 XP).',
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      'Pratique escrita, envie para falantes fluentes avaliarem e ganhe XP corrigindo outros alunos.',
-                      style: TextStyle(
-                        color: colors.onSurfaceVariant,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               FilledButton.icon(
                 onPressed: _showNewSubmissionDialog,
@@ -498,37 +583,36 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView>
               ),
             ],
           ),
-          const SizedBox(height: 20),
-
-          // Tabs
-          TabBar(
-            controller: _tabController,
-            tabs: [
-              Tab(text: 'Feed de Exercícios (${_feedSubmissions.length})'),
-              Tab(text: 'Minhas Submissões (${_mySubmissions.length})'),
+          const SizedBox(height: 16),
+          SegmentedButton<int>(
+            segments: [
+              ButtonSegment(
+                value: 0,
+                label: Text('Feed (${_feedSubmissions.length})'),
+                icon: const Icon(Icons.forum_outlined, size: 16),
+              ),
+              ButtonSegment(
+                value: 1,
+                label: Text('Minhas (${_mySubmissions.length})'),
+                icon: const Icon(Icons.assignment_ind_outlined, size: 16),
+              ),
             ],
+            selected: {_selectedTab},
+            onSelectionChanged: (s) => setState(() => _selectedTab = s.first),
           ),
           const SizedBox(height: 16),
 
           if (_loading)
             const Padding(
               padding: EdgeInsets.all(24),
-              child: MascotLoader(
+              child: AppLoader(
                 message: 'Carregando textos da comunidade...',
-                mascotSize: 78,
               ),
             )
+          else if (_selectedTab == 0)
+            _buildFeedTab(colors)
           else
-            SizedBox(
-              height: 600,
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildFeedTab(colors),
-                  _buildMySubmissionsTab(colors),
-                ],
-              ),
-            ),
+            _buildMySubmissionsTab(colors),
         ],
       ),
     );
@@ -537,31 +621,34 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView>
   Widget _buildFeedTab(ColorScheme colors) {
     if (_feedSubmissions.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const MascotEmptyIllustration(
-              state: MascotState.celebrate,
-              size: 82,
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Nenhum exercício pendente no momento.',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            Text(
-              'Volte mais tarde ou publique seu próprio texto!',
-              style: TextStyle(color: colors.onSurfaceVariant),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const AppEmptyIllustration(
+                icon: Icons.rate_review_outlined,
+                size: 76,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Nenhum exercício do seu nível pendente.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              Text(
+                'Volte mais tarde ou publique seu próprio texto!',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: colors.onSurfaceVariant),
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    return ListView.builder(
-      itemCount: _feedSubmissions.length,
-      itemBuilder: (context, index) {
-        final sub = _feedSubmissions[index];
+    return Column(
+      children: _feedSubmissions.map((sub) {
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           child: Padding(
@@ -569,8 +656,11 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       sub['authorName'] ?? 'Estudante',
@@ -588,13 +678,23 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView>
                         color: colors.primaryContainer,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(
-                        '${sub['language']} • ${sub['targetLevel']}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: colors.onPrimaryContainer,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          LanguageFlag.forLanguage(
+                            sub['language']?.toString(),
+                            width: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${sub['language']} • ${sub['targetLevel']}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colors.onPrimaryContainer,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -616,55 +716,54 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView>
                   ),
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    FilledButton.tonalIcon(
-                      onPressed: () => _showReviewDialog(sub),
-                      icon: const Icon(Icons.rate_review_rounded, size: 16),
-                      label: const Text('Corrigir Texto (+25 XP)'),
-                    ),
-                  ],
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => _showReviewDialog(sub),
+                    icon: const Icon(Icons.rate_review_rounded, size: 16),
+                    label: const Text('Avaliar (+25 XP)'),
+                  ),
                 ),
               ],
             ),
           ),
         );
-      },
+      }).toList(),
     );
   }
 
   Widget _buildMySubmissionsTab(ColorScheme colors) {
     if (_mySubmissions.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.post_add_rounded,
-              size: 48,
-              color: Colors.blueGrey,
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Você ainda não enviou nenhum exercício.',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: _showNewSubmissionDialog,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Publicar Primeiro Exercício'),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.post_add_rounded,
+                size: 48,
+                color: Colors.blueGrey,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Você ainda não enviou nenhum exercício.',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _showNewSubmissionDialog,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Publicar Primeiro Exercício'),
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    return ListView.builder(
-      itemCount: _mySubmissions.length,
-      itemBuilder: (context, index) {
-        final sub = _mySubmissions[index];
+    return Column(
+      children: _mySubmissions.map((sub) {
         final reviews = ((sub['reviews'] as List?) ?? [])
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
@@ -676,8 +775,10 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  alignment: WrapAlignment.spaceBetween,
                   children: [
                     Text(
                       sub['promptTitle'] ?? '',
@@ -783,7 +884,7 @@ class _CommunityPeerReviewViewState extends State<CommunityPeerReviewView>
             ),
           ),
         );
-      },
+      }).toList(),
     );
   }
 }

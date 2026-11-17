@@ -1,8 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/core/audio/system_sound_service.dart';
+import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/core/ui/mascot/mascot.dart';
+import 'package:frontend/core/ui/language_flag.dart';
+import 'package:frontend/core/xp/xp_animation_controller.dart';
 
 class _AddSrsCardDialog extends StatefulWidget {
   const _AddSrsCardDialog({required this.onSave});
@@ -92,7 +95,18 @@ class _AddSrsCardDialogState extends State<_AddSrsCardDialog> {
                 border: OutlineInputBorder(),
               ),
               items: kSupportedLanguages
-                  .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+                  .map(
+                    (l) => DropdownMenuItem(
+                      value: l,
+                      child: Row(
+                        children: [
+                          LanguageFlag.forLanguage(l, width: 20),
+                          const SizedBox(width: 8),
+                          Text(l),
+                        ],
+                      ),
+                    ),
+                  )
                   .toList(),
               onChanged: (v) =>
                   setState(() => _language = v ?? kDefaultSupportedLanguage),
@@ -232,7 +246,6 @@ class _SrsReviewViewState extends State<SrsReviewView> {
   String? _error;
   int _sessionXp = 0;
   int _sessionReviewedCount = 0;
-  MascotState _companionState = MascotState.idle;
 
   @override
   void initState() {
@@ -278,12 +291,6 @@ class _SrsReviewViewState extends State<SrsReviewView> {
 
     setState(() {
       _submitting = true;
-      _companionState = switch (rating) {
-        1 => MascotState.sad,
-        2 => MascotState.clickShake,
-        3 => MascotState.clickHeart,
-        _ => MascotState.celebrate,
-      };
     });
 
     try {
@@ -295,6 +302,20 @@ class _SrsReviewViewState extends State<SrsReviewView> {
 
       final updated = Map<String, dynamic>.from(response.data as Map);
       final xpGained = (updated['xpEarned'] as num?)?.toInt() ?? 5;
+      if (xpGained > 0) {
+        await XpAnimationController.recordXpGain(
+          xpGained,
+          source: 'Revisão Espaçada',
+        );
+      }
+      if (rating <= 1) {
+        SystemSoundService.defeat();
+      } else if (rating >= 4) {
+        SystemSoundService.success();
+      } else {
+        SystemSoundService.pop();
+      }
+      if (!mounted) return;
 
       setState(() {
         _sessionXp += xpGained;
@@ -346,9 +367,8 @@ class _SrsReviewViewState extends State<SrsReviewView> {
       future: _loadFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const MascotLoader(
+          return const AppLoader(
             message: 'Preparando flashcards da sessão...',
-            mascotSize: 80,
           );
         }
 
@@ -357,7 +377,7 @@ class _SrsReviewViewState extends State<SrsReviewView> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const MascotErrorIllustration(state: MascotState.sad, size: 78),
+                const AppErrorIllustration(size: 74),
                 const SizedBox(height: 16),
                 Text(_error!, style: TextStyle(color: colors.error)),
                 const SizedBox(height: 16),
@@ -541,35 +561,6 @@ class _SrsReviewViewState extends State<SrsReviewView> {
                   style: TextStyle(
                     color: colors.onSurfaceVariant,
                     fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                MascotSprite(
-                  state: _companionState,
-                  size: 48,
-                  useMaster24FpsAtlas: true,
-                  onTap: () =>
-                      setState(() => _companionState = MascotState.clickPoke),
-                  onCompleted: () {
-                    if (!mounted) return;
-                    if (!MascotAssets.specFor(_companionState).loop) {
-                      setState(() => _companionState = MascotState.idle);
-                    }
-                  },
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    MascotAssets.specFor(_companionState).defaultQuote,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colors.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
                   ),
                 ),
               ],
@@ -794,9 +785,17 @@ class _SrsReviewViewState extends State<SrsReviewView> {
           ),
           child: Column(
             children: [
-              const MascotGifBadge(
-                state: MascotState.celebrate,
-                size: 96,
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.emoji_events_rounded,
+                  color: Colors.green,
+                  size: 52,
+                ),
               ),
               const SizedBox(height: 16),
               const Text(

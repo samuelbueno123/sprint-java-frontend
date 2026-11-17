@@ -2,9 +2,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../../../core/audio/system_sound_service.dart';
+import '../../../../../core/constants/app_feedback_widgets.dart';
 import '../../../../../core/constants/supported_languages.dart';
 import '../../../../../core/network/api_client.dart';
-import '../../../../../core/ui/mascot/mascot.dart';
+import '../../../../../core/theme/admin_geral_theme.dart';
+import '../../../../../core/ui/language_flag.dart';
 import '../../../../../core/ui/motion_kit.dart';
 import '../responsive_layout.dart';
 
@@ -91,7 +94,7 @@ class _AddCatalogOptionDialogState extends State<_AddCatalogOptionDialog> {
     return AlertDialog(
       title: const Row(
         children: [
-          Icon(Icons.add_circle_outline_rounded, color: Color(0xFFD97706)),
+          Icon(Icons.add_circle_outline_rounded, color: AdminGeralTheme.indigoMid),
           SizedBox(width: 8),
           Text('Nova Opção de Catálogo'),
         ],
@@ -178,9 +181,7 @@ class _AddCatalogOptionDialogState extends State<_AddCatalogOptionDialog> {
           child: const Text('Cancelar'),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFD97706),
-          ),
+          style: AdminGeralTheme.filledButtonStyle(),
           onPressed: _saving ? null : _submit,
           child: _saving
               ? const SizedBox(
@@ -277,6 +278,7 @@ class _AdminCatalogManagementViewState
           _catalogOptions[index] = updated;
         }
       });
+      SystemSoundService.success();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -284,7 +286,7 @@ class _AdminCatalogManagementViewState
           ),
           backgroundColor: !currentActive
               ? const Color(0xFF059669)
-              : const Color(0xFFD97706),
+              : AdminGeralTheme.indigoMid,
         ),
       );
     } catch (e) {
@@ -328,6 +330,7 @@ class _AdminCatalogManagementViewState
     try {
       await _dio.delete('/api/admin/catalog/$id');
       if (!mounted) return;
+      SystemSoundService.success();
       setState(() {
         _catalogOptions.removeWhere((o) => o['id'] == id);
       });
@@ -363,6 +366,7 @@ class _AdminCatalogManagementViewState
       ),
     );
     if (!mounted || created == null) return;
+    SystemSoundService.success();
     setState(() {
       _catalogOptions.insert(0, created);
     });
@@ -411,24 +415,9 @@ class _AdminCatalogManagementViewState
           // Banner
           Container(
             padding: responsiveBannerPadding(context),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFF0F766E),
-                  Color(0xFF0D9488),
-                  Color(0xFF14B8A6),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(22),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF0D9488).withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+            decoration: AdminGeralTheme.heroDecoration(
+              context: context,
+              borderRadius: 22,
             ),
             child: Wrap(
               spacing: 16,
@@ -653,11 +642,9 @@ class _AdminCatalogManagementViewState
           if (_isLoading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
-              child: MascotLoader(
+              child: AppLoader(
                 message: 'Carregando catálogo oficial...',
-                state: MascotState.idle,
-                mascotSize: 78,
-                accentColor: Color(0xFFD97706),
+                accentColor: AdminGeralTheme.indigoMid,
               ),
             )
           else if (filtered.isEmpty)
@@ -673,10 +660,10 @@ class _AdminCatalogManagementViewState
                 padding: const EdgeInsets.all(40),
                 child: Column(
                   children: [
-                    const MascotEmptyIllustration(
-                      state: MascotState.sad,
-                      size: 80,
-                      accentColor: Color(0xFFD97706),
+                    const AppEmptyIllustration(
+                      icon: Icons.category_outlined,
+                      size: 76,
+                      accentColor: AdminGeralTheme.indigoMid,
                     ),
                     const SizedBox(height: 12),
                     const Text(
@@ -728,24 +715,27 @@ class _AdminCatalogManagementViewState
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: isLanguage
-                                ? const Color(
-                                    0xFF0D9488,
-                                  ).withValues(alpha: 0.12)
-                                : const Color(
-                                    0xFF6366F1,
-                                  ).withValues(alpha: 0.12),
+                            color: (isLanguage
+                                    ? AdminGeralTheme.bluePrimary
+                                    : AdminGeralTheme.purplePrimary)
+                                .withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: AdminGeralTheme.goldMetallic.withValues(
+                                alpha: 0.55,
+                              ),
+                            ),
                           ),
-                          child: Icon(
-                            isLanguage
-                                ? Icons.language_rounded
-                                : Icons.school_rounded,
-                            color: isLanguage
-                                ? const Color(0xFF0D9488)
-                                : const Color(0xFF6366F1),
-                            size: 22,
-                          ),
+                          child: isLanguage
+                              ? LanguageFlag.forLanguage(
+                                  item['value']?.toString(),
+                                  width: 24,
+                                )
+                              : const Icon(
+                                  Icons.school_rounded,
+                                  color: AdminGeralTheme.purplePrimary,
+                                  size: 22,
+                                ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(

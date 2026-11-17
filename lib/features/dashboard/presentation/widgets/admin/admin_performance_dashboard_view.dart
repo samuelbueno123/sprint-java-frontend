@@ -4,9 +4,10 @@ import 'package:dio/dio.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../../core/constants/app_feedback_widgets.dart';
 import '../../../../../core/constants/supported_languages.dart';
 import '../../../../../core/network/api_client.dart';
-import '../../../../../core/ui/mascot/mascot.dart';
+import '../../../../../core/theme/admin_geral_theme.dart';
 import '../../../../../core/ui/motion_kit.dart';
 import '../responsive_layout.dart';
 
@@ -120,7 +121,7 @@ class _AdminPerformanceDashboardViewState
       case 'UP':
         return const Color(0xFF10B981);
       case 'DEGRADED':
-        return const Color(0xFFF59E0B);
+        return AdminGeralTheme.goldMetallic;
       default:
         return const Color(0xFFEF4444);
     }
@@ -165,24 +166,9 @@ class _AdminPerformanceDashboardViewState
             withScale: true,
             child: Container(
               padding: responsiveBannerPadding(context),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF0F172A),
-                    Color(0xFF1E3A8A),
-                    Color(0xFF4338CA),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF1E3A8A).withValues(alpha: 0.34),
-                    blurRadius: 22,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
+              decoration: AdminGeralTheme.heroDecoration(
+                context: context,
+                borderRadius: 24,
               ),
               child: Wrap(
                 spacing: 16,
@@ -366,13 +352,11 @@ class _AdminPerformanceDashboardViewState
             ),
 
           if (_isLoading && perf == null) ...[
-            const MascotLoader(
+            const AppLoader(
               message: 'Coletando telemetria em tempo real...',
-              state: MascotState.intense,
               compact: true,
-              mascotSize: 60,
               showProgressBar: false,
-              accentColor: Color(0xFFD97706),
+              accentColor: AdminGeralTheme.indigoMid,
             ),
             const SizedBox(height: 12),
             const AppShimmerDashboardLoader(cardCount: 4),
@@ -498,7 +482,7 @@ class _AdminPerformanceDashboardViewState
             percent: (cpuPct / 100.0).clamp(0.0, 1.0),
             centerText: '${cpuPct.toStringAsFixed(1)}%',
             centerSub: 'CPU',
-            color: const Color(0xFFD97706),
+            color: AdminGeralTheme.goldMetallic,
             icon: Icons.speed_rounded,
           ),
           _TelemetryGaugeCard(
@@ -673,7 +657,7 @@ class _AdminPerformanceDashboardViewState
                 runSpacing: 6,
                 children: [
                   _ChartLegendDot(color: Color(0xFF7C3AED), label: 'Heap %'),
-                  _ChartLegendDot(color: Color(0xFFF59E0B), label: 'CPU %'),
+                  _ChartLegendDot(color: AdminGeralTheme.goldMetallic, label: 'CPU %'),
                 ],
               ),
             ],
@@ -789,14 +773,14 @@ class _AdminPerformanceDashboardViewState
                         LineChartBarData(
                           spots: cpuSpots,
                           isCurved: cpuSpots.length > 2,
-                          color: const Color(0xFFF59E0B),
+                          color: AdminGeralTheme.goldMetallic,
                           barWidth: 3,
                           dotData: FlDotData(show: cpuSpots.length <= 8),
                           belowBarData: BarAreaData(
                             show: true,
-                            color: const Color(
-                              0xFFF59E0B,
-                            ).withValues(alpha: 0.09),
+                            color: AdminGeralTheme.goldMetallic.withValues(
+                              alpha: 0.10,
+                            ),
                           ),
                         ),
                       ],
@@ -995,7 +979,7 @@ class _AdminPerformanceDashboardViewState
 
     final entries = <_PieSliceSpec>[
       _PieSliceSpec('Sucesso (2xx/3xx)', s2xx, const Color(0xFF10B981)),
-      _PieSliceSpec('Cliente (4xx)', c4xx, const Color(0xFFF59E0B)),
+      _PieSliceSpec('Cliente (4xx)', c4xx, AdminGeralTheme.goldMetallic),
       _PieSliceSpec('Servidor (5xx)', s5xx, const Color(0xFFEF4444)),
     ];
 
@@ -1351,7 +1335,7 @@ class _AdminPerformanceDashboardViewState
       _PieSliceSpec(
         'Administradores',
         ((profiles['ADMIN'] as num?) ?? 0).toDouble(),
-        const Color(0xFFD97706),
+        AdminGeralTheme.goldMetallic,
       ),
       _PieSliceSpec(
         'Base (USER)',
@@ -1465,7 +1449,7 @@ class _AdminPerformanceDashboardViewState
                   final color = sev == 'ERROR' || sev == 'CRITICAL'
                       ? const Color(0xFFDC2626)
                       : (sev == 'WARN'
-                            ? const Color(0xFFD97706)
+                            ? AdminGeralTheme.goldMetallic
                             : const Color(0xFF2563EB));
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),

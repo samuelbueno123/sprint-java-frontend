@@ -4,11 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../core/config/app_config.dart';
+import '../../../../core/constants/app_feedback_widgets.dart';
+import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../../core/ui/mascot/mascot.dart';
+import '../../../../core/ui/language_flag.dart';
 import '../../../../core/ui/motion_kit.dart';
+import '../../../../core/xp/xp_animation_controller.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/student_enrollment.dart';
+import 'animated_xp_avatar_ring.dart';
 import 'app_user_avatar.dart';
 import 'dashboard_empty_state.dart';
 import 'info_stat_card.dart';
@@ -129,10 +133,18 @@ class StudentDashboardView extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const MascotPoseEmblem(
-                    state: MascotState.clickHeart,
-                    size: 46,
-                    glowColor: _blue,
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: _blue.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.tips_and_updates_rounded,
+                      color: _blue,
+                      size: 24,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -290,15 +302,6 @@ class StudentDashboardView extends StatelessWidget {
             primaryLanguage: primaryLanguage,
             activeClass: activeClass,
             onSectionSelected: onSectionSelected,
-          ),
-          const SizedBox(height: 16),
-          InteractiveMascotStage(
-            initialState: MascotState.idle,
-            mascotSize: 82,
-            height: 120,
-            accentColor: _blue,
-            hintText:
-                'Toque ou arraste seu mascote! Veja todas as reações em Configurações.',
           ),
           const SizedBox(height: 16),
 
@@ -526,14 +529,17 @@ class StudentDashboardView extends StatelessWidget {
                                     children: [
                                       Row(
                                         children: [
-                                          const Icon(
-                                            Icons.language_rounded,
-                                            size: 18,
-                                            color: _blue,
+                                          LanguageFlag.forLanguage(
+                                            lang,
+                                            width: 20,
+                                            borderRadius: 3,
                                           ),
                                           const SizedBox(width: 8),
                                           Text(
-                                            lang,
+                                            SupportedLanguages.normalizeOrDefault(
+                                              lang,
+                                              lang,
+                                            ),
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               color: Theme.of(
@@ -622,6 +628,8 @@ class StudentDashboardView extends StatelessWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  const _TeacherPrivateNotesCard(),
                 ],
               );
 
@@ -787,7 +795,14 @@ class StudentDashboardView extends StatelessWidget {
       spacing: 10,
       runSpacing: 10,
       children: languages.map((language) {
-        final label = language;
+        final parts = SupportedLanguages.splitLanguageAndLevel(language);
+        final canonical = SupportedLanguages.normalizeOrDefault(
+          parts.language,
+          parts.language,
+        );
+        final levelWithEmoji = SupportedLanguages.formatLevelWithEmoji(
+          parts.level,
+        );
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
@@ -800,10 +815,12 @@ class StudentDashboardView extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.language_rounded, size: 17, color: _blue),
+              LanguageFlag.forLanguage(canonical, width: 22),
               const SizedBox(width: 8),
               Text(
-                label,
+                levelWithEmoji.isNotEmpty
+                    ? '$canonical • $levelWithEmoji'
+                    : canonical,
                 style: TextStyle(
                   color: isDark ? Colors.white : const Color(0xFF245FB8),
                   fontWeight: FontWeight.w700,
@@ -935,17 +952,17 @@ class _WelcomeBanner extends StatelessWidget {
         ),
         const SizedBox(width: 14),
         Container(
-          width: 72,
-          height: 72,
+          width: 64,
+          height: 64,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: .16),
             shape: BoxShape.circle,
           ),
           child: const Center(
-            child: MascotSprite(
-              state: MascotState.idle,
-              size: 62,
-              glowColor: Colors.white,
+            child: Icon(
+              Icons.translate_rounded,
+              color: Colors.white,
+              size: 32,
             ),
           ),
         ),
@@ -1271,10 +1288,8 @@ class _StudentInstitutionMembersViewState
           if (_loading)
             const Padding(
               padding: EdgeInsets.all(24),
-              child: MascotLoader(
+              child: AppLoader(
                 message: 'Buscando colegas e professores...',
-                state: MascotState.idle,
-                mascotSize: 78,
               ),
             )
           else if (_error != null)
@@ -1444,7 +1459,7 @@ class _StudentInstitutionMembersViewState
                     ),
                   ],
                 ),
-                if (email.isNotEmpty) ...[
+                if (isTeacher && email.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
                     email,
@@ -1511,6 +1526,19 @@ class _StudentProgressSummaryCardState
   void initState() {
     super.initState();
     _future = _load();
+    XpAnimationController.pendingXp.addListener(_onXpEarned);
+  }
+
+  @override
+  void dispose() {
+    XpAnimationController.pendingXp.removeListener(_onXpEarned);
+    super.dispose();
+  }
+
+  void _onXpEarned() {
+    if (mounted && XpAnimationController.pendingXp.value > 0) {
+      setState(() => _future = _load());
+    }
   }
 
   Future<Map<String, dynamic>> _load() async {
@@ -1550,10 +1578,9 @@ class _StudentProgressSummaryCardState
             if (snapshot.connectionState != ConnectionState.done) {
               return const Padding(
                 padding: EdgeInsets.all(8),
-                child: MascotLoader(
+                child: AppLoader(
                   message: 'Calculando seu progresso diário...',
                   compact: true,
-                  mascotSize: 58,
                   showProgressBar: false,
                 ),
               );
@@ -1630,9 +1657,10 @@ class _StudentProgressSummaryCardState
                 Row(
                   children: [
                     if (reached) ...[
-                      const MascotGifBadge(
-                        state: MascotState.celebrate,
-                        size: 46,
+                      const Icon(
+                        Icons.verified_rounded,
+                        color: Color(0xFF32946B),
+                        size: 24,
                       ),
                       const SizedBox(width: 10),
                     ],
@@ -1655,13 +1683,20 @@ class _StudentProgressSummaryCardState
                   ],
                 ),
                 const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 10,
-                    backgroundColor: colors.surfaceContainerHighest,
-                    color: reached ? const Color(0xFF32946B) : null,
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0.0, end: progress),
+                  duration: const Duration(milliseconds: 900),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, animatedProgress, _) => ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: LinearProgressIndicator(
+                      value: animatedProgress,
+                      minHeight: 10,
+                      backgroundColor: colors.surfaceContainerHighest,
+                      color: reached
+                          ? const Color(0xFF32946B)
+                          : const Color(0xFF2563EB),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -1739,6 +1774,28 @@ class _StudentProfileBannerState extends State<_StudentProfileBanner> {
   void initState() {
     super.initState();
     _fetchProgress();
+    XpAnimationController.pendingXp.addListener(_onPendingXpChanged);
+  }
+
+  @override
+  void dispose() {
+    XpAnimationController.pendingXp.removeListener(_onPendingXpChanged);
+    super.dispose();
+  }
+
+  void _onPendingXpChanged() {
+    if (mounted && XpAnimationController.pendingXp.value > 0) {
+      _fetchProgress();
+    }
+  }
+
+  static String _timezoneOffsetId() {
+    final offset = DateTime.now().timeZoneOffset;
+    final sign = offset.isNegative ? '-' : '+';
+    final abs = offset.abs();
+    final h = abs.inHours.toString().padLeft(2, '0');
+    final m = (abs.inMinutes % 60).toString().padLeft(2, '0');
+    return '$sign$h:$m';
   }
 
   Future<void> _fetchProgress() async {
@@ -1747,13 +1804,15 @@ class _StudentProfileBannerState extends State<_StudentProfileBanner> {
         Uri.parse(
           AppConfig.apiBaseUrl,
         ).resolve('/api/exercises/progress/me').toString(),
+        queryParameters: {'timezone': _timezoneOffsetId()},
       );
       final d = response.data ?? {};
       if (!mounted) return;
       setState(() {
         _currentStreak = (d['currentStreakDays'] as num?)?.toInt() ?? 0;
         _bestStreak = (d['bestStreakDays'] as num?)?.toInt() ?? _currentStreak;
-        _dailyXp = (d['dailyXp'] as num?)?.toInt() ?? 0;
+        _dailyXp =
+            ((d['todayXp'] ?? d['dailyXp']) as num?)?.toInt() ?? _dailyXp;
         _dailyGoalXp = (d['dailyGoalXp'] as num?)?.toInt() ?? 50;
       });
     } catch (_) {}
@@ -1776,10 +1835,6 @@ class _StudentProfileBannerState extends State<_StudentProfileBanner> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = _dailyGoalXp > 0
-        ? (_dailyXp / _dailyGoalXp).clamp(0.08, 1.0)
-        : 0.08;
-
     return Container(
       padding: responsiveBannerPadding(context),
       decoration: BoxDecoration(
@@ -1811,105 +1866,66 @@ class _StudentProfileBannerState extends State<_StudentProfileBanner> {
           LayoutBuilder(
             builder: (context, constraints) {
               final isMobile = constraints.maxWidth < 500;
-              final avatar = Stack(
-                alignment: Alignment.center,
-                clipBehavior: Clip.none,
+              final avatar = Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Circular Progress Bar for Daily XP
-                  SizedBox(
-                    width: 104,
-                    height: 104,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        SizedBox(
-                          width: 98,
-                          height: 98,
-                          child: CircularProgressIndicator(
-                            value: 1.0,
-                            strokeWidth: 4.5,
-                            color: Colors.white.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 98,
-                          height: 98,
-                          child: CircularProgressIndicator(
-                            value: progress,
-                            strokeWidth: 4.5,
-                            strokeCap: StrokeCap.round,
-                            valueColor: const AlwaysStoppedAnimation(
-                              Color(0xFFFFD000),
-                            ),
-                          ),
-                        ),
-                        AppUserAvatar(
-                          name: widget.name,
-                          pictureUrl: widget.data.user.picture,
-                          radius: 41,
-                          backgroundColor: Colors.white.withValues(alpha: 0.25),
-                          textColor: Colors.white,
-                        ),
-                      ],
-                    ),
+                  AnimatedXpAvatarRing(
+                    name: widget.name,
+                    pictureUrl: widget.data.user.picture,
+                    dailyXp: _dailyXp,
+                    dailyGoalXp: _dailyGoalXp,
+                    radius: isMobile ? 38 : 41,
+                    ringSize: isMobile ? 92 : 98,
                   ),
-                  // Streak with flame icon button underneath photo
-                  Positioned(
-                    bottom: -8,
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: _openStreakModal,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 3,
+                  const SizedBox(height: 6),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: _openStreakModal,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF8A00), Color(0xFFE52E71)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFF8A00), Color(0xFFE52E71)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(
+                                0xFFFF6D00,
+                              ).withValues(alpha: 0.45),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
                             ),
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(
-                                  0xFFFF6D00,
-                                ).withValues(alpha: 0.45),
-                                blurRadius: 10,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.6),
-                              width: 1.5,
-                            ),
+                          ],
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.6),
+                            width: 1.5,
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.local_fire_department_rounded,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.local_fire_department_rounded,
+                              color: Colors.white,
+                              size: 15,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$_currentStreak dias',
+                              style: const TextStyle(
                                 color: Colors.white,
-                                size: 15,
-                              ).animate().scale(
-                                begin: const Offset(0.9, 0.9),
-                                end: const Offset(1.0, 1.0),
-                                duration: 400.ms,
-                                curve: Curves.easeOutBack,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 11.5,
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '$_currentStreak dias',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 11.5,
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -2102,8 +2118,8 @@ class _StudentStreakDialogState extends State<_StudentStreakDialog>
               child: Row(
                 children: [
                   Container(
-                    width: 72,
-                    height: 72,
+                    width: 68,
+                    height: 68,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.25),
                       shape: BoxShape.circle,
@@ -2115,14 +2131,12 @@ class _StudentStreakDialogState extends State<_StudentStreakDialog>
                         ),
                       ],
                     ),
-                    child: Center(
-                      child: MascotSprite(
-                        state: widget.currentStreak > 0
-                            ? MascotState.fireLoop
-                            : MascotState.intense,
-                        size: 62,
-                        glowColor: Colors.amberAccent,
-                      ),
+                    child: Icon(
+                      widget.currentStreak > 0
+                          ? Icons.local_fire_department_rounded
+                          : Icons.whatshot_outlined,
+                      color: Colors.white,
+                      size: 38,
                     ),
                   ),
                   const SizedBox(width: 18),
@@ -2327,11 +2341,8 @@ class _StudentStreakDialogState extends State<_StudentStreakDialog>
                     ],
                   ),
                   _loadingClassmates
-                      ? const MascotLoader(
+                      ? const AppLoader(
                           message: 'Carregando ranking de ofensiva da turma...',
-                          state: MascotState.fireLoop,
-                          mascotSize: 78,
-                          useSpriteSheet: true,
                           accentColor: Colors.deepOrange,
                         )
                       : ListView(
@@ -2578,6 +2589,136 @@ class _StudentStreakDialogState extends State<_StudentStreakDialog>
           ],
         ),
       ),
+    );
+  }
+}
+
+class _TeacherPrivateNotesCard extends StatefulWidget {
+  const _TeacherPrivateNotesCard();
+
+  @override
+  State<_TeacherPrivateNotesCard> createState() =>
+      _TeacherPrivateNotesCardState();
+}
+
+class _TeacherPrivateNotesCardState extends State<_TeacherPrivateNotesCard> {
+  late Future<List<Map<String, dynamic>>> _notesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _notesFuture = _load();
+  }
+
+  Future<List<Map<String, dynamic>>> _load() async {
+    try {
+      final response = await ApiClient().dio.get<List<dynamic>>(
+        Uri.parse(
+          AppConfig.apiBaseUrl,
+        ).resolve('/api/students/me/teacher-notes').toString(),
+      );
+      return (response.data ?? const [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return _ProfileCard(
+      icon: Icons.sticky_note_2_rounded,
+      title: 'Anotações e Recados dos Professores',
+      children: [
+        FutureBuilder<List<Map<String, dynamic>>>(
+          future: _notesFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: AppLoader(
+                  message: 'Carregando recados...',
+                  compact: true,
+                  showProgressBar: false,
+                ),
+              );
+            }
+            final notes = snapshot.data ?? const [];
+            if (notes.isEmpty) {
+              return Text(
+                'Nenhuma anotação recebida dos seus professores até o momento.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colors.onSurfaceVariant,
+                ),
+              );
+            }
+            return Column(
+              children: notes.take(5).map((note) {
+                final teacherName =
+                    note['teacherName']?.toString() ?? 'Professor(a)';
+                final className = note['schoolClassName']?.toString() ?? '';
+                final content = note['note']?.toString() ??
+                    note['noteText']?.toString() ??
+                    note['content']?.toString() ??
+                    '';
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF7651C8).withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.person_pin_rounded,
+                            size: 16,
+                            color: Color(0xFF7651C8),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              className.isNotEmpty
+                                  ? '$teacherName • $className'
+                                  : teacherName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                                color: Color(0xFF7651C8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        content,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          color: colors.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
     );
   }
 }

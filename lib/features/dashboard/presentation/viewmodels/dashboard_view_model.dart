@@ -24,12 +24,14 @@ class DashboardViewModel extends ChangeNotifier {
 
   DashboardState _state = const DashboardInitial();
   String _activeSection = 'profile';
+  final List<String> _sectionHistory = <String>[];
   UserProfileType? _activeProfileType;
   StreamSubscription<RealtimeSyncEvent>? _realtimeSubscription;
   bool _disposed = false;
 
   DashboardState get state => _state;
   String get activeSection => _activeSection;
+  bool get canGoBack => _sectionHistory.isNotEmpty || _activeSection != 'profile';
   UserProfileType? get activeProfileType => _activeProfileType;
 
   void _notifySafely() {
@@ -49,6 +51,9 @@ class DashboardViewModel extends ChangeNotifier {
           case 'PROFILE_UPDATED':
           case 'ENROLLMENT_UPDATED':
           case 'NOTIFICATION_ADDED':
+          case 'CLASS_ANNOUNCEMENT':
+          case 'TEACHER_NOTE_ADDED':
+          case 'CLASS_INVITED':
           case 'SUBMISSION_GRADED':
           case 'EXERCISE_CREATED':
           case 'RANKING_UPDATED':
@@ -65,9 +70,27 @@ class DashboardViewModel extends ChangeNotifier {
 
   void setActiveSection(String section) {
     if (_activeSection != section) {
+      if (_sectionHistory.length >= 20) {
+        _sectionHistory.removeAt(0);
+      }
+      _sectionHistory.add(_activeSection);
       _activeSection = section;
       _notifySafely();
     }
+  }
+
+  bool goBack() {
+    if (_sectionHistory.isNotEmpty) {
+      _activeSection = _sectionHistory.removeLast();
+      _notifySafely();
+      return true;
+    }
+    if (_activeSection != 'profile') {
+      _activeSection = 'profile';
+      _notifySafely();
+      return true;
+    }
+    return false;
   }
 
   void setActiveProfileType(UserProfileType profileType) {
@@ -78,6 +101,7 @@ class DashboardViewModel extends ChangeNotifier {
     }
     if (_activeProfileType == profileType) return;
     _activeProfileType = profileType;
+    _sectionHistory.clear();
     _activeSection = 'profile';
     _notifySafely();
   }

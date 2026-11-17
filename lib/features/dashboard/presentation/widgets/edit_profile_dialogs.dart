@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/audio/system_sound_service.dart';
 import '../../../../core/network/api_client.dart';
 import '../../data/datasources/dashboard_remote_datasource.dart';
 import '../../domain/entities/dashboard_data.dart';
@@ -17,8 +18,37 @@ String _parseErrorMsg(Object error, String fallback) {
     } else if (data is String && data.trim().isNotEmpty) {
       return data.trim();
     }
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.sendTimeout ||
+        error.type == DioExceptionType.connectionError) {
+      return 'Sem conexão com o servidor ao salvar a foto. Verifique a rede e tente novamente.';
+    }
+  }
+  if (error is FormatException && error.message.trim().isNotEmpty) {
+    return error.message.trim();
+  }
+  if (error is Exception) {
+    final raw = error.toString().replaceFirst('Exception: ', '').trim();
+    if (raw.isNotEmpty) return raw;
+  }
+  if (error is String && error.trim().isNotEmpty) {
+    return error.trim();
   }
   return fallback;
+}
+
+String normalizeProfilePictureInputUrl(String raw) {
+  final trimmed = raw.trim();
+  final parsed = Uri.tryParse(trimmed);
+  if (parsed == null) return trimmed;
+  // Extrai o link direto da imagem se o usuario colar um link de visualizacao do Google Imagens
+  final imgUrl = parsed.queryParameters['imgurl'];
+  if (imgUrl != null &&
+      (imgUrl.startsWith('http://') || imgUrl.startsWith('https://'))) {
+    return imgUrl.trim();
+  }
+  return trimmed;
 }
 
 /// Floating modal dialog for editing Name and Email.
@@ -114,10 +144,12 @@ class _EditProfileDetailsDialogState extends State<EditProfileDetailsDialog> {
     final isGoogleAccount = widget.data.user.googleId.isNotEmpty;
 
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
-        child: Padding(
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -128,8 +160,11 @@ class _EditProfileDetailsDialogState extends State<EditProfileDetailsDialog> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.edit_note_rounded, color: Color(0xFF5869D8)),
-                      SizedBox(width: 8),
+                      const Icon(
+                        Icons.edit_note_rounded,
+                        color: Color(0xFF5869D8),
+                      ),
+                      const SizedBox(width: 8),
                       Text(
                         'Editar Dados Pessoais',
                         style: TextStyle(
@@ -374,10 +409,12 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
   Widget build(BuildContext context) {
     final isGoogleAccount = widget.data.user.googleId.isNotEmpty;
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
-        child: Padding(
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -388,8 +425,11 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.lock_reset_rounded, color: Color(0xFF5869D8)),
-                      SizedBox(width: 8),
+                      const Icon(
+                        Icons.lock_reset_rounded,
+                        color: Color(0xFF5869D8),
+                      ),
+                      const SizedBox(width: 8),
                       Text(
                         'Alterar Senha',
                         style: TextStyle(
@@ -591,6 +631,7 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
         profilePicture: dataUrl,
       );
       if (!mounted) return;
+      SystemSoundService.success();
       widget.onSaved();
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -598,6 +639,7 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
       );
     } catch (e) {
       if (!mounted) return;
+      SystemSoundService.defeat();
       setState(() {
         _errorMessage = _parseErrorMsg(e, 'Erro ao carregar foto local.');
       });
@@ -607,12 +649,33 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
   }
 
   Future<void> _saveUrlImage() async {
-    final url = _urlController.text.trim();
-    if (url.isEmpty) {
+    final rawInput = _urlController.text.trim();
+    if (rawInput.isEmpty) {
+      SystemSoundService.defeat();
       setState(
         () => _errorMessage = 'Informe a URL da foto ou selecione um arquivo.',
       );
       return;
+    }
+
+    final url = normalizeProfilePictureInputUrl(rawInput);
+    final parsed = Uri.tryParse(url);
+    final scheme = parsed?.scheme.toLowerCase();
+    final isRelativeMedia = url.startsWith('/media/profile-pictures/');
+    if (!isRelativeMedia &&
+        (parsed == null ||
+            (scheme != 'http' && scheme != 'https') ||
+            parsed.host.isEmpty)) {
+      SystemSoundService.defeat();
+      setState(
+        () => _errorMessage =
+            'Informe uma URL HTTP/HTTPS direta para a imagem (ex: https://.../foto.jpg).',
+      );
+      return;
+    }
+
+    if (url != rawInput) {
+      _urlController.text = url;
     }
 
     setState(() {
@@ -626,15 +689,16 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
         userId: widget.data.user.id,
         profilePicture: url,
       );
+      if (!mounted) return;
+      SystemSoundService.success();
       widget.onSaved();
-      if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Foto de perfil alterada com sucesso!')),
-        );
-      }
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Foto de perfil alterada com sucesso!')),
+      );
     } catch (e) {
       if (!mounted) return;
+      SystemSoundService.defeat();
       setState(() {
         _errorMessage = _parseErrorMsg(e, 'Erro ao atualizar foto de perfil.');
       });
@@ -646,10 +710,12 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
-        child: Padding(
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -660,8 +726,11 @@ class _EditProfilePictureDialogState extends State<EditProfilePictureDialog> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.camera_alt_rounded, color: Color(0xFF5869D8)),
-                      SizedBox(width: 8),
+                      const Icon(
+                        Icons.camera_alt_rounded,
+                        color: Color(0xFF5869D8),
+                      ),
+                      const SizedBox(width: 8),
                       Text(
                         'Alterar Foto de Perfil',
                         style: TextStyle(
@@ -938,10 +1007,12 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
-        child: Padding(
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1215,10 +1286,12 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
     final isGoogle = widget.data.user.googleId.isNotEmpty;
 
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
-        child: Padding(
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,

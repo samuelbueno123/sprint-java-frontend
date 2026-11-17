@@ -2,9 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../../core/constants/app_feedback_widgets.dart';
 import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../../core/ui/mascot/mascot.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/teacher_class_assignment.dart';
 import '../../domain/entities/teacher_profile.dart';
@@ -1288,46 +1288,56 @@ class _TeacherCreateExerciseScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
+          Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color(0xFF7651C8),
-                ),
-                child: const Icon(
-                  Icons.auto_awesome_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Estúdio IA no Menu de Questões',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                        color: colors.onSurface,
-                      ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFF7651C8),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Gere ou expanda o questionário automaticamente com Gemini 3.5 Flash',
-                      style: TextStyle(
-                        color: colors.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
+                    child: const Icon(
+                      Icons.auto_awesome_rounded,
+                      color: Colors.white,
+                      size: 18,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Estúdio IA no Menu de Questões',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: colors.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Gere ou expanda o questionário automaticamente com Gemini 3.5 Flash',
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               Wrap(
                 spacing: 6,
+                runSpacing: 6,
                 children: [
                   ChoiceChip(
                     label: const Text('Substituir lista'),
@@ -1483,13 +1493,10 @@ class _TeacherCreateExerciseScreenState
           ),
           if (_generatingAi) ...[
             const SizedBox(height: 12),
-            const MascotLoader(
+            const AppLoader(
               message: 'Elaborando questões inéditas com IA...',
               subtitle: 'Organizando enunciados, opções e gabarito',
-              state: MascotState.clickSpin,
               compact: true,
-              mascotSize: 56,
-              useSpriteSheet: true,
               showProgressBar: false,
               accentColor: Color(0xFF7651C8),
             ),
@@ -1592,10 +1599,13 @@ class _TeacherCreateExerciseScreenState
         ],
         for (var index = 0; index < _questions.length; index++) ...[
           if (index > 0) const SizedBox(height: 14),
-          _questionCard(context, index)
-              .animate()
-              .fadeIn(duration: 350.ms, delay: (index * 50).ms)
-              .slideY(begin: 0.06, end: 0, curve: Curves.easeOutCubic),
+          KeyedSubtree(
+            key: ValueKey(_questions[index]),
+            child: _questionCard(context, index)
+                .animate()
+                .fadeIn(duration: 350.ms, delay: (index * 50).ms)
+                .slideY(begin: 0.06, end: 0, curve: Curves.easeOutCubic),
+          ),
         ],
       ],
     ),
@@ -1614,98 +1624,138 @@ class _TeacherCreateExerciseScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Questão ${index + 1}',
-                  style: TextStyle(
-                    color: colors.primary,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Questão ${index + 1}',
+                      style: TextStyle(
+                        color: colors.primary,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
-                ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      question.style,
+                      style: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  question.style,
-                  style: TextStyle(
-                    color: colors.onSurfaceVariant,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (_usesOptions(question.style))
+                    TextButton.icon(
+                      onPressed: question.generatingOptions
+                          ? null
+                          : () => _generateOptionsWithAi(question),
+                      icon: question.generatingOptions
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.auto_awesome_rounded, size: 16),
+                      label: const Text(
+                        'Alternativas IA',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF7651C8),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  TextButton.icon(
+                    onPressed: question.generatingExplanation
+                        ? null
+                        : () => _generateExplanationWithAi(question),
+                    icon: question.generatingExplanation
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.lightbulb_outline_rounded, size: 16),
+                    label: const Text(
+                      'Explicar Gabarito',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.amber.shade800,
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
-                ),
+                  IconButton(
+                    tooltip: _questions.length > 1
+                        ? 'Remover questão'
+                        : 'Limpar campos da questão',
+                    onPressed: () {
+                      if (_questions.length > 1) {
+                        setState(() {
+                          _questions.remove(question);
+                        });
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          question.dispose();
+                        });
+                      } else {
+                        setState(() {
+                          question.prompt.clear();
+                          for (final opt in question.options) {
+                            opt.clear();
+                          }
+                          question.expectedAnswer.clear();
+                          question.correctAnswer = null;
+                          question.aiExplanation = null;
+                        });
+                      }
+                    },
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      color: colors.error,
+                    ),
+                  ),
+                ],
               ),
-              const Spacer(),
-              if (_usesOptions(question.style)) ...[
-                TextButton.icon(
-                  onPressed: question.generatingOptions
-                      ? null
-                      : () => _generateOptionsWithAi(question),
-                  icon: question.generatingOptions
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.auto_awesome_rounded, size: 16),
-                  label: const Text(
-                    'Alternativas IA',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF7651C8),
-                  ),
-                ),
-                const SizedBox(width: 4),
-              ],
-              TextButton.icon(
-                onPressed: question.generatingExplanation
-                    ? null
-                    : () => _generateExplanationWithAi(question),
-                icon: question.generatingExplanation
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.lightbulb_outline_rounded, size: 16),
-                label: const Text(
-                  'Explicar Gabarito',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                ),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.amber.shade800,
-                ),
-              ),
-              if (_questions.length > 1)
-                IconButton(
-                  tooltip: 'Remover questão',
-                  onPressed: () {
-                    late final _ComposerQuestion removed;
-                    setState(() {
-                      removed = _questions.removeAt(index);
-                    });
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      removed.dispose();
-                    });
-                  },
-                  icon: Icon(Icons.delete_outline_rounded, color: colors.error),
-                ),
             ],
           ),
           const SizedBox(height: 12),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/ui/mascot/mascot.dart';
+import '../../../../core/audio/system_sound_service.dart';
+import '../../../../core/constants/brand_assets.dart';
 import '../../../auth/domain/entities/user_role.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 
@@ -9,6 +10,7 @@ class AccessSelectionPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
+    resizeToAvoidBottomInset: true,
     body: SafeArea(
       child: Center(
         child: SingleChildScrollView(
@@ -18,17 +20,10 @@ class AccessSelectionPage extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const MascotSprite(
-                  state: MascotState.idle,
-                  size: 104,
-                  glowColor: Color(0xFF58CC02),
-                ),
-                const SizedBox(height: 14),
-                const Text(
-                  'Duolinfo',
-                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
+                const AppBrandBanner(height: 88, maxWidth: 320),
+                const SizedBox(height: 16),
+                const AppBrandIcon(size: 72),
+                const SizedBox(height: 12),
                 const Text(
                   'Escolha como deseja acessar a plataforma.',
                   textAlign: TextAlign.center,
@@ -38,7 +33,6 @@ class AccessSelectionPage extends StatelessWidget {
                   label: 'ENTRAR COMO ALUNO',
                   color: const Color(0xFF58CC02),
                   icon: Icons.school_rounded,
-                  mascotState: MascotState.celebrate,
                   onPressed: () => _openLogin(
                     context,
                     UserRole.student,
@@ -51,7 +45,6 @@ class AccessSelectionPage extends StatelessWidget {
                   label: 'ENTRAR COMO PROFESSOR',
                   color: const Color(0xFF1CB0F6),
                   icon: Icons.co_present_rounded,
-                  mascotState: MascotState.intense,
                   onPressed: () => _openLogin(
                     context,
                     UserRole.teacher,
@@ -73,6 +66,7 @@ class AccessSelectionPage extends StatelessWidget {
     Color color,
     IconData icon,
   ) {
+    SystemSoundService.click();
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const LoginPage()));
@@ -84,13 +78,11 @@ class _AccessButton extends StatelessWidget {
     required this.label,
     required this.color,
     required this.icon,
-    required this.mascotState,
     required this.onPressed,
   });
   final String label;
   final Color color;
   final IconData icon;
-  final MascotState mascotState;
   final VoidCallback onPressed;
 
   @override
@@ -103,10 +95,8 @@ class _AccessButton extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          MascotPoseEmblem(state: mascotState, size: 30),
+          Icon(icon, size: 22),
           const SizedBox(width: 10),
-          Icon(icon, size: 19),
-          const SizedBox(width: 8),
           Text(label),
         ],
       ),

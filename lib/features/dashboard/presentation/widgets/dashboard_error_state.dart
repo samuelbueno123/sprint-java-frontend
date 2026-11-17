@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/ui/mascot/mascot.dart';
+import '../../../../core/constants/app_feedback_widgets.dart';
 
 class DashboardErrorState extends StatelessWidget {
   const DashboardErrorState({
@@ -39,10 +39,7 @@ class DashboardErrorState extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const MascotErrorIllustration(
-                    state: MascotState.sad,
-                    size: 86,
-                  ),
+                  const AppErrorIllustration(size: 82),
                   const SizedBox(height: 16),
                   Text(
                     'Atenção',

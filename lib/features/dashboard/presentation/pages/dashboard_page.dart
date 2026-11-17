@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/ui/mascot/mascot.dart';
+import '../../../../core/constants/app_feedback_widgets.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../dashboard_dependencies.dart';
 import '../viewmodels/dashboard_state.dart';
@@ -53,11 +53,9 @@ class _DashboardPageState extends State<DashboardPage> {
         if (state is DashboardLoading || state is DashboardInitial) {
           return Scaffold(
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            body: const MascotLoader(
+            body: const AppLoader(
               message: 'Carregando seu painel Duolinfo...',
               subtitle: 'Preparando suas lições, metas e progresso',
-              state: MascotState.idle,
-              mascotSize: 96,
             ),
           );
         }
@@ -81,6 +79,8 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
             onProfileTypeSelected: _viewModel.setActiveProfileType,
             activeSection: _viewModel.activeSection,
+            canGoBack: _viewModel.canGoBack,
+            onGoBack: _viewModel.goBack,
             onSectionSelected: _viewModel.setActiveSection,
             onLogout: _handleLogout,
             onRefresh: _viewModel.loadDashboardData,

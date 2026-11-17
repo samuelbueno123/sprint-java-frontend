@@ -33,9 +33,35 @@ flutter:
   uses-material-design: true
   assets:
     - .env
-    - assets/mascot/sheets/
-    - assets/mascot/sheets_24fps/
-    - assets/mascot/sheets_interactive/
-    - assets/mascot/gifs/green/
-    - assets/mascot/gifs/white_24fps/
-    - assets/mascot/gifs/interactive/
+    - assets/BANNER.jpg
+    - assets/ICONE.jpg
+    - assets/sounds/
+    - assets/duo_goat_spritesheet/bode_branco_24fps_celebrate.gif
+    - assets/duo_goat_spritesheet/bode_branco_24fps_idle.gif
+    - assets/duo_goat_spritesheet/bode_branco_24fps_intense.gif
+    - assets/duo_goat_spritesheet/bode_branco_24fps_master_grid.png
+    - assets/duo_goat_spritesheet/bode_branco_24fps_sad.gif
+    - assets/duo_goat_spritesheet/bode_branco_interactive_master.png
+    - assets/duo_goat_spritesheet/bode_branco_spritesheet_master.png
+    - assets/duo_goat_spritesheet/bode_spritesheet.json
+    - assets/duo_goat_spritesheet/click_bleat.gif
+    - assets/duo_goat_spritesheet/click_heart.gif
+    - assets/duo_goat_spritesheet/click_poke.gif
+    - assets/duo_goat_spritesheet/click_shake.gif
+    - assets/duo_goat_spritesheet/click_spin.gif
+    - assets/duo_goat_spritesheet/drag_move_down.gif
+    - assets/duo_goat_spritesheet/drag_move_left.gif
+    - assets/duo_goat_spritesheet/drag_move_right.gif
+    - assets/duo_goat_spritesheet/drag_move_up.gif
+    - assets/duo_goat_spritesheet/drag_start_down.gif
+    - assets/duo_goat_spritesheet/drag_start_left.gif
+    - assets/duo_goat_spritesheet/drag_start_right.gif
+    - assets/duo_goat_spritesheet/drag_start_up.gif
+    - assets/duo_goat_spritesheet/fire_loop.gif
+    - assets/duo_goat_spritesheet/hold_grab.gif
+    - assets/duo_goat_spritesheet/wall_hit_bottom.gif
+    - assets/duo_goat_spritesheet/wall_hit_left.gif
+    - assets/duo_goat_spritesheet/wall_hit_right.gif
+    - assets/duo_goat_spritesheet/wall_hit_top.gif
+    - assets/duo_goat_spritesheet/spritesheets_24fps/
+    - assets/duo_goat_spritesheet/spritesheets_interactive/

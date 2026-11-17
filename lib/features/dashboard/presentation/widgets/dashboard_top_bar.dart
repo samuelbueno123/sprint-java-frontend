@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/ui/mascot/mascot.dart';
+import '../../../../core/constants/brand_assets.dart';
+import '../../../../core/theme/admin_geral_theme.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/user_profile_type.dart';
 import 'app_user_avatar.dart';
@@ -33,17 +34,17 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
       case UserProfileType.teacher:
         return const Color(0xFF7651C8);
       case UserProfileType.admin:
-        return const Color(0xFFD97706);
+        return AdminGeralTheme.indigoMid;
       case UserProfileType.user:
         return Colors.grey.shade700;
     }
   }
 
-  Widget _buildAvatar(String? avatarUrl) {
+  Widget _buildAvatar(String? avatarUrl, {bool compact = false}) {
     return AppUserAvatar(
       name: data.user.name,
       pictureUrl: avatarUrl,
-      radius: 18,
+      radius: compact ? 15 : 18,
       backgroundColor: _roleColor.withValues(alpha: 0.2),
       textColor: _roleColor,
     );
@@ -53,28 +54,40 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final avatarUrl = data.user.picture;
     final isCompact = MediaQuery.sizeOf(context).width < 600;
+    final showAdminGold =
+        data.profileType == UserProfileType.admin && isCompact;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final currentRoleLabel = data.roleLabel;
 
+    final isAdminRole = data.profileType == UserProfileType.admin;
     Widget roleIndicator = Container(
       padding: EdgeInsets.symmetric(
         horizontal: isCompact ? 7 : 10,
         vertical: 5,
       ),
-      decoration: BoxDecoration(
-        color: _roleColor.withValues(alpha: isDark ? 0.24 : 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
+      decoration: isAdminRole
+          ? AdminGeralTheme.badgePillDecoration(
+              borderRadius: 20,
+              showGoldBorder: showAdminGold,
+            )
+          : BoxDecoration(
+              color: _roleColor.withValues(alpha: isDark ? 0.24 : 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(_roleIcon(data.profileType), size: 15, color: _roleColor),
+          Icon(
+            _roleIcon(data.profileType),
+            size: 15,
+            color: isAdminRole ? Colors.white : _roleColor,
+          ),
           if (!isCompact) ...[
             const SizedBox(width: 4),
             Text(
               currentRoleLabel,
               style: TextStyle(
-                color: _roleColor,
+                color: isAdminRole ? Colors.white : _roleColor,
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
               ),
@@ -82,7 +95,11 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
           ],
           if (data.availableProfileTypes.length > 1) ...[
             const SizedBox(width: 2),
-            Icon(Icons.arrow_drop_down_rounded, size: 18, color: _roleColor),
+            Icon(
+              Icons.arrow_drop_down_rounded,
+              size: 18,
+              color: isAdminRole ? AdminGeralTheme.goldBright : _roleColor,
+            ),
           ],
         ],
       ),
@@ -119,10 +136,22 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
     return Container(
       height: preferredSize.height,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        gradient: isAdminRole
+            ? LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: isDark
+                    ? const [Color(0xFF0F172A), Color(0xFF1E1B4B)]
+                    : const [Color(0xFFEEF2FF), Color(0xFFF5F3FF)],
+              )
+            : null,
+        color: isAdminRole ? null : Theme.of(context).colorScheme.surface,
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant,
+            color: showAdminGold
+                ? AdminGeralTheme.goldMetallic
+                : Theme.of(context).colorScheme.outlineVariant,
+            width: showAdminGold ? 1.5 : 1.0,
           ),
         ),
       ),
@@ -133,32 +162,40 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
             IconButton(
               icon: const Icon(Icons.menu_rounded),
               tooltip: 'Menu lateral',
+              constraints: isCompact
+                  ? const BoxConstraints(minWidth: 34, minHeight: 34)
+                  : null,
+              padding: isCompact ? const EdgeInsets.all(4) : null,
               onPressed: onMenuPressed,
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: isCompact ? 2 : 4),
           ],
-          MascotPoseEmblem(
-            state: MascotState.idle,
-            size: 32,
-            glowColor: _roleColor,
-            semanticLabel: 'Abrir estúdio do mascote Duolinfo',
-            onTap: () => MascotCompanionModal.show(context),
+          AppBrandIcon(
+            size: isCompact ? 28 : 32,
+            borderColor: showAdminGold ? AdminGeralTheme.goldMetallic : null,
           ),
-          SizedBox(width: isCompact ? 5 : 8),
-          Text(
-            'Duolinfo',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: isDark ? Colors.white : Colors.black87,
+          SizedBox(width: isCompact ? 6 : 8),
+          Expanded(
+            child: Text(
+              'Duolinfo',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: isCompact ? 16 : 18,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
             ),
           ),
-          const Spacer(),
           if (onOpenNotifications != null)
             IconButton(
               tooltip: unreadCount > 0
                   ? 'Notificações administrativas ($unreadCount não lida(s))'
                   : 'Notificações administrativas',
+              constraints: isCompact
+                  ? const BoxConstraints(minWidth: 34, minHeight: 34)
+                  : null,
+              padding: isCompact ? const EdgeInsets.all(4) : null,
               onPressed: onOpenNotifications,
               icon: Badge(
                 isLabelVisible: unreadCount > 0,
@@ -175,7 +212,11 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
                   unreadCount > 0
                       ? Icons.notifications_active_rounded
                       : Icons.notifications_none_rounded,
-                  color: unreadCount > 0 ? const Color(0xFFD97706) : null,
+                  color: unreadCount > 0
+                      ? (showAdminGold
+                            ? AdminGeralTheme.goldMetallic
+                            : _roleColor)
+                      : null,
                 ),
               ),
             ),
@@ -194,7 +235,7 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            child: _buildAvatar(avatarUrl),
+            child: _buildAvatar(avatarUrl, compact: isCompact),
             itemBuilder: (context) => [
               PopupMenuItem(
                 enabled: false,

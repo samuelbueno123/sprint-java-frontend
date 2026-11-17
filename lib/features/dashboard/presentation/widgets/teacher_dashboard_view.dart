@@ -11,7 +11,7 @@ import 'teacher_settings_view.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../../core/ui/mascot/mascot.dart';
+import '../../../../core/ui/language_flag.dart';
 import '../../../../core/ui/motion_kit.dart';
 import 'learning_features.dart';
 
@@ -93,7 +93,12 @@ class TeacherDashboardView extends StatelessWidget {
             _ProfileCard(
               icon: Icons.record_voice_over_rounded,
               title: 'Idiomas lecionados',
-              child: _tagList(teacher.taughtLanguages, _purple, context),
+              child: _tagList(
+                teacher.taughtLanguages,
+                _purple,
+                context,
+                isLanguages: true,
+              ),
             ),
             const SizedBox(height: 16),
             _ProfileCard(
@@ -262,10 +267,18 @@ class TeacherDashboardView extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const MascotPoseEmblem(
-                    state: MascotState.intense,
-                    size: 46,
-                    glowColor: _purple,
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: _purple.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.lightbulb_outline_rounded,
+                      color: _purple,
+                      size: 26,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -366,6 +379,7 @@ class TeacherDashboardView extends StatelessWidget {
                         teacher.taughtLanguages,
                         _purple,
                         context,
+                        isLanguages: true,
                       ),
                     ),
                   ),
@@ -513,10 +527,18 @@ class TeacherDashboardView extends StatelessWidget {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const MascotPoseEmblem(
-                            state: MascotState.idle,
-                            size: 36,
-                            glowColor: Colors.white,
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.co_present_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
                           const SizedBox(width: 10),
                           Text(
@@ -804,7 +826,12 @@ class TeacherDashboardView extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        _tagList(teacher.taughtLanguages, _purple, context),
+                        _tagList(
+                          teacher.taughtLanguages,
+                          _purple,
+                          context,
+                          isLanguages: true,
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           'Áreas de especialização:',
@@ -1116,7 +1143,12 @@ class TeacherDashboardView extends StatelessWidget {
     );
   }
 
-  Widget _tagList(List<String> values, Color color, BuildContext context) {
+  Widget _tagList(
+    List<String> values,
+    Color color,
+    BuildContext context, {
+    bool isLanguages = false,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     if (values.isEmpty) {
       return Text(
@@ -1127,25 +1159,53 @@ class TeacherDashboardView extends StatelessWidget {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: values
-          .map(
-            (value) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: isDark ? .22 : .09),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: color.withValues(alpha: .35)),
-              ),
-              child: Text(
-                value,
+      children: values.map((value) {
+        final parts = SupportedLanguages.splitLanguageAndLevel(value);
+        final isLangTag =
+            isLanguages || SupportedLanguages.isSupported(parts.language);
+        final levelText = parts.level;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: isDark ? .22 : .09),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withValues(alpha: .35)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isLangTag) ...[
+                LanguageFlag.forLanguage(
+                  parts.language,
+                  width: 18,
+                  borderRadius: 3,
+                ),
+                const SizedBox(width: 7),
+              ] else ...[
+                Text(
+                  SupportedLanguages.specializationEmoji(value),
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                isLangTag
+                    ? (levelText != null
+                          ? '${SupportedLanguages.normalizeOrDefault(parts.language, parts.language)} • ${SupportedLanguages.formatLevelWithEmoji(levelText)}'
+                          : SupportedLanguages.normalizeOrDefault(
+                              parts.language,
+                              parts.language,
+                            ))
+                    : value,
                 style: TextStyle(
                   color: isDark ? Colors.white : color,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-            ),
-          )
-          .toList(),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }
@@ -1201,17 +1261,17 @@ class _WelcomeBanner extends StatelessWidget {
         ),
         const SizedBox(width: 14),
         Container(
-          width: 72,
-          height: 72,
+          width: 64,
+          height: 64,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: .16),
             shape: BoxShape.circle,
           ),
           child: const Center(
-            child: MascotSprite(
-              state: MascotState.idle,
-              size: 62,
-              glowColor: Colors.white,
+            child: Icon(
+              Icons.school_rounded,
+              color: Colors.white,
+              size: 32,
             ),
           ),
         ),

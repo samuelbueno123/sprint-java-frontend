@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import '../../../../core/audio/system_sound_service.dart';
 import '../../../../core/config/app_config.dart';
-import '../../../../core/ui/mascot/mascot.dart';
 import '../../../../core/ui/motion_kit.dart';
 import '../../auth_dependencies.dart';
 import '../../domain/entities/auth_session.dart';
@@ -108,11 +108,20 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _submitPassword() async {
-    if (!_formKey.currentState!.validate() || _viewModel.isLoading) return;
+    if (!_formKey.currentState!.validate() || _viewModel.isLoading) {
+      SystemSoundService.defeat();
+      return;
+    }
+    SystemSoundService.click();
     await _viewModel.signInWithPassword(
       _emailController.text,
       _passwordController.text,
     );
+    if (_viewModel.session != null) {
+      SystemSoundService.success();
+    } else if (_viewModel.errorMessage != null) {
+      SystemSoundService.defeat();
+    }
   }
 
   Future<void> _submitGoogle() async {
@@ -153,19 +162,10 @@ class _LoginPageState extends State<LoginPage> {
     return AnimatedBuilder(
       animation: _viewModel,
       builder: (context, _) {
-        final mascotState = _viewModel.errorMessage != null
-            ? MascotState.sad
-            : (_viewModel.isLoading ? MascotState.intense : MascotState.idle);
         return AuthPageFrame(
           title: 'Entrar',
           subtitle: 'Acesse sua conta com email, senha ou Google.',
           accentColor: const Color(0xFF5869D8),
-          mascotState: mascotState,
-          mascotTip: _viewModel.errorMessage != null
-              ? 'Ops! Confira seu email e senha para entrar no painel.'
-              : (_viewModel.isLoading
-                  ? 'Conectando ao servidor e preparando seus estudos...'
-                  : 'Toque no bode Duolinfo ou faça login para continuar!'),
           child: Form(
           key: _formKey,
           child: Column(

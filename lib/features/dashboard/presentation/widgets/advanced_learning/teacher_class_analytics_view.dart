@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
+import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/core/ui/mascot/mascot.dart';
 import 'package:frontend/features/dashboard/domain/entities/dashboard_data.dart';
 import 'teacher_student_notes_dialog.dart';
 
@@ -140,10 +140,8 @@ class _TeacherClassAnalyticsViewState extends State<TeacherClassAnalyticsView> {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Padding(
                         padding: EdgeInsets.all(24),
-                        child: MascotLoader(
+                        child: AppLoader(
                           message: 'Calculando analytics da turma...',
-                          state: MascotState.intense,
-                          mascotSize: 78,
                           accentColor: Color(0xFF7651C8),
                         ),
                       );

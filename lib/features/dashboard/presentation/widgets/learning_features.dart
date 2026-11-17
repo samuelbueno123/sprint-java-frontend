@@ -1,14 +1,18 @@
 import 'package:dio/dio.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../../core/audio/system_sound_service.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/constants/app_feedback_widgets.dart';
 import '../../../../core/constants/supported_languages.dart';
 import 'dart:async';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/realtime_sync_service.dart';
-import '../../../../core/ui/mascot/mascot.dart';
+import '../../../../core/ui/language_flag.dart';
 import '../../../../core/ui/motion_kit.dart';
+import '../../../../core/xp/xp_animation_controller.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/student_enrollment.dart';
 import '../../domain/entities/student_profile.dart';
@@ -191,9 +195,8 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
     future: _load,
     builder: (context, snapshot) {
       if (snapshot.connectionState != ConnectionState.done) {
-        return const MascotLoader(
+        return const AppLoader(
           message: 'Carregando espaço docente...',
-          mascotSize: 80,
           accentColor: Color(0xFF7651C8),
         );
       }
@@ -1854,6 +1857,13 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
     }
     final ranking = studentTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
+    final chartEntries = ranking.take(6).toList();
+    final maxChartXp = chartEntries.fold<double>(
+      10,
+      (m, e) => e.value > m ? e.value.toDouble() : m,
+    );
+    final colors = Theme.of(context).colorScheme;
+
     return ListView(
       padding: responsivePagePadding(context),
       children: [
@@ -1883,7 +1893,132 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
+        if (chartEntries.isNotEmpty) ...[
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: BorderSide(color: colors.outlineVariant),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.bar_chart_rounded,
+                        color: Color(0xFF7651C8),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Gráfico de XP por Estudante',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: colors.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 210,
+                    child: BarChart(
+                      BarChartData(
+                        maxY: (maxChartXp * 1.2).ceilToDouble(),
+                        gridData: FlGridData(
+                          show: true,
+                          drawVerticalLine: false,
+                          getDrawingHorizontalLine: (value) => FlLine(
+                            color: colors.outlineVariant.withValues(alpha: 0.4),
+                            strokeWidth: 1,
+                          ),
+                        ),
+                        borderData: FlBorderData(show: false),
+                        titlesData: FlTitlesData(
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 40,
+                              getTitlesWidget: (val, meta) => Text(
+                                '${val.toInt()}',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 32,
+                              getTitlesWidget: (val, meta) {
+                                final idx = val.toInt();
+                                if (idx < 0 || idx >= chartEntries.length) {
+                                  return const SizedBox.shrink();
+                                }
+                                final short = chartEntries[idx].key
+                                    .split(' ')
+                                    .first;
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(
+                                    short.length > 8
+                                        ? '${short.substring(0, 7)}.'
+                                        : short,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: colors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        barGroups: [
+                          for (var i = 0; i < chartEntries.length; i++)
+                            BarChartGroupData(
+                              x: i,
+                              barRods: [
+                                BarChartRodData(
+                                  toY: chartEntries[i].value.toDouble(),
+                                  width: 22,
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(8),
+                                  ),
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF7651C8),
+                                      Color(0xFF3B82F6),
+                                    ],
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         if (_dataLoadError != null || _submissions.isEmpty)
           _DatabaseNotice(
             title: _dataLoadError == null
@@ -2126,9 +2261,8 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
     future: _load,
     builder: (context, snapshot) {
       if (snapshot.connectionState != ConnectionState.done) {
-        return const MascotLoader(
+        return const AppLoader(
           message: 'Carregando suas lições e atividades...',
-          mascotSize: 84,
           accentColor: Color(0xFF3579E8),
         );
       }
@@ -2330,159 +2464,183 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                 ),
                 const SizedBox(height: 18),
 
-                // Resumo de Desempenho com 3 Cards Coloridos
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 14,
-                          horizontal: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF10B981), Color(0xFF059669)],
+                // Resumo de Desempenho com 3 Cards Coloridos de Altura Uniforme
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 14,
+                            horizontal: 10,
                           ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(
-                                0xFF10B981,
-                              ).withValues(alpha: 0.25),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF10B981), Color(0xFF059669)],
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            const Icon(
-                              Icons.task_alt_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${_submissions.length}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w900,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(
+                                  0xFF10B981,
+                                ).withValues(alpha: 0.25),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
                               ),
-                            ),
-                            const Text(
-                              'Entregas Concluídas',
-                              style: TextStyle(
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.task_alt_rounded,
                                 color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
+                                size: 20,
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 4),
+                              Text(
+                                '${_submissions.length}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 21,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'Entregas Concluídas',
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 14,
-                          horizontal: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 14,
+                            horizontal: 10,
                           ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(
-                                0xFFF59E0B,
-                              ).withValues(alpha: 0.25),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            const Icon(
-                              Icons.bolt_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '+$totalXp XP',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w900,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(
+                                  0xFFF59E0B,
+                                ).withValues(alpha: 0.25),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
                               ),
-                            ),
-                            const Text(
-                              'XP Conquistado',
-                              style: TextStyle(
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.bolt_rounded,
                                 color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
+                                size: 20,
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 4),
+                              Text(
+                                '+$totalXp XP',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 21,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'XP Conquistado',
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 14,
-                          horizontal: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 14,
+                            horizontal: 10,
                           ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(
-                                0xFF3B82F6,
-                              ).withValues(alpha: 0.25),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            const Icon(
-                              Icons.track_changes_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '$overallAccuracy%',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w900,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(
+                                  0xFF3B82F6,
+                                ).withValues(alpha: 0.25),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
                               ),
-                            ),
-                            const Text(
-                              'Taxa de Acertos',
-                              style: TextStyle(
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.track_changes_rounded,
                                 color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
+                                size: 20,
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 4),
+                              Text(
+                                '$overallAccuracy%',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 21,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'Taxa de Acertos',
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 20),
 
@@ -2941,17 +3099,17 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(6),
+                            padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: MascotSprite(
-                              state: urgent.isNotEmpty
-                                  ? MascotState.intense
-                                  : MascotState.idle,
-                              size: 48,
-                              glowColor: Colors.white,
+                            child: Icon(
+                              urgent.isNotEmpty
+                                  ? Icons.bolt_rounded
+                                  : Icons.menu_book_rounded,
+                              color: Colors.white,
+                              size: 28,
                             ),
                           ),
                           const SizedBox(width: 14),
@@ -3226,17 +3384,17 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(6),
+                            padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.18),
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: MascotSprite(
-                              state: earned > 0
-                                  ? MascotState.celebrate
-                                  : MascotState.clickSpin,
-                              size: 52,
-                              glowColor: Colors.white,
+                            child: Icon(
+                              earned > 0
+                                  ? Icons.emoji_events_rounded
+                                  : Icons.military_tech_rounded,
+                              color: Colors.white,
+                              size: 32,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -3354,6 +3512,8 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
   }
 
   Widget _rankingView({required bool grouped, String? dataLoadError}) {
+    final colors = Theme.of(context).colorScheme;
+    final topThree = _ranking.take(3).toList();
     return ListView(
       padding: responsivePagePadding(context),
       children: [
@@ -3362,12 +3522,12 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
           style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 12),
-        MascotSpeechBanner(
-          title: grouped ? 'Disputa entre grupos' : 'Ranking em chamas',
+        AppInfoBanner(
+          title: grouped ? 'Disputa entre grupos' : 'Ranking de XP',
           message:
               'Complete atividades no prazo e mantenha sua ofensiva acesa para subir no pódio!',
-          state: grouped ? MascotState.dragMoveUp : MascotState.fireLoop,
-          mascotSize: 56,
+          icon: Icons.emoji_events_rounded,
+          accentColor: const Color(0xFFF59E0B),
         ),
         const SizedBox(height: 12),
         DropdownButton<String>(
@@ -3385,7 +3545,89 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
             });
           },
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
+        if (topThree.isNotEmpty) ...[
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: colors.outlineVariant),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.workspace_premium_rounded,
+                        color: Color(0xFFF59E0B),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        grouped ? 'Pódio das Turmas' : 'Pódio de Liderança',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: colors.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (topThree.length >= 2)
+                        Expanded(
+                          child: _PodiumColumn(
+                            place: 2,
+                            name:
+                                '${grouped ? topThree[1]['className'] ?? 'Turma' : topThree[1]['studentName'] ?? '2º Lugar'}',
+                            xp: (topThree[1]['xpEarned'] as num?)?.toInt() ?? 0,
+                            height: 92,
+                            color: const Color(0xFF94A3B8),
+                            medal: '🥈',
+                          ),
+                        )
+                      else
+                        const Spacer(),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _PodiumColumn(
+                          place: 1,
+                          name:
+                              '${grouped ? topThree[0]['className'] ?? 'Turma' : topThree[0]['studentName'] ?? '1º Lugar'}',
+                          xp: (topThree[0]['xpEarned'] as num?)?.toInt() ?? 0,
+                          height: 126,
+                          color: const Color(0xFFF59E0B),
+                          medal: '🏆',
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (topThree.length >= 3)
+                        Expanded(
+                          child: _PodiumColumn(
+                            place: 3,
+                            name:
+                                '${grouped ? topThree[2]['className'] ?? 'Turma' : topThree[2]['studentName'] ?? '3º Lugar'}',
+                            xp: (topThree[2]['xpEarned'] as num?)?.toInt() ?? 0,
+                            height: 74,
+                            color: const Color(0xFFD97706),
+                            medal: '🥉',
+                          ),
+                        )
+                      else
+                        const Spacer(),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
         if (_ranking.isEmpty || dataLoadError != null)
           _DatabaseNotice(
             title: dataLoadError == null
@@ -3409,6 +3651,78 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
               trailing: Text('${row['xpEarned'] ?? 0} XP'),
             ),
           ),
+      ],
+    );
+  }
+}
+
+class _PodiumColumn extends StatelessWidget {
+  const _PodiumColumn({
+    required this.place,
+    required this.name,
+    required this.xp,
+    required this.height,
+    required this.color,
+    required this.medal,
+  });
+
+  final int place;
+  final String name;
+  final int xp;
+  final double height;
+  final Color color;
+  final String medal;
+
+  @override
+  Widget build(BuildContext context) {
+    final firstName = name.trim().split(' ').first;
+    final colors = Theme.of(context).colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(medal, style: const TextStyle(fontSize: 22)),
+        const SizedBox(height: 4),
+        Text(
+          firstName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+            color: colors.onSurface,
+          ),
+        ),
+        Text(
+          '$xp XP',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: height,
+          width: double.infinity,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [color, color.withValues(alpha: 0.72)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+          ),
+          child: Text(
+            '$placeº',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -3440,7 +3754,6 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
   bool _audioFallbackMode = false;
   String? _speechStatus;
   int _index = 0;
-  MascotState _buddyState = MascotState.idle;
 
   @override
   void initState() {
@@ -3459,9 +3772,6 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
   }
 
   Future<void> _speakCurrentPrompt({double rate = 1.0}) async {
-    if (mounted) {
-      setState(() => _buddyState = MascotState.clickBleat);
-    }
     final q = widget.exercise.questions[_index];
     final targetText = q.spokenReference.isNotEmpty
         ? q.spokenReference
@@ -3474,7 +3784,6 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
     if (!ok && mounted) {
       setState(() {
         _audioFallbackMode = true;
-        _buddyState = MascotState.clickPoke;
         _speechStatus =
             'Síntese de áudio indisponível neste dispositivo. Modo acessível ativado automaticamente.';
       });
@@ -3485,7 +3794,6 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
     if (_listening) return;
     setState(() {
       _listening = true;
-      _buddyState = MascotState.holdGrab;
       _speechStatus = 'Solicitando acesso ao microfone...';
     });
     try {
@@ -3526,7 +3834,7 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
         ? _text.text.trim()
         : (_selected[_index] ?? _text.text.trim());
     if (answer.isEmpty) {
-      setState(() => _buddyState = MascotState.clickShake);
+      SystemSoundService.defeat();
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(
@@ -3540,13 +3848,14 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
     }
     _answers[_index] = answer;
     if (_index < widget.exercise.questions.length - 1) {
+      SystemSoundService.pop();
       setState(() {
         _index++;
-        _buddyState = MascotState.dragMoveRight;
         _speechStatus = null;
         _text.clear();
       });
     } else {
+      SystemSoundService.click();
       _submit();
     }
   }
@@ -3560,6 +3869,27 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
       );
       if (!mounted) return;
       final result = Map<String, dynamic>.from(response.data as Map);
+      final int correct = (result['correctCount'] as num?)?.toInt() ?? 0;
+      final int total =
+          (result['questionCount'] as num?)?.toInt() ??
+          (widget.exercise.questions.isNotEmpty
+              ? widget.exercise.questions.length
+              : 1);
+      final int xpEarned = (result['xpEarned'] as num?)?.toInt() ?? 0;
+      final double accuracy = total > 0 ? (correct / total) : 1.0;
+
+      if (xpEarned > 0) {
+        await XpAnimationController.recordXpGain(
+          xpEarned,
+          source: widget.exercise.title,
+        );
+      }
+      if (accuracy >= 0.5) {
+        SystemSoundService.success();
+      } else {
+        SystemSoundService.defeat();
+      }
+      if (!mounted) return;
       setState(() {
         _recapResult = result;
       });
@@ -3576,6 +3906,7 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
 
   Widget _buildRecapScreen(BuildContext context, Map<String, dynamic> result) {
     final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final int correct = (result['correctCount'] as num?)?.toInt() ?? 0;
     final int total =
         (result['questionCount'] as num?)?.toInt() ??
@@ -3584,8 +3915,7 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
             : 1);
     final int safeTotal = total <= 0 ? 1 : total;
     final int percent = ((correct / safeTotal) * 100).round();
-    final int xpEarned =
-        (result['xpEarned'] as num?)?.toInt() ?? (correct * 10);
+    final int xpEarned = (result['xpEarned'] as num?)?.toInt() ?? 0;
     final String reviewStatus = '${result['reviewStatus'] ?? 'AUTO_GRADED'}';
     final List<Map<String, dynamic>> questionFeedback =
         ((result['questionFeedback'] as List?) ?? const [])
@@ -3621,20 +3951,21 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                 child: Column(
                   children: [
                   Container(
-                    width: 96,
-                    height: 96,
+                    width: 84,
+                    height: 84,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.18),
                       shape: BoxShape.circle,
                     ),
                     child: Center(
-                      child: MascotGifBadge(
-                        state: percent >= 70
-                            ? MascotState.celebrate
+                      child: Icon(
+                        percent >= 70
+                            ? Icons.emoji_events_rounded
                             : (percent >= 40
-                                  ? MascotState.clickPoke
-                                  : MascotState.sad),
-                        size: 86,
+                                  ? Icons.thumb_up_alt_rounded
+                                  : Icons.refresh_rounded),
+                        color: Colors.white,
+                        size: 46,
                       ),
                     ),
                   ),
@@ -3715,9 +4046,9 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                         child: LinearProgressIndicator(
                           value: (percent / 100.0).clamp(0.0, 1.0),
                           minHeight: 10,
-                          backgroundColor: const Color(0xFFE2E8F0),
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF0F172A),
+                          backgroundColor: colors.surfaceContainerHighest,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            colors.primary,
                           ),
                         ),
                       ),
@@ -3729,36 +4060,34 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                           final isNarrow = box.maxWidth < 520;
                           final tiles = [
                             _buildRecapStatTile(
+                              context: context,
                               icon: Icons.bolt_rounded,
                               iconColor: const Color(0xFF16A34A),
-                              bgColor: const Color(0xFFF0FDF4),
                               label: 'XP Ganho',
-                              value: '+$xpEarned',
-                              valueColor: const Color(0xFF16A34A),
+                              value: '+$xpEarned XP',
                             ),
                             _buildRecapStatTile(
+                              context: context,
                               icon: Icons.trending_up_rounded,
                               iconColor: const Color(0xFFEA580C),
-                              bgColor: const Color(0xFFFFF7ED),
                               label: 'Sequência',
                               value: 'Mantida!',
-                              valueColor: const Color(0xFFEA580C),
                             ),
                             _buildRecapStatTile(
+                              context: context,
                               icon: Icons.military_tech_rounded,
-                              iconColor: const Color(0xFF9333EA),
-                              bgColor: const Color(0xFFFAF5FF),
+                              iconColor: isDark
+                                  ? const Color(0xFFC084FC)
+                                  : const Color(0xFF7E22CE),
                               label: 'Conquista',
                               value: '$percent% de Acerto!',
-                              valueColor: const Color(0xFF9333EA),
                             ),
                             _buildRecapStatTile(
-                              icon: Icons.arrow_upward_rounded,
+                              context: context,
+                              icon: Icons.verified_rounded,
                               iconColor: const Color(0xFF2563EB),
-                              bgColor: const Color(0xFFEFF6FF),
-                              label: 'Ranking',
-                              value: '#5 ▲ 2 pos.',
-                              valueColor: const Color(0xFF2563EB),
+                              label: 'Desempenho',
+                              value: '$correct/$safeTotal certas',
                             ),
                           ];
 
@@ -3899,18 +4228,24 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
   }
 
   Widget _buildRecapStatTile({
+    required BuildContext context,
     required IconData icon,
     required Color iconColor,
-    required Color bgColor,
     required String label,
     required String value,
-    required Color valueColor,
   }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
       decoration: BoxDecoration(
-        color: bgColor,
+        color: isDark
+            ? iconColor.withValues(alpha: 0.16)
+            : iconColor.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: iconColor.withValues(alpha: isDark ? 0.35 : 0.2),
+        ),
       ),
       child: Column(
         children: [
@@ -3918,9 +4253,9 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
           const SizedBox(height: 6),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF64748B),
+              color: theme.colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -3931,12 +4266,25 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
-              color: valueColor,
+              color: isDark ? Colors.white : iconColor,
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _normalizeClientAnswer(String raw) {
+    final trimmed = raw.trim().toLowerCase();
+    return trimmed
+        .replaceAll(RegExp(r'[áàâãä]'), 'a')
+        .replaceAll(RegExp(r'[éèêë]'), 'e')
+        .replaceAll(RegExp(r'[íìîï]'), 'i')
+        .replaceAll(RegExp(r'[óòôõö]'), 'o')
+        .replaceAll(RegExp(r'[úùûü]'), 'u')
+        .replaceAll('ç', 'c')
+        .replaceAll(RegExp(r'^[\p{P}\p{S}\s]+|[\p{P}\p{S}\s]+$', unicode: true), '')
+        .replaceAll(RegExp(r'\s+'), ' ');
   }
 
   Widget _buildRecapQuestionTile({
@@ -3952,25 +4300,32 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
     final studentAns = (index < _answers.length && _answers[index].isNotEmpty)
         ? _answers[index]
         : (qf['studentAnswer']?.toString() ?? '');
-    final bool isCorrect =
-        qf['correct'] == true ||
-        (qf['evaluationMode'] != 'OPEN_ENDED' &&
-            studentAns.trim().isNotEmpty &&
-            studentAns.trim().toLowerCase() ==
-                question.answer.trim().toLowerCase());
+    final statusStr = '${qf['status'] ?? ''}'.toUpperCase();
+    final bool isOpenEnded =
+        qf['evaluationMode'] == 'OPEN_ENDED' || question.isOpenEnded;
+    final bool isPending =
+        statusStr == 'PENDING' || (isOpenEnded && statusStr != 'CORRECT' && statusStr != 'WRONG');
+    final bool isCorrect = !isPending &&
+        (qf['isCorrect'] == true ||
+            qf['correct'] == true ||
+            statusStr == 'CORRECT' ||
+            (studentAns.trim().isNotEmpty &&
+                question.answer.trim().isNotEmpty &&
+                _normalizeClientAnswer(studentAns) ==
+                    _normalizeClientAnswer(question.answer)));
 
-    final cardBg = isCorrect
-        ? const Color(0xFFF0FDF4)
-        : const Color(0xFFFEF2F2);
-    final borderColor = isCorrect
-        ? const Color(0xFF86EFAC)
-        : const Color(0xFFFECACA);
-    final iconColor = isCorrect
-        ? const Color(0xFF16A34A)
-        : const Color(0xFFDC2626);
-    final ansColor = isCorrect
-        ? const Color(0xFF16A34A)
-        : const Color(0xFFDC2626);
+    final isDark = colors.brightness == Brightness.dark;
+    final accent = isPending
+        ? const Color(0xFFD97706)
+        : (isCorrect ? const Color(0xFF16A34A) : const Color(0xFFDC2626));
+    final cardBg = isDark
+        ? accent.withValues(alpha: 0.14)
+        : (isPending
+              ? const Color(0xFFFFFBEB)
+              : (isCorrect ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2)));
+    final borderColor = accent.withValues(alpha: isDark ? 0.45 : 0.35);
+    final iconColor = isDark ? (isCorrect ? const Color(0xFF4ADE80) : const Color(0xFFF87171)) : accent;
+    final ansColor = iconColor;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -3986,9 +4341,11 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
-                isCorrect
-                    ? Icons.check_circle_outline_rounded
-                    : Icons.cancel_outlined,
+                isPending
+                    ? Icons.hourglass_top_rounded
+                    : (isCorrect
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.cancel_outlined),
                 color: iconColor,
                 size: 20,
               ),
@@ -4112,48 +4469,6 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                   const SizedBox(width: 10),
                   Text('${_index + 1}/${widget.exercise.questions.length}'),
                 ],
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.primary.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: colors.primary.withValues(alpha: 0.18),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    MascotSprite(
-                      state: _buddyState,
-                      size: 52,
-                      useMaster24FpsAtlas: true,
-                      onTap: () =>
-                          setState(() => _buddyState = MascotState.clickHeart),
-                      onCompleted: () {
-                        if (!mounted) return;
-                        if (!MascotAssets.specFor(_buddyState).loop) {
-                          setState(() => _buddyState = MascotState.idle);
-                        }
-                      },
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        MascotAssets.specFor(_buddyState).defaultQuote,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
               const SizedBox(height: 12),
               LinearProgressIndicator(
@@ -4339,7 +4654,6 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                   child: OutlinedButton(
                     onPressed: () => setState(() {
                       _selected[_index] = option;
-                      _buddyState = MascotState.clickPoke;
                       _text.clear();
                     }),
                     style: OutlinedButton.styleFrom(
@@ -4843,9 +5157,11 @@ class _LessonEmptyFilter extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 42, horizontal: 16),
       child: Column(
         children: [
-          MascotEmptyIllustration(
-            state: filter == 'completed' ? MascotState.sad : MascotState.idle,
-            size: 80,
+          AppEmptyIllustration(
+            icon: filter == 'completed'
+                ? Icons.assignment_turned_in_outlined
+                : Icons.assignment_outlined,
+            size: 76,
           ),
           const SizedBox(height: 12),
           Text(
@@ -5296,8 +5612,12 @@ class _AchievementTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final earnedAccent = isDark
+        ? const Color(0xFF34D399)
+        : const Color(0xFF059669);
     final iconColor = achievement.earned
-        ? colors.primary
+        ? earnedAccent
         : colors.onSurfaceVariant;
     final date = achievement.earnedAt;
     final dateLabel = date == null
@@ -5306,12 +5626,14 @@ class _AchievementTile extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       elevation: achievement.earned ? 1 : 0,
-      color: colors.surface,
+      color: achievement.earned && isDark
+          ? const Color(0xFF102A22)
+          : colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
         side: BorderSide(
           color: achievement.earned
-              ? colors.primaryContainer
+              ? earnedAccent.withValues(alpha: isDark ? 0.55 : 0.45)
               : colors.outlineVariant,
           width: achievement.earned ? 1.5 : 1,
         ),
@@ -5326,7 +5648,7 @@ class _AchievementTile extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: achievement.earned
-                    ? colors.primaryContainer
+                    ? earnedAccent.withValues(alpha: isDark ? 0.22 : 0.14)
                     : colors.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(14),
               ),
@@ -5353,7 +5675,7 @@ class _AchievementTile extends StatelessWidget {
                       if (achievement.earned)
                         Icon(
                           Icons.check_circle_rounded,
-                          color: colors.primary,
+                          color: earnedAccent,
                           size: 17,
                         ),
                     ],
@@ -5372,7 +5694,7 @@ class _AchievementTile extends StatelessWidget {
                       'Conquistado em $dateLabel',
                       style: TextStyle(
                         fontSize: 12,
-                        color: colors.primary,
+                        color: earnedAccent,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -5421,7 +5743,7 @@ class _EmptyPanel extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const MascotEmptyIllustration(state: MascotState.idle, size: 88),
+          const AppEmptyIllustration(size: 76),
           const SizedBox(height: 12),
           Text(
             title,
@@ -5467,7 +5789,11 @@ class _DatabaseNotice extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const MascotPoseEmblem(state: MascotState.sad, size: 42),
+            const Icon(
+              Icons.info_outline_rounded,
+              color: Color(0xFF4F46E5),
+              size: 26,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -5512,7 +5838,7 @@ class _ErrorPanel extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const MascotErrorIllustration(state: MascotState.sad, size: 78),
+          const AppErrorIllustration(size: 74),
           const SizedBox(height: 12),
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 12),
@@ -5605,10 +5931,19 @@ class _StudentLanguageManagerState extends State<StudentLanguageManager> {
                   final alreadyInProfile = existingLevels.containsKey(lang);
                   return DropdownMenuItem(
                     value: lang,
-                    child: Text(
-                      alreadyInProfile
-                          ? '${meta.shortCode} · $lang (no perfil)'
-                          : '${meta.shortCode} · $lang',
+                    child: Row(
+                      children: [
+                        LanguageFlag.forLanguage(lang, width: 18),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            alreadyInProfile
+                                ? '${meta.shortCode} · $lang (no perfil)'
+                                : '${meta.shortCode} · $lang',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }).toList(),
@@ -5627,7 +5962,12 @@ class _StudentLanguageManagerState extends State<StudentLanguageManager> {
                 initialValue: selectedLevel,
                 decoration: const InputDecoration(labelText: 'Proficiência'),
                 items: _levels
-                    .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                    .map(
+                      (v) => DropdownMenuItem(
+                        value: v,
+                        child: Text(SupportedLanguages.formatLevelWithEmoji(v)),
+                      ),
+                    )
                     .toList(),
                 onChanged: busy
                     ? null
@@ -5821,6 +6161,13 @@ class _StudentClassesViewState extends State<StudentClassesView> {
         '${AppConfig.apiBaseUrl}/api/students/me/enrollments',
         data: {'schoolClassId': classId},
       );
+      SystemSoundService.success();
+      if (!mounted) return;
+      setState(() {
+        _availableClasses = _availableClasses
+            .where((c) => (c['id'] as num?)?.toInt() != classId)
+            .toList();
+      });
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -5831,6 +6178,7 @@ class _StudentClassesViewState extends State<StudentClassesView> {
       widget.onRefresh();
       await _loadAvailableClasses();
     } catch (e) {
+      SystemSoundService.defeat();
       if (context.mounted) showLearningError(context, e);
     } finally {
       if (mounted) setState(() => _joiningClassId = null);
@@ -6360,6 +6708,28 @@ class _StudentClassDashboardViewState
   List<Map<String, dynamic>> _mySubmissions = [];
   int _activeTab = 0; // 0: Colegas, 1: Atividades
   String _classmateSort = 'xp'; // 'xp', 'accuracy', 'name'
+  _Exercise? _selectedClassExercise;
+  int? _openingExerciseId;
+
+  Future<void> _openClassExercise(int exerciseId) async {
+    setState(() => _openingExerciseId = exerciseId);
+    try {
+      final resp = await _dio.get<Map<String, dynamic>>(
+        '${AppConfig.apiBaseUrl}/api/exercises/$exerciseId',
+      );
+      final data = resp.data;
+      if (data == null || !mounted) return;
+      setState(() {
+        _selectedClassExercise = _Exercise.fromJson(
+          Map<String, dynamic>.from(data),
+        );
+      });
+    } catch (e) {
+      if (mounted) showLearningError(context, e);
+    } finally {
+      if (mounted) setState(() => _openingExerciseId = null);
+    }
+  }
 
   @override
   void initState() {
@@ -6434,10 +6804,27 @@ class _StudentClassDashboardViewState
 
   @override
   Widget build(BuildContext context) {
+    if (_selectedClassExercise != null) {
+      if (_selectedClassExercise!.isContent) {
+        return _ExerciseContentPage(
+          exercise: _selectedClassExercise!,
+          onBack: () => setState(() => _selectedClassExercise = null),
+        );
+      }
+      return _ExerciseRunPage(
+        exercise: _selectedClassExercise!,
+        dio: _dio,
+        onBack: () => setState(() => _selectedClassExercise = null),
+        onFinished: () {
+          setState(() => _selectedClassExercise = null);
+          widget.onRefresh();
+          unawaited(_loadClassData());
+        },
+      );
+    }
     if (_isLoading) {
-      return const MascotLoader(
+      return const AppLoader(
         message: 'Carregando painel da turma...',
-        mascotSize: 80,
       );
     }
 
@@ -7150,7 +7537,7 @@ class _StudentClassDashboardViewState
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          if (isCompleted && exId != null) ...[
+                          if (isCompleted && exId != null)
                             OutlinedButton.icon(
                               onPressed: () {
                                 showDialog<void>(
@@ -7172,8 +7559,26 @@ class _StudentClassDashboardViewState
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF2563EB),
                               ),
+                            )
+                          else if (exId != null)
+                            FilledButton.icon(
+                              onPressed: _openingExerciseId != null
+                                  ? null
+                                  : () => _openClassExercise(exId),
+                              icon: _openingExerciseId == exId
+                                  ? const SizedBox.square(
+                                      dimension: 15,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.play_arrow_rounded,
+                                      size: 18,
+                                    ),
+                              label: const Text('Responder Agora'),
                             ),
-                          ],
                         ],
                       ),
                     ],
@@ -7289,9 +7694,8 @@ class _StudentExerciseReviewDialogState
         width: 600,
         height: 520,
         child: _isLoading
-            ? const MascotLoader(
+            ? const AppLoader(
                 message: 'Carregando revisão da atividade...',
-                mascotSize: 76,
               )
             : _error != null
             ? Center(child: Text(_error!))
@@ -7819,59 +8223,38 @@ class _TeacherClassManagementViewState
       _classDashboard?['languageName']?.toString(),
       SupportedLanguages.inferFromClassName(_selectedClassName),
     );
-    bool studentHasClassLanguage(Map<String, dynamic> student) {
-      final raw = student['languages'] as List? ?? const [];
-      for (final item in raw) {
-        if (item is Map) {
-          final langName =
-              item['languageName']?.toString() ??
-              item['language']?.toString() ??
-              '';
-          if (SupportedLanguages.matches(langName, classLanguage)) return true;
-        } else if (item != null) {
-          if (SupportedLanguages.matches(item.toString(), classLanguage)) {
-            return true;
-          }
-        }
-      }
-      return false;
-    }
-
     try {
       final response = await ApiClient().dio.get<List<dynamic>>(
-        '${AppConfig.apiBaseUrl}/api/students',
+        '${AppConfig.apiBaseUrl}/api/classes/$classId/invitable-users',
       );
-      final allStudents =
-          (response.data ?? const [])
-              .whereType<Map>()
-              .map((e) => Map<String, dynamic>.from(e))
-              .toList()
-            ..sort((a, b) {
-              final aOk = studentHasClassLanguage(a) ? 0 : 1;
-              final bOk = studentHasClassLanguage(b) ? 0 : 1;
-              if (aOk != bOk) return aOk.compareTo(bOk);
-              return '${a['name'] ?? ''}'.compareTo('${b['name'] ?? ''}');
-            });
+      final invitableUsers = (response.data ?? const [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
 
       if (!context.mounted) return;
 
-      final selectedStudent = await showDialog<Map<String, dynamic>>(
+      final selectedUser = await showDialog<Map<String, dynamic>>(
         context: context,
         builder: (ctx) => StatefulBuilder(
           builder: (ctx, setDialogState) {
             final q = searchCtrl.text.trim().toLowerCase();
-            final filtered = allStudents.where((s) {
+            final filtered = invitableUsers.where((u) {
               if (q.isEmpty) return true;
-              final n = '${s['name'] ?? ''}'.toLowerCase();
-              final em = '${s['email'] ?? ''}'.toLowerCase();
+              final n = '${u['name'] ?? ''}'.toLowerCase();
+              final em = '${u['email'] ?? ''}'.toLowerCase();
               return n.contains(q) || em.contains(q);
             }).toList();
 
             return AlertDialog(
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 20,
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(22),
               ),
-              title: const Text('Adicionar estudante à turma'),
+              title: const Text('Convidar usuário para a turma'),
               content: SizedBox(
                 width: responsiveDialogWidth(ctx, maxWidth: 520),
                 child: Column(
@@ -7890,10 +8273,10 @@ class _TeacherClassManagementViewState
                             compact: true,
                           ),
                           const SizedBox(width: 10),
-                          Expanded(
+                          const Expanded(
                             child: Text(
-                              'Apenas estudantes que estudam $classLanguage podem entrar nesta turma.',
-                              style: const TextStyle(
+                              'Convide alunos ou professores da mesma instituição (administradores externos e seu próprio usuário não aparecem).',
+                              style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -7906,60 +8289,60 @@ class _TeacherClassManagementViewState
                     TextField(
                       controller: searchCtrl,
                       decoration: const InputDecoration(
-                        labelText: 'Pesquisar estudante por nome ou e-mail',
+                        labelText: 'Pesquisar por nome ou e-mail',
                         prefixIcon: Icon(Icons.search_rounded),
                       ),
                       onChanged: (_) => setDialogState(() {}),
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
-                      height: 300,
+                      height: 290,
                       child: filtered.isEmpty
                           ? const Center(
-                              child: Text('Nenhum estudante encontrado.'),
+                              child: Text(
+                                'Nenhum aluno ou professor disponível para convite nesta instituição.',
+                                textAlign: TextAlign.center,
+                              ),
                             )
                           : ListView.builder(
                               itemCount: filtered.length,
                               itemBuilder: (_, idx) {
-                                final s = filtered[idx];
-                                final eligible = studentHasClassLanguage(s);
+                                final u = filtered[idx];
+                                final isTeacher =
+                                    '${u['role'] ?? ''}'.toUpperCase() ==
+                                    'TEACHER';
+                                final eligible =
+                                    isTeacher || u['languageEligible'] != false;
                                 return ListTile(
                                   enabled: eligible,
                                   leading: CircleAvatar(
-                                    backgroundColor: eligible
-                                        ? const Color(
-                                            0xFF10B981,
-                                          ).withValues(alpha: 0.16)
-                                        : Colors.grey.withValues(alpha: 0.16),
+                                    backgroundColor:
+                                        (isTeacher
+                                                ? const Color(0xFF7651C8)
+                                                : (eligible
+                                                      ? const Color(0xFF10B981)
+                                                      : Colors.grey))
+                                            .withValues(alpha: 0.16),
                                     child: Icon(
-                                      eligible
-                                          ? Icons.person_rounded
-                                          : Icons.lock_outline_rounded,
-                                      color: eligible
-                                          ? const Color(0xFF059669)
-                                          : Colors.grey,
+                                      isTeacher
+                                          ? Icons.co_present_rounded
+                                          : (eligible
+                                                ? Icons.school_rounded
+                                                : Icons.lock_outline_rounded),
+                                      color: isTeacher
+                                          ? const Color(0xFF7651C8)
+                                          : (eligible
+                                                ? const Color(0xFF059669)
+                                                : Colors.grey),
                                     ),
                                   ),
-                                  title: Text('${s['name'] ?? 'Estudante'}'),
-                                  subtitle: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text('${s['email'] ?? ''}'),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        eligible
-                                            ? 'Elegível para $classLanguage'
-                                            : 'Não possui $classLanguage no perfil',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: eligible
-                                              ? const Color(0xFF059669)
-                                              : Colors.amber.shade900,
-                                        ),
-                                      ),
-                                    ],
+                                  title: Text('${u['name'] ?? 'Usuário'}'),
+                                  subtitle: Text(
+                                    isTeacher
+                                        ? '${u['email'] ?? ''} • Professor(a) da instituição'
+                                        : (eligible
+                                              ? '${u['email'] ?? ''} • Elegível em $classLanguage'
+                                              : '${u['email'] ?? ''} • Requer $classLanguage no perfil'),
                                   ),
                                   trailing: Icon(
                                     eligible
@@ -7968,7 +8351,7 @@ class _TeacherClassManagementViewState
                                     color: eligible ? null : Colors.grey,
                                   ),
                                   onTap: eligible
-                                      ? () => Navigator.pop(ctx, s)
+                                      ? () => Navigator.pop(ctx, u)
                                       : null,
                                 );
                               },
@@ -7988,21 +8371,21 @@ class _TeacherClassManagementViewState
         ),
       );
 
-      if (selectedStudent == null || !context.mounted) return;
+      if (selectedUser == null || !context.mounted) return;
 
       await ApiClient().dio.post(
-        '${AppConfig.apiBaseUrl}/api/enrollments',
+        '${AppConfig.apiBaseUrl}/api/classes/$classId/invite',
         data: {
-          'studentId': selectedStudent['id'],
-          'schoolClassId': classId,
-          'enrollmentDate': DateTime.now().toIso8601String().substring(0, 10),
+          'userId': selectedUser['userId'] ?? selectedUser['id'],
+          'role': selectedUser['role'] ?? 'STUDENT',
         },
       );
+      SystemSoundService.success();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${selectedStudent['name']} adicionado(a) à turma com sucesso!',
+              '${selectedUser['name']} convidado(a) para a turma com sucesso!',
             ),
           ),
         );
@@ -8010,6 +8393,7 @@ class _TeacherClassManagementViewState
       await _openClassDashboard(classId, _selectedClassName ?? 'Turma');
       widget.onRefresh();
     } catch (e) {
+      SystemSoundService.defeat();
       if (context.mounted) showLearningError(context, e);
     } finally {
       Future.delayed(const Duration(milliseconds: 400), searchCtrl.dispose);
@@ -8164,9 +8548,8 @@ class _TeacherClassManagementViewState
         if (_loadingDashboard)
           const Padding(
             padding: EdgeInsets.all(20),
-            child: MascotLoader(
+            child: AppLoader(
               message: 'Carregando indicadores da turma...',
-              mascotSize: 78,
               accentColor: Color(0xFF7651C8),
             ),
           )
@@ -8304,34 +8687,43 @@ class _TeacherClassManagementViewState
                               );
                             }
                           },
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(
-                              value: 'notes',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.sticky_note_2_rounded, size: 16),
-                                  SizedBox(width: 8),
-                                  Text('Anotações privadas'),
-                                ],
+                          itemBuilder: (_) {
+                            final status = '${s['status'] ?? 'ACTIVE'}'
+                                .toUpperCase()
+                                .trim();
+                            return <PopupMenuEntry<String>>[
+                              const PopupMenuItem(
+                                value: 'notes',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.sticky_note_2_rounded, size: 16),
+                                    SizedBox(width: 8),
+                                    Text('Anotações privadas'),
+                                  ],
+                                ),
                               ),
-                            ),
-                            PopupMenuItem(
-                              value: 'approve',
-                              child: Text('Aprovar / ativar'),
-                            ),
-                            PopupMenuItem(
-                              value: 'suspend',
-                              child: Text('Trancar matrícula'),
-                            ),
-                            PopupMenuItem(
-                              value: 'resume',
-                              child: Text('Reativar matrícula'),
-                            ),
-                            PopupMenuItem(
-                              value: 'remove',
-                              child: Text('Remover da turma'),
-                            ),
-                          ],
+                              if (status == 'PENDING')
+                                const PopupMenuItem(
+                                  value: 'approve',
+                                  child: Text('Aprovar / ativar'),
+                                ),
+                              if (status == 'ACTIVE')
+                                const PopupMenuItem(
+                                  value: 'suspend',
+                                  child: Text('Trancar matrícula'),
+                                ),
+                              if (status == 'SUSPENDED' ||
+                                  status == 'CANCELLED')
+                                const PopupMenuItem(
+                                  value: 'resume',
+                                  child: Text('Reativar matrícula'),
+                                ),
+                              const PopupMenuItem(
+                                value: 'remove',
+                                child: Text('Remover da turma'),
+                              ),
+                            ];
+                          },
                         ),
                 ),
               );

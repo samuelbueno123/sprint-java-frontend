@@ -1,3 +1,4 @@
+import '../../../../core/audio/system_sound_service.dart';
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:velocity_x/velocity_x.dart';
@@ -133,6 +134,9 @@ class AppHoverCard extends StatefulWidget {
     this.cursor = SystemMouseCursors.click,
     this.borderWidth = 1.5,
     this.padding,
+    this.borderColor,
+    this.gradient,
+    this.surfaceColor,
   });
 
   final Widget child;
@@ -143,6 +147,9 @@ class AppHoverCard extends StatefulWidget {
   final MouseCursor cursor;
   final double borderWidth;
   final EdgeInsetsGeometry? padding;
+  final Color? borderColor;
+  final Gradient? gradient;
+  final Color? surfaceColor;
 
   @override
   State<AppHoverCard> createState() => _AppHoverCardState();
@@ -161,7 +168,12 @@ class _AppHoverCardState extends State<AppHoverCard> {
       onExit: (_) => setState(() => _isHovered = false),
       cursor: widget.onTap != null ? widget.cursor : SystemMouseCursors.basic,
       child: GestureDetector(
-        onTap: widget.onTap,
+        onTap: widget.onTap == null
+            ? null
+            : () {
+                SystemSoundService.click();
+                widget.onTap!();
+              },
         child: AnimatedScale(
           scale: _isHovered && widget.onTap != null ? widget.scale : 1.0,
           duration: const Duration(milliseconds: 180),
@@ -170,7 +182,19 @@ class _AppHoverCardState extends State<AppHoverCard> {
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
             decoration: BoxDecoration(
+              gradient: widget.gradient,
+              color: widget.gradient == null ? widget.surfaceColor : null,
               borderRadius: BorderRadius.circular(widget.borderRadius),
+              border: widget.borderColor != null
+                  ? Border.all(
+                      color: widget.borderColor!.withValues(
+                        alpha: _isHovered ? 0.95 : 0.72,
+                      ),
+                      width: _isHovered
+                          ? widget.borderWidth + 0.3
+                          : widget.borderWidth,
+                    )
+                  : null,
               boxShadow: [
                 if (_isHovered && widget.onTap != null)
                   BoxShadow(

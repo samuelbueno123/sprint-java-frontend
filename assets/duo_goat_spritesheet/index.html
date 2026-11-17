@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bode Branco Mascote - Playground Interativo Completo (Flutter & Web)</title>
+  <style>
+    :root {
+      --duo-green: #58cc02;
+      --duo-green-dark: #46a302;
+      --duo-blue: #1cb0f6;
+      --duo-blue-dark: #1899d6;
+      --duo-red: #ff4b4b;
+      --duo-red-dark: #d33131;
+      --duo-gold: #ff9600;
+      --duo-gold-dark: #cc7800;
+      --duo-purple: #a855f7;
+      --duo-purple-dark: #9333ea;
+      --duo-border: #e2e8f0;
+      --duo-text: #1e293b;
+      --duo-bg: #f8fafc;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background-color: var(--duo-bg);
+      color: var(--duo-text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 12px 60px;
+      min-height: 100vh;
+    }
+
+    header {
+      width: 100%;
+      max-width: 1180px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 2px solid var(--duo-border);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-title {
+      font-weight: 900;
+      font-size: 22px;
+      color: #1e293b;
+      letter-spacing: -0.5px;
+    }
+
+    .badges-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 12px;
+    }
+    .badge-white { background: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; }
+    .badge-fps { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
+    .badge-flutter { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
+
+    .stats-bar {
+      display: flex;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .stat-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: white;
+      padding: 5px 12px;
+      border-radius: 14px;
+      border: 2px solid var(--duo-border);
+      box-shadow: 0 2px 0 var(--duo-border);
+    }
+
+    .main-grid {
+      width: 100%;
+      max-width: 1180px;
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 18px;
+    }
+
+    @media (max-width: 960px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: white;
+      border: 2px solid var(--duo-border);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 4px 0 #e2e8f0;
+    }
+
+    .card-title {
+      font-size: 17px;
+      font-weight: 800;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Stage */
+    .stage-wrapper {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .speech-bubble {
+      position: relative;
+      background: #ffffff;
+      border: 2px solid var(--duo-border);
+      border-radius: 16px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 14px;
+      box-shadow: 0 3px 0 var(--duo-border);
+      max-width: 480px;
+      text-align: center;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .speech-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 10px 10px 0;
+      border-style: solid;
+      border-color: #ffffff transparent;
+      display: block;
+      width: 0;
+    }
+
+    /* Interactive Stage Container */
+    .stage-sandbox {
+      width: 100%;
+      height: 300px;
+      border-radius: 20px;
+      background: #f1f5f9;
+      position: relative;
+      border: 3px solid #cbd5e1;
+      overflow: hidden;
+      cursor: grab;
+      user-select: none;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.05);
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+
+    .stage-sandbox:active {
+      cursor: grabbing;
+    }
+
+    .stage-sandbox.fire-mode {
+      background: radial-gradient(circle, #5b1515 0%, #1f0808 100%) !important;
+      border-color: #ff4b4b;
+      box-shadow: 0 0 25px rgba(255, 75, 75, 0.4);
+    }
+
+    .stage-sandbox.bg-checker {
+      background-image: 
+        linear-gradient(45deg, #e2e8f0 25%, transparent 25%), 
+        linear-gradient(-45deg, #e2e8f0 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, #e2e8f0 75%), 
+        linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      background-color: #ffffff;
+    }
+
+    canvas#mascotCanvas {
+      position: absolute;
+      width: 256px;
+      height: 256px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+    }
+
+    /* Action tabs */
+    .category-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .cat-btn {
+      padding: 7px 12px;
+      border-radius: 12px;
+      border: 2px solid var(--duo-border);
+      background: #f8fafc;
+      font-size: 12px;
+      font-weight: 800;
+      color: #64748b;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+
+    .cat-btn.active {
+      background: var(--duo-blue);
+      color: white;
+      border-color: var(--duo-blue-dark);
+      box-shadow: 0 2px 0 var(--duo-blue-dark);
+    }
+
+    .anim-buttons-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .duo-btn {
+      appearance: none;
+      border: none;
+      outline: none;
+      border-radius: 12px;
+      padding: 10px 8px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.08s ease;
+      text-align: center;
+    }
+
+    .duo-btn:active {
+      transform: translateY(2px);
+    }
+
+    .btn-green { background: var(--duo-green); color: white; box-shadow: 0 3px 0 var(--duo-green-dark); }
+    .btn-gold { background: var(--duo-gold); color: white; box-shadow: 0 3px 0 var(--duo-gold-dark); }
+    .btn-red { background: var(--duo-red); color: white; box-shadow: 0 3px 0 var(--duo-red-dark); }
+    .btn-purple { background: var(--duo-purple); color: white; box-shadow: 0 3px 0 var(--duo-purple-dark); }
+    .btn-blue { background: var(--duo-blue); color: white; box-shadow: 0 3px 0 var(--duo-blue-dark); }
+    .btn-white { background: white; color: var(--duo-text); border: 2px solid var(--duo-border); box-shadow: 0 2px 0 #cbd5e1; }
+
+    /* Controls */
+    .controls-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #f1f5f9;
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+    }
+
+    /* Sheet Viewer */
+    .sheet-view-container {
+      position: relative;
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid var(--duo-border);
+      background: #edf2f7;
+    }
+
+    .sheet-view-container img {
+      width: 100%;
+      height: auto;
+      display: block;
+      image-rendering: pixelated;
+    }
+
+    .cursor-box {
+      position: absolute;
+      border: 3px solid #ef4444;
+      background: rgba(239, 68, 68, 0.25);
+      pointer-events: none;
+      box-sizing: border-box;
+      transition: all 0.03s linear;
+    }
+
+    pre {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 11px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    .download-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .dl-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 10px;
+      border-radius: 10px;
+      background: #f1f5f9;
+      color: #334155;
+      font-weight: 700;
+      font-size: 11px;
+      text-decoration: none;
+      border: 1px solid #cbd5e1;
+      gap: 4px;
+    }
+    .dl-btn:hover { background: #e2e8f0; }
+
+    #confettiCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="confettiCanvas"></canvas>
+
+  <header>
+    <div class="brand">
+      <span style="font-size:32px;">🐐🤍</span>
+      <div>
+        <div class="brand-title">Bode Branco Mascote (CEFET-NI)</div>
+        <div style="font-size: 12px; color: #64748b; font-weight: 700;">
+          Playground Interativo: Clique, Segure, Arraste e Arremesse!
+        </div>
+      </div>
+      <div class="badges-row">
+        <span class="badge badge-white">Pelagem Branca</span>
+        <span class="badge badge-fps">24 FPS Fluido</span>
+        <span class="badge badge-flutter">Flutter Mobile & Web</span>
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-pill">
+        <span>🔥</span>
+        <span id="streakVal" style="color: var(--duo-gold);">21 Dias</span>
+      </div>
+      <div class="stat-pill">
+        <span>💎</span>
+        <span id="xpVal" style="color: var(--duo-blue);">380 XP</span>
+      </div>
+      <div class="stat-pill">
+        <span>❤️</span>
+        <span id="heartsVal" style="color: var(--duo-red);">5</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-grid">
+    <!-- COLUNA DA ESQUERDA: PALCO INTERATIVO -->
+    <div class="card">
+      <div class="card-title">
+        <span>Palco de Física & Interação</span>
+        <span class="badge badge-white" id="activeBadge">Idle (1/24)</span>
+      </div>
+
+      <div class="stage-wrapper">
+        <div class="speech-bubble" id="bodeQuote">
+          "Clique em mim, segure para me erguer, ou me arraste pelas paredes!"
+        </div>
+
+        <!-- Sandbox com física e arrasto -->
+        <div class="stage-sandbox" id="sandbox">
+          <canvas id="mascotCanvas" width="256" height="256"></canvas>
+        </div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 4px; font-weight: 700;">
+          💡 Dica: Clique no bode, segure o mouse para erguê-lo, arraste para qualquer direção ou arremesse contra as paredes!
+        </div>
+      </div>
+
+      <!-- Abas de Categorias -->
+      <div class="category-tabs">
+        <button class="cat-btn active" onclick="switchCategory('main')">🌟 Principais</button>
+        <button class="cat-btn" onclick="switchCategory('clicks')">👆 Cliques (5)</button>
+        <button class="cat-btn" onclick="switchCategory('drags')">✋ Arrastar (8)</button>
+        <button class="cat-btn" onclick="switchCategory('walls')">💥 Paredes (4)</button>
+      </div>
+
+      <!-- Botões de Ação por Categoria -->
+      <div id="buttonsContainer" class="anim-buttons-grid">
+        <!-- Renderizado dinamicamente via JS -->
+      </div>
+
+      <div class="controls-row">
+        <div>
+          Velocidade: <span id="speedDisplay" style="color: #0f172a; font-weight: 800;">24 FPS</span>
+        </div>
+        <input type="range" id="speedSlider" min="4" max="30" value="24" style="width: 130px; cursor: pointer;">
+        <button class="duo-btn btn-white" style="padding: 4px 10px; font-size: 11px;" onclick="toggleCheckerBg()">
+          🏁 Fundo Transparente
+        </button>
+      </div>
+    </div>
+
+    <!-- COLUNA DA DIREITA: SPRITESHEET & FLUTTER -->
+    <div class="card">
+      <div class="card-title">
+        <span id="sheetTitleText">Spritesheet Ativa</span>
+        <a id="downloadBtn" href="spritesheets_24fps/bode_branco_24fps_master_grid.png" download class="duo-btn btn-green" style="padding: 6px 12px; font-size: 12px; text-decoration: none;">
+          ⬇️ Baixar PNG
+        </a>
+      </div>
+
+      <!-- Sheet com cursor animado -->
+      <div class="sheet-view-container" id="sheetContainer">
+        <img id="activeSheetImg" src="spritesheets_24fps/bode_branco_24fps_master_grid.png?v=play" alt="Spritesheet Ativa">
+        <div class="cursor-box" id="cursorBox"></div>
+      </div>
+
+      <div style="font-size: 12px; color: #64748b; margin-top: 8px; display: flex; justify-content: space-between;">
+        <span>Cursor vermelho indica o quadro atual</span>
+        <span id="sheetDimLabel">Grade Ativa</span>
+      </div>
+
+      <!-- Downloads das 19 Animações Interativas -->
+      <div style="margin-top: 14px;">
+        <div style="font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 4px;">
+          📦 Pacotes para Flutter & Web (Grades $1536 \times 512$ / $1536 \times 1024$):
+        </div>
+        <div class="download-grid">
+          <a class="dl-btn" href="spritesheets_interactive/fire_loop_grid.png" download>🔥 Fogo Loop (Grid)</a>
+          <a class="dl-btn" href="spritesheets_interactive/hold_grab_grid.png" download>✊ Segurar / Grab (Grid)</a>
+          <a class="dl-btn" href="spritesheets_interactive/click_poke_grid.png" download>👆 Clique Susto (Grid)</a>
+          <a class="dl-btn" href="spritesheets_interactive/click_bleat_grid.png" download>🐐 Clique Berro (Grid)</a>
+          <a class="dl-btn" href="spritesheets_interactive/click_shake_grid.png" download>🌀 Clique Sacudida</a>
+          <a class="dl-btn" href="spritesheets_interactive/click_spin_grid.png" download>⭐ Clique Pirueta 360</a>
+          <a class="dl-btn" href="spritesheets_interactive/click_heart_grid.png" download>💖 Clique Carinho</a>
+          <a class="dl-btn" href="bode_branco_interactive_master.png" download>👑 Master Interativo (19 Anims)</a>
+        </div>
+      </div>
+
+      <!-- Snippets Flutter -->
+      <div style="margin-top: 14px;">
+        <div style="font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 4px;">
+          📱 Código Flutter (Flame Engine - Arrastar & Reagir):
+        </div>
+        <pre><code>// Flutter Flame: Mascote com Drag & Click
+class InteractiveGoat extends SpriteAnimationComponent with DragCallbacks, TapCallbacks {
+  late SpriteAnimation idleAnim, dragMoveAnim, grabAnim, fireAnim;
+
+  @override
+  Future&lt;void&gt; onLoad() async {
+    final image = await images.load('bode_branco_24fps_master_grid.png');
+    // Grade de 24 quadros (amountPerRow: 6)
+    idleAnim = SpriteAnimation.fromFrameData(image, SpriteAnimationData.sequenced(
+      amount: 24, amountPerRow: 6, stepTime: 1/24, textureSize: Vector2(256, 256),
+    ));
+    animation = idleAnim;
+  }
+
+  @override
+  void onDragStart(DragStartEvent event) => animation = grabAnim;
+
+  @override
+  void onDragUpdate(DragUpdateEvent event) {
+    position += event.localDelta;
+    animation = dragMoveAnim;
+  }
+
+  @override
+  void onDragEnd(DragEndEvent event) => animation = idleAnim;
+}</code></pre>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const FRAME_SIZE = 256;
+    let fps = 24;
+    let currentFrame = 0;
+    let lastTime = 0;
+
+    // Mascote Physics State
+    const sandbox = document.getElementById('sandbox');
+    const canvas = document.getElementById('mascotCanvas');
+    const ctx = canvas.getContext('2d');
+    const bodeQuote = document.getElementById('bodeQuote');
+    const activeBadge = document.getElementById('activeBadge');
+    const activeSheetImg = document.getElementById('activeSheetImg');
+    const cursorBox = document.getElementById('cursorBox');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const sheetDimLabel = document.getElementById('sheetDimLabel');
+    const buttonsContainer = document.getElementById('buttonsContainer');
+    const speedSlider = document.getElementById('speedSlider');
+    const speedDisplay = document.getElementById('speedDisplay');
+
+    let posX = 0;
+    let posY = 0;
+    let velX = 0;
+    let velY = 0;
+    let isDragging = false;
+    let holdTimer = null;
+    let isHeld = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+
+    // Animation Registry
+    const ANIMATIONS = {
+      // 1. Principais
+      idle: {
+        title: 'Idle (Repouso)',
+        src: 'spritesheets_24fps/bode_branco_24fps_idle_grid.png',
+        totalFrames: 24, cols: 6, rows: 4, loop: true,
+        quote: '"Bééé! Olá calouro! Bora manter a ofensiva de estudos em dia hoje?"'
+      },
+      celebrate: {
+        title: 'Celebrate (+XP)',
+        src: 'spritesheets_24fps/bode_branco_24fps_celebrate_grid.png',
+        totalFrames: 24, cols: 6, rows: 4, loop: false,
+        quote: '"ISSO AÍ! Lição concluída com sucesso! +10 XP para o CEFET!"'
+      },
+      sad: {
+        title: 'Sad (-1 Vida)',
+        src: 'spritesheets_24fps/bode_branco_24fps_sad_grid.png',
+        totalFrames: 24, cols: 6, rows: 4, loop: false,
+        quote: '"Bééé... você errou a conjugação do verbo! Perdeu 1 vida!"'
+      },
+      intense: {
+        title: 'Cobrança Ofensiva',
+        src: 'spritesheets_24fps/bode_branco_24fps_intense_grid.png',
+        totalFrames: 24, cols: 6, rows: 4, loop: false,
+        quote: '"NÃO QUEBRE SUA OFENSIVA DE 21 DIAS! Venha estudar agora mesmo!"'
+      },
+      fire_loop: {
+        title: 'Fogo em Loop Contínuo',
+        src: 'spritesheets_interactive/fire_loop_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: true,
+        quote: '"CHAMAS DA OFENSIVA! Foco total nos estudos, nada pode nos parar!"'
+      },
+
+      // 2. Cliques (5)
+      click_poke: {
+        title: 'Pulinho de Susto',
+        src: 'spritesheets_interactive/click_poke_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: false,
+        quote: '"EITA! Que susto! Não me cutuca assim de surpresa!"'
+      },
+      click_bleat: {
+        title: 'Berro BÉÉÉ! Fofo',
+        src: 'spritesheets_interactive/click_bleat_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: false,
+        quote: '"BÉÉÉÉÉÉÉÉÉ! Vamos praticar a pronúncia juntos!"'
+      },
+      click_shake: {
+        title: 'Sacudida de Cabeça',
+        src: 'spritesheets_interactive/click_shake_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: false,
+        quote: '"Humph! Sacudindo a poeira para a próxima lição!"'
+      },
+      click_spin: {
+        title: 'Pirueta 360',
+        src: 'spritesheets_interactive/click_spin_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: false,
+        quote: '"WHEEEE! Um giro de mestre para comemorar seu progresso!"'
+      },
+      click_heart: {
+        title: 'Carinho com Corações',
+        src: 'spritesheets_interactive/click_heart_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: false,
+        quote: '"Muuuito obrigado pelo carinho! Você é o melhor calouro!"'
+      },
+
+      // 3. Arrastar (8)
+      drag_start_right: {
+        title: 'Início Direita',
+        src: 'spritesheets_interactive/drag_start_right_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: false,
+        quote: '"Opa! Me puxando para a direita?"'
+      },
+      drag_move_right: {
+        title: 'Voando Direita',
+        src: 'spritesheets_interactive/drag_move_right_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: true,
+        quote: '"Acelerando rumo à fluência no idioma!"'
+      },
+      drag_start_left: {
+        title: 'Início Esquerda',
+        src: 'spritesheets_interactive/drag_start_left_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: false,
+        quote: '"Segura a onda! Indo para a esquerda!"'
+      },
+      drag_move_left: {
+        title: 'Voando Esquerda',
+        src: 'spritesheets_interactive/drag_move_left_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: true,
+        quote: '"Deslizando firme pelo mapa do curso!"'
+      },
+      drag_start_up: {
+        title: 'Início Cima',
+        src: 'spritesheets_interactive/drag_start_up_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: false,
+        quote: '"Subindo de nível no ranking!"'
+      },
+      drag_move_up: {
+        title: 'Flutuando Cima',
+        src: 'spritesheets_interactive/drag_move_up_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: true,
+        quote: '"Rumo ao topo da Divisão Diamante!"'
+      },
+      drag_start_down: {
+        title: 'Início Baixo',
+        src: 'spritesheets_interactive/drag_start_down_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: false,
+        quote: '"Agachando... segurando firme!"'
+      },
+      drag_move_down: {
+        title: 'Pressionado Baixo',
+        src: 'spritesheets_interactive/drag_move_down_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: true,
+        quote: '"Pouso firme! Mantendo o foco!"'
+      },
+
+      // 4. Segurar no ar
+      hold_grab: {
+        title: 'Suspenso no Ar (Grab)',
+        src: 'spritesheets_interactive/hold_grab_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: true,
+        quote: '"Ei, me solta! Quero continuar estudando!"'
+      },
+
+      // 5. Paredes (4)
+      wall_hit_right: {
+        title: 'Bater Parede Direita',
+        src: 'spritesheets_interactive/wall_hit_right_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: false,
+        quote: '"POW! Bati na parede direita! Mas minha cabeça é dura!"'
+      },
+      wall_hit_left: {
+        title: 'Bater Parede Esquerda',
+        src: 'spritesheets_interactive/wall_hit_left_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: false,
+        quote: '"CLANG! Parede esquerda encontrada com sucesso!"'
+      },
+      wall_hit_top: {
+        title: 'Bater no Teto',
+        src: 'spritesheets_interactive/wall_hit_top_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: false,
+        quote: '"BONK! Bati os chifres no teto! Vi até estrelinhas!"'
+      },
+      wall_hit_bottom: {
+        title: 'Bater no Chão',
+        src: 'spritesheets_interactive/wall_hit_bottom_grid.png',
+        totalFrames: 12, cols: 6, rows: 2, loop: false,
+        quote: '"SPLAT! Queda amortecida com sucesso! Tô pronto pra outra!"'
+      }
+    };
+
+    let currentAnimId = 'idle';
+    let currentAnim = ANIMATIONS['idle'];
+    let loadedImages = {};
+
+    // Preload images
+    Object.keys(ANIMATIONS).forEach(id => {
+      const img = new Image();
+      img.src = ANIMATIONS[id].src + '?v=play';
+      loadedImages[id] = img;
+    });
+
+    // Sound Synthesizer
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSfx(type) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      const now = audioCtx.currentTime;
+
+      if (type === 'jump') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+        osc.start(now); osc.stop(now + 0.35);
+      } else if (type === 'fire') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.linearRampToValueAtTime(90, now + 0.3);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+        osc.start(now); osc.stop(now + 0.3);
+      } else if (type === 'splat') {
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(120, now);
+        osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+        osc.start(now); osc.stop(now + 0.25);
+      } else if (type === 'bleat') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.linearRampToValueAtTime(260, now + 0.1);
+        osc.frequency.linearRampToValueAtTime(300, now + 0.25);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+        osc.start(now); osc.stop(now + 0.35);
+      } else {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(500, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.start(now); osc.stop(now + 0.1);
+      }
+    }
+
+    // Initialize Stage Physics
+    function initPhysics() {
+      const rect = sandbox.getBoundingClientRect();
+      posX = rect.width / 2;
+      posY = rect.height / 2 + 10;
+      updateCanvasPos();
+    }
+    window.addEventListener('resize', initPhysics);
+
+    function updateCanvasPos() {
+      canvas.style.left = posX + 'px';
+      canvas.style.top = posY + 'px';
+    }
+
+    // Set Animation
+    function setAnimation(id) {
+      currentAnimId = id;
+      currentAnim = ANIMATIONS[id];
+      currentFrame = 0;
+      bodeQuote.innerText = currentAnim.quote;
+
+      activeSheetImg.src = currentAnim.src;
+      downloadBtn.href = currentAnim.src;
+      sheetDimLabel.innerText = `${currentAnim.cols * 256} × ${currentAnim.rows * 256} px (${currentAnim.totalFrames} quadros)`;
+
+      if (id === 'fire_loop') {
+        sandbox.classList.add('fire-mode');
+        playSfx('fire');
+      } else {
+        sandbox.classList.remove('fire-mode');
+      }
+
+      if (id.startsWith('wall_hit')) playSfx('splat');
+      else if (id === 'click_bleat') playSfx('bleat');
+      else if (id === 'click_spin' || id === 'celebrate') playSfx('jump');
+      else playSfx('pop');
+    }
+
+    // Category Tabs definition
+    const CATEGORIES = {
+      main: [
+        { id: 'idle', label: '👀 Idle', class: 'btn-white' },
+        { id: 'celebrate', label: '✨ Celebrate', class: 'btn-green' },
+        { id: 'sad', label: '😢 Sad', class: 'btn-gold' },
+        { id: 'intense', label: '🔥 Cobrança', class: 'btn-red' },
+        { id: 'fire_loop', label: '🔥 Fogo Loop', class: 'btn-red' }
+      ],
+      clicks: [
+        { id: 'click_poke', label: '👆 1: Susto', class: 'btn-white' },
+        { id: 'click_bleat', label: '🐐 2: Mé!', class: 'btn-blue' },
+        { id: 'click_shake', label: '🌀 3: Sacudida', class: 'btn-gold' },
+        { id: 'click_spin', label: '⭐ 4: Pirueta 360', class: 'btn-purple' },
+        { id: 'click_heart', label: '💖 5: Carinho', class: 'btn-red' }
+      ],
+      drags: [
+        { id: 'drag_start_right', label: '▶ Início Dir.', class: 'btn-white' },
+        { id: 'drag_move_right', label: '⏩ Voar Dir.', class: 'btn-green' },
+        { id: 'drag_start_left', label: '◀ Início Esq.', class: 'btn-white' },
+        { id: 'drag_move_left', label: '⏪ Voar Esq.', class: 'btn-blue' },
+        { id: 'drag_start_up', label: '▲ Início Cima', class: 'btn-white' },
+        { id: 'drag_move_up', label: '🔼 Voar Cima', class: 'btn-purple' },
+        { id: 'drag_start_down', label: '▼ Início Baixo', class: 'btn-white' },
+        { id: 'drag_move_down', label: '🔽 Pressionado', class: 'btn-gold' }
+      ],
+      walls: [
+        { id: 'hold_grab', label: '✊ Segurar no Ar', class: 'btn-purple' },
+        { id: 'wall_hit_right', label: '💥 Parede Dir.', class: 'btn-red' },
+        { id: 'wall_hit_left', label: '💥 Parede Esq.', class: 'btn-red' },
+        { id: 'wall_hit_top', label: '💥 Teto (Bonk)', class: 'btn-gold' },
+        { id: 'wall_hit_bottom', label: '💥 Chão (Splat)', class: 'btn-blue' }
+      ]
+    };
+
+    function switchCategory(cat) {
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+      event?.target?.classList?.add('active');
+
+      buttonsContainer.innerHTML = '';
+      CATEGORIES[cat].forEach(item => {
+        const btn = document.createElement('button');
+        btn.className = `duo-btn ${item.class}`;
+        btn.innerText = item.label;
+        btn.onclick = () => setAnimation(item.id);
+        buttonsContainer.appendChild(btn);
+      });
+    }
+
+    // Render Animation Loop
+    requestAnimationFrame(mainLoop);
+    function mainLoop(timestamp) {
+      if (!lastTime) lastTime = timestamp;
+      const interval = 1000 / fps;
+
+      if (timestamp - lastTime >= interval) {
+        lastTime = timestamp;
+        
+        currentFrame++;
+        if (currentFrame >= currentAnim.totalFrames) {
+          if (currentAnim.loop) {
+            currentFrame = 0;
+          } else {
+            // Once non-looping animation finishes: return to idle
+            currentFrame = 0;
+            currentAnimId = 'idle';
+            currentAnim = ANIMATIONS['idle'];
+            bodeQuote.innerText = currentAnim.quote;
+            activeSheetImg.src = currentAnim.src;
+          }
+        }
+        renderFrame();
+        updateCursor();
+      }
+
+      // Physics update when not dragging
+      if (!isDragging) {
+        posX += velX;
+        posY += velY;
+        velX *= 0.90;
+        velY *= 0.90;
+
+        // Collision boundaries
+        const sRect = sandbox.getBoundingClientRect();
+        const minX = 70;
+        const maxX = sRect.width - 70;
+        const minY = 60;
+        const maxY = sRect.height - 60;
+
+        if (posX > maxX) {
+          posX = maxX;
+          if (velX > 4) setAnimation('wall_hit_right');
+          velX = -velX * 0.4;
+        } else if (posX < minX) {
+          posX = minX;
+          if (velX < -4) setAnimation('wall_hit_left');
+          velX = -velX * 0.4;
+        }
+
+        if (posY > maxY) {
+          posY = maxY;
+          if (velY > 4) setAnimation('wall_hit_bottom');
+          velY = -velY * 0.4;
+        } else if (posY < minY) {
+          posY = minY;
+          if (velY < -4) setAnimation('wall_hit_top');
+          velY = -velY * 0.4;
+        }
+
+        updateCanvasPos();
+      }
+
+      requestAnimationFrame(mainLoop);
+    }
+
+    function renderFrame() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const img = loadedImages[currentAnimId] || activeSheetImg;
+
+      if (img.complete && img.naturalWidth > 0) {
+        const col = currentFrame % currentAnim.cols;
+        const row = Math.floor(currentFrame / currentAnim.cols);
+
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(
+          img,
+          col * FRAME_SIZE, row * FRAME_SIZE, FRAME_SIZE, FRAME_SIZE,
+          0, 0, canvas.width, canvas.height
+        );
+      }
+      activeBadge.innerText = `${currentAnim.title} (${currentFrame + 1}/${currentAnim.totalFrames})`;
+    }
+
+    function updateCursor() {
+      const containerW = activeSheetImg.clientWidth;
+      const containerH = activeSheetImg.clientHeight;
+
+      const col = currentFrame % currentAnim.cols;
+      const row = Math.floor(currentFrame / currentAnim.cols);
+
+      const colW = containerW / currentAnim.cols;
+      const rowH = containerH / currentAnim.rows;
+
+      cursorBox.style.width = colW + 'px';
+      cursorBox.style.height = rowH + 'px';
+      cursorBox.style.left = (col * colW) + 'px';
+      cursorBox.style.top = (row * rowH) + 'px';
+    }
+
+    // Mouse / Touch Interaction with Sandbox
+    sandbox.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      velX = 0; velY = 0;
+      const rect = sandbox.getBoundingClientRect();
+      lastMouseX = e.clientX - rect.left;
+      lastMouseY = e.clientY - rect.top;
+
+      // Start hold timer
+      holdTimer = setTimeout(() => {
+        isHeld = true;
+        setAnimation('hold_grab');
+      }, 250);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const rect = sandbox.getBoundingClientRect();
+      const currentMouseX = e.clientX - rect.left;
+      const currentMouseY = e.clientY - rect.top;
+
+      const deltaX = currentMouseX - lastMouseX;
+      const deltaY = currentMouseY - lastMouseY;
+
+      velX = deltaX;
+      velY = deltaY;
+
+      posX += deltaX;
+      posY += deltaY;
+
+      // Detect Drag Direction
+      if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+        clearTimeout(holdTimer);
+        isHeld = false;
+
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          if (deltaX > 0 && currentAnimId !== 'drag_move_right') setAnimation('drag_move_right');
+          else if (deltaX < 0 && currentAnimId !== 'drag_move_left') setAnimation('drag_move_left');
+        } else {
+          if (deltaY > 0 && currentAnimId !== 'drag_move_down') setAnimation('drag_move_down');
+          else if (deltaY < 0 && currentAnimId !== 'drag_move_up') setAnimation('drag_move_up');
+        }
+      }
+
+      lastMouseX = currentMouseX;
+      lastMouseY = currentMouseY;
+      updateCanvasPos();
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+      clearTimeout(holdTimer);
+
+      if (isHeld) {
+        isHeld = false;
+        setAnimation('idle');
+      } else if (Math.abs(velX) < 2 && Math.abs(velY) < 2) {
+        // Quick tap: cycle random click reaction!
+        const clicks = ['click_poke', 'click_bleat', 'click_shake', 'click_spin', 'click_heart'];
+        const randomClick = clicks[Math.floor(Math.random() * clicks.length)];
+        setAnimation(randomClick);
+      }
+    });
+
+    let isChecker = false;
+    function toggleCheckerBg() {
+      isChecker = !isChecker;
+      if (isChecker) sandbox.classList.add('bg-checker');
+      else sandbox.classList.remove('bg-checker');
+    }
+
+    speedSlider.addEventListener('input', (e) => {
+      fps = parseInt(e.target.value);
+      speedDisplay.innerText = fps + ' FPS';
+    });
+
+    // Initialize
+    switchCategory('main');
+    setTimeout(initPhysics, 50);
+  </script>
+</body>
+</html>

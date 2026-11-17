@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-import '../../../../core/ui/mascot/mascot.dart';
+import '../../../../core/constants/brand_assets.dart';
 import '../../../dashboard/presentation/widgets/responsive_layout.dart';
 
 class AuthPageFrame extends StatelessWidget {
@@ -13,8 +13,6 @@ class AuthPageFrame extends StatelessWidget {
     required this.child,
     this.maxWidth = 480,
     this.onBack,
-    this.mascotState = MascotState.idle,
-    this.mascotTip,
   });
 
   final String title;
@@ -23,16 +21,17 @@ class AuthPageFrame extends StatelessWidget {
   final Widget child;
   final double maxWidth;
   final VoidCallback? onBack;
-  final MascotState mascotState;
-  final String? mascotTip;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+    final keyboardOpen = viewInsets.bottom > 80;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -79,13 +78,19 @@ class AuthPageFrame extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 48),
-                          // Right column: Form card (strictly hugging its content and vertically centered)
+                          // Right column: Form card (scrolls safely on short screens)
                           Expanded(
                             flex: 5,
                             child: Center(
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(maxWidth: maxWidth),
-                                child: _buildFormCard(context, reduceMotion),
+                              child: SingleChildScrollView(
+                                keyboardDismissBehavior:
+                                    ScrollViewKeyboardDismissBehavior.onDrag,
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: maxWidth,
+                                  ),
+                                  child: _buildFormCard(context, reduceMotion),
+                                ),
                               ),
                             ),
                           ),
@@ -96,11 +101,16 @@ class AuthPageFrame extends StatelessWidget {
                 );
               }
 
-              // Mobile and tablet: vertical layout
+              // Mobile and tablet: vertical layout with keyboard-safe scrolling
+              final shortViewport = MediaQuery.sizeOf(context).height < 680;
               return SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isCompactLayout(context) ? 14 : 24,
-                  vertical: isCompactLayout(context) ? 18 : 32,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.fromLTRB(
+                  isCompactLayout(context) ? 14 : 24,
+                  shortViewport ? 10 : (isCompactLayout(context) ? 16 : 28),
+                  isCompactLayout(context) ? 14 : 24,
+                  (shortViewport ? 14 : 24) + viewInsets.bottom * 0.2,
                 ),
                 child: Center(
                   child: ConstrainedBox(
@@ -108,8 +118,12 @@ class AuthPageFrame extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _buildMobileHeader(context, reduceMotion),
-                        const SizedBox(height: 20),
+                        _buildMobileHeader(
+                          context,
+                          reduceMotion,
+                          compactHeight: shortViewport || keyboardOpen,
+                        ),
+                        SizedBox(height: shortViewport || keyboardOpen ? 8 : 18),
                         _buildFormCard(context, reduceMotion),
                       ],
                     ),
@@ -157,69 +171,9 @@ class AuthPageFrame extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF58CC02), Color(0xFF23A800)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF58CC02).withValues(alpha: 0.35),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: const Center(
-                child: MascotPoseEmblem(
-                  state: MascotState.idle,
-                  size: 42,
-                ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Duolinfo IA',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                Text(
-                  'Plataforma Inteligente de Idiomas',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: isDark
-                        ? const Color(0xFF94A3B8)
-                        : const Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 18),
-        InteractiveMascotStage(
-          initialState: mascotState,
-          mascotSize: 78,
-          height: 108,
-          accentColor: accentColor,
-          hintText:
-              mascotTip ??
-              'Toque ou arraste o bode Duolinfo enquanto acessa sua conta!',
-        ),
+        const AppBrandBanner(height: 82, maxWidth: 340),
+        const SizedBox(height: 16),
+        const AppBrandIcon(size: 64),
         const SizedBox(height: 20),
         Text(
           'Aprenda e ensine idiomas com a potência da IA',
@@ -315,7 +269,11 @@ class AuthPageFrame extends StatelessWidget {
         .slideX(begin: -0.05, end: 0);
   }
 
-  Widget _buildMobileHeader(BuildContext context, bool reduceMotion) {
+  Widget _buildMobileHeader(
+    BuildContext context,
+    bool reduceMotion, {
+    bool compactHeight = false,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     Widget header = Column(
@@ -330,35 +288,21 @@ class AuthPageFrame extends StatelessWidget {
               style: TextButton.styleFrom(foregroundColor: accentColor),
             ),
           ),
-        Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            color: accentColor.withValues(alpha: isDark ? 0.18 : 0.1),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: accentColor.withValues(alpha: 0.3),
-            ),
-          ),
-          child: Center(
-            child: MascotSprite(
-              state: mascotState,
-              size: 62,
-              glowColor: accentColor,
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Duolinfo IA',
-          style: TextStyle(
-            fontSize: 26,
-            height: 1.1,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 4),
+        if (compactHeight)
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AppBrandBanner(height: 50, maxWidth: 210),
+              SizedBox(width: 10),
+              AppBrandIcon(size: 40),
+            ],
+          )
+        else ...[
+          const AppBrandBanner(height: 68, maxWidth: 280),
+          const SizedBox(height: 10),
+          const AppBrandIcon(size: 48),
+        ],
+        SizedBox(height: compactHeight ? 4 : 6),
         Text(
           'Aprenda idiomas com inteligência artificial',
           textAlign: TextAlign.center,

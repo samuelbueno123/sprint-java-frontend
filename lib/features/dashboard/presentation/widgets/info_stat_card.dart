@@ -12,6 +12,8 @@ class InfoStatCard extends StatefulWidget {
     required this.accentColor,
     this.subtitle,
     this.onTap,
+    this.borderColor,
+    this.backgroundGradient,
   });
 
   final String title;
@@ -20,6 +22,8 @@ class InfoStatCard extends StatefulWidget {
   final Color accentColor;
   final String? subtitle;
   final VoidCallback? onTap;
+  final Color? borderColor;
+  final Gradient? backgroundGradient;
 
   @override
   State<InfoStatCard> createState() => _InfoStatCardState();
@@ -44,13 +48,19 @@ class _InfoStatCardState extends State<InfoStatCard> {
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+          gradient: widget.backgroundGradient,
+          color: widget.backgroundGradient == null
+              ? Theme.of(context).colorScheme.surface
+              : null,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: _isHovered && widget.onTap != null
-                ? widget.accentColor.withValues(alpha: 0.6)
-                : (isDark ? const Color(0xFF343B49) : const Color(0xFFE2E8F0)),
-            width: _isHovered && widget.onTap != null ? 1.5 : 1.0,
+                ? (widget.borderColor ?? widget.accentColor.withValues(alpha: 0.6))
+                : (widget.borderColor?.withValues(alpha: 0.72) ??
+                    (isDark ? const Color(0xFF343B49) : const Color(0xFFE2E8F0))),
+            width: _isHovered && widget.onTap != null
+                ? 1.7
+                : (widget.borderColor != null ? 1.3 : 1.0),
           ),
           boxShadow: [
             if (_isHovered && widget.onTap != null)

@@ -5,9 +5,8 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/session_store.dart';
-import '../../../../core/ui/mascot/mascot.dart';
+import '../../../../core/ui/language_flag.dart';
 import '../../../../core/ui/motion_kit.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../auth_dependencies.dart';
@@ -225,12 +224,6 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
               : 'Crie sua conta para continuar com o cadastro docente.',
           accentColor: const Color(0xFF7651C8),
           maxWidth: 560,
-          mascotState: _viewModel.errorMessage != null
-              ? MascotState.sad
-              : (_profileStep ? MascotState.intense : MascotState.idle),
-          mascotTip: _profileStep
-              ? 'Etapa 2/2: vincule sua instituição e seus idiomas lecionados.'
-              : 'Etapa 1/2: crie suas credenciais docentes no Duolinfo.',
           onBack: _handleBack,
           child: MotionSectionSwitcher(
             duration: const Duration(milliseconds: 280),
@@ -455,12 +448,11 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
               prefixIcon: Icon(Icons.language_rounded),
             ),
             items: availableLanguages.map((lang) {
-              final meta = SupportedLanguages.metaFor(lang);
               return DropdownMenuItem(
                 value: lang,
                 child: Row(
                   children: [
-                    Icon(meta.icon, size: 16, color: meta.color),
+                    LanguageFlag.forLanguage(lang, width: 22),
                     const SizedBox(width: 8),
                     Text(lang),
                   ],
@@ -508,10 +500,9 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
             runSpacing: 8,
             children: _selectedLanguages.map((language) {
               return Chip(
-                avatar: const Icon(
-                  Icons.translate_rounded,
-                  size: 16,
-                  color: Color(0xFF7651C8),
+                avatar: Padding(
+                  padding: const EdgeInsets.only(left: 2),
+                  child: LanguageFlag.forLanguage(language, width: 20),
                 ),
                 label: Text(language),
                 deleteIcon: const Icon(Icons.close_rounded, size: 16),

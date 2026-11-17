@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
-import '../../../../core/ui/mascot/mascot.dart';
+import '../../../../core/constants/brand_assets.dart';
 import '../../../auth/presentation/pages/student_signup_page.dart';
 import '../../../auth/presentation/pages/teacher_signup_page.dart';
 import '../../domain/entities/dashboard_data.dart';
@@ -89,18 +89,14 @@ class UserDashboardView extends StatelessWidget {
                     ),
                     const SizedBox(width: 14),
                     Container(
-                      width: 74,
-                      height: 74,
+                      width: 68,
+                      height: 68,
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.16),
                         shape: BoxShape.circle,
                       ),
                       child: const Center(
-                        child: MascotSprite(
-                          state: MascotState.clickHeart,
-                          size: 64,
-                          glowColor: Colors.white,
-                        ),
+                        child: AppBrandIcon(size: 48),
                       ),
                     ),
                   ],
@@ -195,10 +191,20 @@ class UserDashboardView extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  MascotSprite(
-                    state: approved ? MascotState.celebrate : MascotState.idle,
-                    size: 92,
-                    glowColor: color,
+                  Container(
+                    width: 82,
+                    height: 82,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.14),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      approved
+                          ? Icons.verified_rounded
+                          : Icons.hourglass_top_rounded,
+                      color: color,
+                      size: 42,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(

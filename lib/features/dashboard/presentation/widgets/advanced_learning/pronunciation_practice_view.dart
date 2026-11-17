@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/core/audio/system_sound_service.dart';
+import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/core/ui/mascot/mascot.dart';
+import 'package:frontend/core/xp/xp_animation_controller.dart';
 import '../audio_speech_helper.dart';
 
 class PronunciationPracticeView extends StatefulWidget {
@@ -99,9 +101,23 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
         data: {'challengeId': _selectedChallenge!['id'], 'spokenText': spoken},
       );
 
+      final parsed = Map<String, dynamic>.from(res.data as Map);
+      final xp = (parsed['xpEarned'] as num?)?.toInt() ?? 0;
+      final score = (parsed['finalScore'] as num?)?.toDouble() ?? 0.0;
+      if (xp > 0) {
+        await XpAnimationController.recordXpGain(
+          xp,
+          source: 'Prática de Pronúncia',
+        );
+      }
+      if (score >= 55) {
+        SystemSoundService.success();
+      } else {
+        SystemSoundService.defeat();
+      }
       if (!mounted) return;
       setState(() {
-        _evaluationResult = Map<String, dynamic>.from(res.data as Map);
+        _evaluationResult = parsed;
         _evaluating = false;
       });
     } catch (e) {
@@ -123,9 +139,8 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
       future: _loadFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const MascotLoader(
+          return const AppLoader(
             message: 'Carregando desafios de pronúncia...',
-            mascotSize: 80,
           );
         }
 
@@ -134,7 +149,7 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const MascotErrorIllustration(state: MascotState.sad, size: 78),
+                const AppErrorIllustration(size: 74),
                 const SizedBox(height: 16),
                 Text(_error!, style: TextStyle(color: colors.error)),
                 const SizedBox(height: 16),
@@ -375,19 +390,10 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
             ),
             const SizedBox(height: 24),
 
-            // Microphone action + mascote ouvinte
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                MascotSprite(
-                  state: _isListening ? MascotState.holdGrab : MascotState.idle,
-                  size: 68,
-                  glowColor: _isListening ? Colors.red : const Color(0xFF3579E8),
-                ),
-                const SizedBox(width: 14),
-                GestureDetector(
-                  onTap: _startRecording,
-                  child: AnimatedContainer(
+            // Microphone action
+            GestureDetector(
+              onTap: _startRecording,
+              child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     width: 80,
                     height: 80,
@@ -417,8 +423,6 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
                     ),
                   ),
                 ),
-              ],
-            ),
             const SizedBox(height: 12),
             Text(
               _isListening
@@ -457,11 +461,8 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
             if (_evaluating)
               const Padding(
                 padding: EdgeInsets.all(16),
-                child: MascotLoader(
+                child: AppLoader(
                   message: 'Analisando acurácia fonética...',
-                  state: MascotState.clickSpin,
-                  mascotSize: 76,
-                  useSpriteSheet: true,
                 ),
               ),
 
@@ -504,13 +505,21 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
             children: [
               Row(
                 children: [
-                  MascotGifBadge(
-                    state: finalScore >= 80
-                        ? MascotState.celebrate
-                        : (finalScore >= 55
-                              ? MascotState.clickPoke
-                              : MascotState.sad),
-                    size: 58,
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: scoreColor.withValues(alpha: 0.14),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      finalScore >= 80
+                          ? Icons.workspace_premium_rounded
+                          : (finalScore >= 55
+                                ? Icons.thumb_up_rounded
+                                : Icons.refresh_rounded),
+                      color: scoreColor,
+                      size: 32,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Text(

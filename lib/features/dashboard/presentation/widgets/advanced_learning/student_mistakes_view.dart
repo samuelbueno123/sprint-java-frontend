@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
+import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/core/ui/mascot/mascot.dart';
 import '../audio_speech_helper.dart';
 
 class StudentMistakesView extends StatefulWidget {
@@ -142,9 +142,8 @@ class _StudentMistakesViewState extends State<StudentMistakesView> {
         future: _loadFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const MascotLoader(
+            return const AppLoader(
               message: 'Carregando seu caderno de erros...',
-              mascotSize: 80,
             );
           }
 
@@ -300,9 +299,9 @@ class _StudentMistakesViewState extends State<StudentMistakesView> {
                   alignment: Alignment.center,
                   child: Column(
                     children: [
-                      const MascotGifBadge(
-                        state: MascotState.celebrate,
-                        size: 96,
+                      const AppEmptyIllustration(
+                        icon: Icons.check_circle_outline_rounded,
+                        size: 76,
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -569,11 +568,8 @@ class _AiExplanationDialogState extends State<_AiExplanationDialog> {
       content: SizedBox(
         width: 480,
         child: _loading
-            ? const MascotLoader(
+            ? const AppLoader(
                 message: 'Gerando análise pedagógica e mnemônica...',
-                state: MascotState.clickSpin,
-                mascotSize: 76,
-                useSpriteSheet: true,
                 accentColor: Color(0xFF7651C8),
               )
             : _error != null

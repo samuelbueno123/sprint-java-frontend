@@ -4,8 +4,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../../../core/constants/app_feedback_widgets.dart';
 import '../../../../../core/network/api_client.dart';
-import '../../../../../core/ui/mascot/mascot.dart';
+import '../../../../../core/theme/admin_geral_theme.dart';
 import '../responsive_layout.dart';
 
 class AdminSystemHealthView extends StatefulWidget {
@@ -94,7 +95,7 @@ class _AdminSystemHealthViewState extends State<AdminSystemHealthView> {
       case 'UP':
         return const Color(0xFF10B981);
       case 'DEGRADED':
-        return const Color(0xFFF59E0B);
+        return AdminGeralTheme.goldMetallic;
       case 'DOWN':
       default:
         return const Color(0xFFEF4444);
@@ -126,24 +127,9 @@ class _AdminSystemHealthViewState extends State<AdminSystemHealthView> {
           // Banner
           Container(
             padding: responsiveBannerPadding(context),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFF064E3B),
-                  Color(0xFF047857),
-                  Color(0xFF059669),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(22),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF047857).withValues(alpha: 0.3),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+            decoration: AdminGeralTheme.heroDecoration(
+              context: context,
+              borderRadius: 22,
             ),
             child: Row(
               children: [
@@ -270,11 +256,9 @@ class _AdminSystemHealthViewState extends State<AdminSystemHealthView> {
           if (_isLoading)
             const Padding(
               padding: EdgeInsets.all(24),
-              child: MascotLoader(
+              child: AppLoader(
                 message: 'Monitorando saúde e serviços do sistema...',
-                state: MascotState.intense,
-                mascotSize: 80,
-                accentColor: Color(0xFFD97706),
+                accentColor: AdminGeralTheme.indigoMid,
               ),
             )
           else if (_healthData != null) ...[
@@ -381,7 +365,9 @@ class _AdminSystemHealthViewState extends State<AdminSystemHealthView> {
                     valueColor: AlwaysStoppedAnimation<Color>(
                       poolUsage > 0.8
                           ? Colors.red
-                          : (poolUsage > 0.5 ? Colors.amber : Colors.green),
+                          : (poolUsage > 0.5
+                                ? AdminGeralTheme.goldMetallic
+                                : Colors.green),
                     ),
                   ),
                 ),
@@ -462,7 +448,7 @@ class _AdminSystemHealthViewState extends State<AdminSystemHealthView> {
                           usedPct > 85
                               ? Colors.red
                               : (usedPct > 70
-                                    ? Colors.amber
+                                    ? AdminGeralTheme.goldMetallic
                                     : const Color(0xFF8B5CF6)),
                         ),
                       );
@@ -498,7 +484,7 @@ class _AdminSystemHealthViewState extends State<AdminSystemHealthView> {
                   children: [
                     const Icon(
                       Icons.auto_awesome_rounded,
-                      color: Color(0xFFF59E0B),
+                      color: AdminGeralTheme.goldMetallic,
                     ),
                     const SizedBox(width: 8),
                     const Text(

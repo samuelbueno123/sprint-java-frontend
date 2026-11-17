@@ -1,8 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/core/ui/mascot/mascot.dart';
+import 'package:frontend/core/ui/language_flag.dart';
 import '../audio_speech_helper.dart';
 
 class AiConversationView extends StatefulWidget {
@@ -43,10 +44,14 @@ class _AiConversationViewState extends State<AiConversationView> {
     super.dispose();
   }
 
-  Future<void> _loadScenarios() async {
+  Future<void> _loadScenarios([String? language]) async {
+    final target = language ?? _selectedLanguage;
     setState(() => _loading = true);
     try {
-      final res = await _dio.get('/api/ai/conversations/scenarios');
+      final res = await _dio.get(
+        '/api/ai/conversations/scenarios',
+        queryParameters: {'language': target},
+      );
       if (!mounted) return;
       setState(() {
         _scenarios = (res.data as List)
@@ -61,6 +66,41 @@ class _AiConversationViewState extends State<AiConversationView> {
         context,
       ).showSnackBar(SnackBar(content: Text('Erro ao carregar cenários: $e')));
     }
+  }
+
+  List<String> _exampleRepliesForLanguage(String lang) {
+    return switch (SupportedLanguages.normalizeOrDefault(lang)) {
+      'Espanhol' => const [
+        '¡Hola! ¿Cómo estás?',
+        'Quisiera pedir un café, por favor.',
+        '¿Puedes repetir eso más despacio?',
+      ],
+      'Francês' => const [
+        'Bonjour ! Comment allez-vous ?',
+        'Je voudrais un café, s’il vous plaît.',
+        'Pouvez-vous parler plus lentement ?',
+      ],
+      'Alemão' => const [
+        'Hallo! Wie geht es Ihnen?',
+        'Ich möchte bitte einen Kaffee.',
+        'Können Sie das bitte wiederholen?',
+      ],
+      'Italiano' => const [
+        'Ciao! Come stai oggi?',
+        'Vorrei ordinare un caffè, per favore.',
+        'Puoi parlare più lentamente?',
+      ],
+      'Japonês' => const [
+        'こんにちは！お元気ですか？',
+        'コーヒーをひとつお願いします。',
+        'もう少しゆっくり話してください。',
+      ],
+      _ => const [
+        'Hello! How are you doing?',
+        'I would like to order a coffee, please.',
+        'Could you repeat that more slowly?',
+      ],
+    };
   }
 
   Future<void> _startSession(Map<String, dynamic> scenario) async {
@@ -175,10 +215,8 @@ class _AiConversationViewState extends State<AiConversationView> {
     final colors = Theme.of(context).colorScheme;
 
     if (_loading) {
-      return const MascotLoader(
+      return const AppLoader(
         message: 'Preparando tutor de conversação...',
-        state: MascotState.clickBleat,
-        mascotSize: 82,
       );
     }
 
@@ -249,14 +287,14 @@ class _AiConversationViewState extends State<AiConversationView> {
                 ),
               ),
               ...kSupportedLanguages.map((lang) {
-                final meta = SupportedLanguages.metaFor(lang);
                 return ChoiceChip(
                   selected: _selectedLanguage == lang,
-                  avatar: Icon(meta.icon, size: 15, color: meta.color),
+                  avatar: LanguageFlag.forLanguage(lang, width: 18),
                   label: Text(lang),
                   onSelected: (selected) {
                     if (selected) {
                       setState(() => _selectedLanguage = lang);
+                      _loadScenarios(lang);
                     }
                   },
                 );
@@ -420,9 +458,10 @@ class _AiConversationViewState extends State<AiConversationView> {
               const SizedBox(width: 8),
               CircleAvatar(
                 backgroundColor: colors.primaryContainer,
-                child: const MascotSprite(
-                  state: MascotState.clickBleat,
-                  size: 34,
+                child: LanguageFlag.forLanguage(
+                  _currentSession?['targetLanguage']?.toString() ??
+                      _selectedLanguage,
+                  width: 24,
                 ),
               ),
               const SizedBox(width: 12),
@@ -502,6 +541,34 @@ class _AiConversationViewState extends State<AiConversationView> {
               ],
             ),
           ),
+
+        // Quick localized examples for the active language
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          color: colors.surfaceContainerLow,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _exampleRepliesForLanguage(
+                _currentSession?['targetLanguage']?.toString() ??
+                    _selectedLanguage,
+              ).map((example) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ActionChip(
+                    label: Text(example, style: const TextStyle(fontSize: 12)),
+                    onPressed: _sending
+                        ? null
+                        : () {
+                            _msgCtrl.text = example;
+                          },
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
 
         // Input bar
         Container(
@@ -669,9 +736,9 @@ class _AiConversationViewState extends State<AiConversationView> {
                     const SizedBox(height: 4),
                     Text(
                       explanation,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Colors.black87,
+                        color: colors.onSurface,
                       ),
                     ),
                   ],

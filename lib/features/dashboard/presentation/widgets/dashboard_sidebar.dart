@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/ui/mascot/mascot.dart';
+import '../../../../core/audio/system_sound_service.dart';
+import '../../../../core/theme/admin_geral_theme.dart';
 import '../../domain/entities/user_profile_type.dart';
 
 class DashboardSidebar extends StatelessWidget {
@@ -28,7 +29,7 @@ class DashboardSidebar extends StatelessWidget {
       case UserProfileType.teacher:
         return const Color(0xFF7651C8);
       case UserProfileType.admin:
-        return const Color(0xFFD97706);
+        return AdminGeralTheme.indigoMid;
       case UserProfileType.user:
         return Colors.blueGrey;
     }
@@ -36,15 +37,29 @@ class DashboardSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isAdmin = profileType == UserProfileType.admin;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
       width: isCollapsed ? 72 : 240,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        gradient: isAdmin
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: isDark
+                    ? const [Color(0xFF0F172A), Color(0xFF1E1B4B)]
+                    : const [Color(0xFFEEF2FF), Color(0xFFF3E8FF)],
+              )
+            : null,
+        color: isAdmin ? null : Theme.of(context).colorScheme.surface,
         border: Border(
           right: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant,
+            color: isAdmin
+                ? AdminGeralTheme.goldMetallic
+                : Theme.of(context).colorScheme.outlineVariant,
+            width: isAdmin ? 1.6 : 1.0,
           ),
         ),
       ),
@@ -378,114 +393,10 @@ class DashboardSidebar extends StatelessWidget {
                 isCollapsed: isCollapsed,
                 onTap: () => onSectionSelected('settings'),
               ),
-              const SizedBox(height: 12),
-              _SidebarMascotCard(
-                accentColor: _accentColor,
-                isCollapsed: isCollapsed,
-                profileType: profileType,
-              ),
               const SizedBox(height: 16),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _SidebarMascotCard extends StatelessWidget {
-  const _SidebarMascotCard({
-    required this.accentColor,
-    required this.isCollapsed,
-    required this.profileType,
-  });
-
-  final Color accentColor;
-  final bool isCollapsed;
-  final UserProfileType profileType;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final state = switch (profileType) {
-      UserProfileType.student => MascotState.fireLoop,
-      UserProfileType.teacher => MascotState.idle,
-      UserProfileType.admin => MascotState.intense,
-      UserProfileType.user => MascotState.idle,
-    };
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final showDetails = !isCollapsed && constraints.maxWidth > 140;
-          return Tooltip(
-            message: 'Abrir estúdio do mascote Duolinfo',
-            child: InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () => MascotCompanionModal.show(context),
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: showDetails ? 10 : 6,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: isDark ? 0.14 : 0.08),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: accentColor.withValues(alpha: isDark ? 0.28 : 0.2),
-                  ),
-                ),
-                child: showDetails
-                    ? Row(
-                        children: [
-                          MascotPoseEmblem(
-                            state: state,
-                            size: 36,
-                            glowColor: accentColor,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Bode Duolinfo',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: accentColor,
-                                  ),
-                                ),
-                                Text(
-                                  'Ver animações',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: isDark
-                                        ? Colors.grey[400]
-                                        : Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      )
-                    : Center(
-                        child: MascotPoseEmblem(
-                          state: state,
-                          size: 32,
-                          glowColor: accentColor,
-                        ),
-                      ),
-              ),
-            ),
-          );
-        },
       ),
     );
   }
@@ -517,6 +428,8 @@ class _NavItem extends StatefulWidget {
 class _NavItemState extends State<_NavItem> {
   bool _isHovered = false;
 
+  bool get _isAdminTheme => widget.accentColor == AdminGeralTheme.indigoMid;
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -525,9 +438,11 @@ class _NavItemState extends State<_NavItem> {
 
     Widget iconWidget = Icon(
       widget.icon,
-      color: widget.isSelected
-          ? widget.accentColor
-          : (_isHovered ? widget.accentColor : unselectedIconColor),
+      color: _isAdminTheme && widget.isSelected
+          ? Colors.white
+          : (widget.isSelected
+                ? widget.accentColor
+                : (_isHovered ? widget.accentColor : unselectedIconColor)),
       size: 22,
     );
 
@@ -552,19 +467,28 @@ class _NavItemState extends State<_NavItem> {
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: widget.isSelected
+        gradient: _isAdminTheme && widget.isSelected
+            ? AdminGeralTheme.actionGradient
+            : null,
+        color: (_isAdminTheme && widget.isSelected)
+            ? null
+            : widget.isSelected
             ? widget.accentColor.withValues(alpha: isDark ? 0.28 : 0.14)
             : (_isHovered
                   ? widget.accentColor.withValues(alpha: isDark ? 0.16 : 0.08)
                   : Colors.transparent),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: widget.isSelected
+          color: _isAdminTheme && widget.isSelected
+              ? AdminGeralTheme.goldMetallic
+              : _isAdminTheme && _isHovered
+              ? AdminGeralTheme.goldMetallic.withValues(alpha: 0.6)
+              : widget.isSelected
               ? widget.accentColor.withValues(alpha: 0.55)
               : (_isHovered
                     ? widget.accentColor.withValues(alpha: 0.28)
                     : Colors.transparent),
-          width: 1.0,
+          width: _isAdminTheme && widget.isSelected ? 1.3 : 1.0,
         ),
         boxShadow: widget.isSelected
             ? [
@@ -596,7 +520,9 @@ class _NavItemState extends State<_NavItem> {
                       fontWeight: widget.isSelected
                           ? FontWeight.bold
                           : (_isHovered ? FontWeight.w600 : FontWeight.w500),
-                      color: widget.isSelected
+                      color: _isAdminTheme && widget.isSelected
+                          ? Colors.white
+                          : widget.isSelected
                           ? widget.accentColor
                           : (_isHovered
                                 ? widget.accentColor
@@ -648,7 +574,10 @@ class _NavItemState extends State<_NavItem> {
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
           child: InkWell(
-            onTap: widget.onTap,
+            onTap: () {
+              SystemSoundService.transition();
+              widget.onTap();
+            },
             borderRadius: BorderRadius.circular(12),
             child: itemContent,
           ),
