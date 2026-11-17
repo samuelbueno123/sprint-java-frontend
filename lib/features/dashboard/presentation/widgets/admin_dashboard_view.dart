@@ -1408,19 +1408,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    AppUserAvatar(
-                      name: widget.data.user.name,
-                      pictureUrl: widget.data.user.picture,
-                      radius: 34,
-                      backgroundColor: Colors.white.withValues(alpha: 0.22),
-                      textColor: Colors.white,
-                    ),
-                    Column(
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final badgeAndIdentity = Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
@@ -1441,13 +1431,16 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                 size: 14,
                               ),
                               SizedBox(width: 6),
-                              Text(
-                                'PAINEL DO ADMINISTRADOR GERAL • ACESSO SUPREMO',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.5,
+                              Flexible(
+                                child: Text(
+                                  'PAINEL DO ADMINISTRADOR GERAL • ACESSO SUPREMO',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.5,
+                                  ),
                                 ),
                               ),
                             ],
@@ -1470,9 +1463,17 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           ),
                         ),
                       ],
-                    ),
-                    const Spacer(),
-                    Container(
+                    );
+
+                    final avatar = AppUserAvatar(
+                      name: widget.data.user.name,
+                      pictureUrl: widget.data.user.picture,
+                      radius: 34,
+                      backgroundColor: Colors.white.withValues(alpha: 0.22),
+                      textColor: Colors.white,
+                    );
+
+                    final mascotEmblem = Container(
                       width: 68,
                       height: 68,
                       decoration: BoxDecoration(
@@ -1486,8 +1487,30 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           glowColor: Colors.white,
                         ),
                       ),
-                    ),
-                  ],
+                    );
+
+                    if (constraints.maxWidth >= 520) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          avatar,
+                          const SizedBox(width: 16),
+                          Expanded(child: badgeAndIdentity),
+                          const SizedBox(width: 16),
+                          mascotEmblem,
+                        ],
+                      );
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [avatar, const Spacer(), mascotEmblem]),
+                        const SizedBox(height: 14),
+                        badgeAndIdentity,
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 20),
                 Wrap(
@@ -1703,29 +1726,49 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               .fadeIn(duration: 400.ms, delay: 100.ms)
               .slideY(begin: 0.05, end: 0),
           const SizedBox(height: 28),
-          Row(
-            children: [
-              const Icon(
-                Icons.storage_rounded,
-                color: Color(0xFF6366F1),
-                size: 22,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Acesso Rápido às Tabelas do Banco de Dados (${_tables.length})',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final titleRow = Row(
+                children: [
+                  const Icon(
+                    Icons.storage_rounded,
+                    color: Color(0xFF6366F1),
+                    size: 22,
                   ),
-                ),
-              ),
-              TextButton.icon(
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Acesso Rápido às Tabelas do Banco de Dados (${_tables.length})',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+
+              final actionButton = TextButton.icon(
                 onPressed: () => widget.onSectionSelected('database'),
                 icon: const Icon(Icons.open_in_new_rounded, size: 16),
                 label: const Text('Abrir Visualizador Completo'),
-              ),
-            ],
+              );
+
+              if (constraints.maxWidth >= 560) {
+                return Row(
+                  children: [
+                    Expanded(child: titleRow),
+                    const SizedBox(width: 8),
+                    actionButton,
+                  ],
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [titleRow, const SizedBox(height: 4), actionButton],
+              );
+            },
           ),
           const SizedBox(height: 12),
           if (_isLoadingOverview && _tables.isEmpty)
@@ -1862,9 +1905,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               children: [
                 Icon(Icons.speed_rounded, color: Color(0xFF059669), size: 22),
                 SizedBox(width: 8),
-                Text(
-                  'Desempenho Operacional & SLAs do Sistema',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                Expanded(
+                  child: Text(
+                    'Desempenho Operacional & SLAs do Sistema',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
                 ),
               ],
             ),
@@ -2085,11 +2130,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           size: 20,
                         ),
                         SizedBox(width: 8),
-                        Text(
-                          'Distribuição de Perfis',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
+                        Expanded(
+                          child: Text(
+                            'Distribuição de Perfis',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                       ],
@@ -2335,54 +2382,76 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.history_edu_rounded,
-                  color: Color(0xFF6366F1),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'Eventos Recentes de Auditoria',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                          ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final titleAndSubtitle = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: const [
+                      Text(
+                        'Eventos Recentes de Auditoria',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
                         ),
-                        SizedBox(width: 8),
-                        _LivePulseBadge(),
-                      ],
+                      ),
+                      _LivePulseBadge(),
+                    ],
+                  ),
+                  const Text(
+                    'Últimos 5 registros no stream em tempo real • Clique para ver detalhes',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              );
+
+              final headerRow = Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    Text(
-                      'Últimos 5 registros no stream em tempo real • Clique para ver detalhes',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    child: const Icon(
+                      Icons.history_edu_rounded,
+                      color: Color(0xFF6366F1),
+                      size: 20,
                     ),
-                  ],
-                ),
-              ),
-              OutlinedButton.icon(
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(child: titleAndSubtitle),
+                ],
+              );
+
+              final logsButton = OutlinedButton.icon(
                 onPressed: () => widget.onSectionSelected('auditLogs'),
                 icon: const Icon(Icons.security_rounded, size: 16),
                 label: const Text('Ver Todos os Logs'),
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                 ),
-              ),
-            ],
+              );
+
+              if (constraints.maxWidth >= 560) {
+                return Row(
+                  children: [
+                    Expanded(child: headerRow),
+                    const SizedBox(width: 12),
+                    logsButton,
+                  ],
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [headerRow, const SizedBox(height: 12), logsButton],
+              );
+            },
           ),
           const SizedBox(height: 16),
           if (recentActivities.isEmpty)
@@ -2394,9 +2463,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 children: [
                   Icon(Icons.info_outline, color: Colors.grey, size: 18),
                   SizedBox(width: 8),
-                  Text(
-                    'Nenhum evento recente registrado ainda. As ações realizadas serão listadas aqui.',
-                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                  Flexible(
+                    child: Text(
+                      'Nenhum evento recente registrado ainda. As ações realizadas serão listadas aqui.',
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
                   ),
                 ],
               ),

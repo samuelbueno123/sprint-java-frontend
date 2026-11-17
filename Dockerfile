@@ -21,11 +21,16 @@ ARG API_BASE_URL=http://localhost:8080
 ARG GOOGLE_WEB_CLIENT_ID=367385027390-dmuj8neeqpgcbph3uk9qfb2cs5ubldhp.apps.googleusercontent.com
 ARG GOOGLE_SERVER_CLIENT_ID=367385027390-dmuj8neeqpgcbph3uk9qfb2cs5ubldhp.apps.googleusercontent.com
 
-# Compilação otimizada para release Web
+# Compilação otimizada para release Web com cache-busting determinístico do entrypoint
 RUN flutter build web --release \
     --dart-define=API_BASE_URL=${API_BASE_URL} \
     --dart-define=GOOGLE_WEB_CLIENT_ID=${GOOGLE_WEB_CLIENT_ID} \
-    --dart-define=GOOGLE_SERVER_CLIENT_ID=${GOOGLE_SERVER_CLIENT_ID}
+    --dart-define=GOOGLE_SERVER_CLIENT_ID=${GOOGLE_SERVER_CLIENT_ID} \
+    && BUILD_HASH=$(sha256sum build/web/main.dart.js | cut -c1-12) \
+    && sed -i "s|flutter_bootstrap\\.js|flutter_bootstrap.js?v=${BUILD_HASH}|g" build/web/index.html \
+    && sed -i "s|\"mainJsPath\":\"main\\.dart\\.js\"|\"mainJsPath\":\"main.dart.js?v=${BUILD_HASH}\"|g" build/web/flutter_bootstrap.js \
+    && grep -q "flutter_bootstrap.js?v=${BUILD_HASH}" build/web/index.html \
+    && grep -q "main.dart.js?v=${BUILD_HASH}" build/web/flutter_bootstrap.js
 
 # Estágio 2: Servidor Web Nginx de Alta Performance
 FROM nginx:1.27-alpine
