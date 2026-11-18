@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 
 import '../config/app_config.dart';
 import 'session_store.dart';
+import 'sse_stream_stub.dart'
+    if (dart.library.js_interop) 'sse_stream_web.dart';
 
 /// Evento recebido via Server-Sent Events (SSE) notificando que dados mudaram no banco de dados.
 class RealtimeSyncEvent {
@@ -43,8 +45,28 @@ class RealtimeSyncService {
   final _eventsController = StreamController<RealtimeSyncEvent>.broadcast();
   Stream<RealtimeSyncEvent> get events => _eventsController.stream;
 
+  static const List<String> _knownEventNames = [
+    'CONNECTED',
+    'NOTIFICATION_ADDED',
+    'NOTIFICATION_UPDATED',
+    'CLASS_ANNOUNCEMENT',
+    'TEACHER_NOTE_ADDED',
+    'CLASS_INVITED',
+    'EXERCISE_CREATED',
+    'EXERCISE_SUBMITTED',
+    'SUBMISSION_GRADED',
+    'RANKING_UPDATED',
+    'PROFILE_UPDATED',
+    'ENROLLMENT_UPDATED',
+    'INSTITUTION_REQUEST_DECIDED',
+    'SRS_REVIEW_COMPLETED',
+    'USER_UPDATED',
+    'DATA_UPDATED',
+  ];
+
   Dio? _dio;
   CancelToken? _cancelToken;
+  NativeSseConnection? _nativeConnection;
   bool _isConnected = false;
   bool _isConnecting = false;
   Timer? _reconnectTimer;
@@ -52,6 +74,11 @@ class RealtimeSyncService {
   bool _refreshedAfterUnauthorized = false;
 
   bool get isConnected => _isConnected;
+
+  @visibleForTesting
+  void emitEventForTest(RealtimeSyncEvent event) {
+    _eventsController.add(event);
+  }
 
   void connect() {
     if (_isConnected || _isConnecting) return;
@@ -68,14 +95,48 @@ class RealtimeSyncService {
     }
 
     _isConnecting = true;
+    final uri = Uri.parse(
+      AppConfig.apiBaseUrl,
+    ).resolve('/api/realtime/stream');
+    final sseUrl = uri.replace(queryParameters: {'token': token}).toString();
+
+    if (supportsNativeEventSource) {
+      _nativeConnection?.close();
+      _nativeConnection = openNativeEventSource(
+        url: sseUrl,
+        eventNames: _knownEventNames,
+        onOpen: () {
+          _isConnected = true;
+          _isConnecting = false;
+          _reconnectAttempts = 0;
+          _refreshedAfterUnauthorized = false;
+          debugPrint('[Realtime] EventSource web conectado em tempo real.');
+        },
+        onEvent: (eventName, rawData) {
+          _isConnected = true;
+          _isConnecting = false;
+          _reconnectAttempts = 0;
+          _dispatchRaw(eventName, rawData);
+        },
+        onError: (err) async {
+          _nativeConnection = null;
+          _isConnected = false;
+          _isConnecting = false;
+          if (!_refreshedAfterUnauthorized) {
+            _refreshedAfterUnauthorized = true;
+            await SessionStore.refreshAccessToken();
+          }
+          _scheduleReconnect();
+        },
+      );
+      if (_nativeConnection != null) {
+        return;
+      }
+    }
+
     _cancelToken = CancelToken();
 
     try {
-      final uri = Uri.parse(
-        AppConfig.apiBaseUrl,
-      ).resolve('/api/realtime/stream');
-      final sseUrl = uri.replace(queryParameters: {'token': token}).toString();
-
       debugPrint('[Realtime] Conectando ao canal SSE: $uri');
 
       _dio ??= Dio(
@@ -159,7 +220,9 @@ class RealtimeSyncService {
     try {
       final decoded = jsonDecode(rawData);
       if (decoded is Map<String, dynamic>) {
-        final event = RealtimeSyncEvent.fromJson(decoded);
+        final effective = Map<String, dynamic>.from(decoded);
+        effective['type'] ??= eventName;
+        final event = RealtimeSyncEvent.fromJson(effective);
         _eventsController.add(event);
         debugPrint('[Realtime] Evento recebido e disparado: ${event.type}');
       }
@@ -191,6 +254,8 @@ class RealtimeSyncService {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _reconnectAttempts = 0;
+    _nativeConnection?.close();
+    _nativeConnection = null;
     _cancelToken?.cancel('Desconectado manualmente.');
     _cancelToken = null;
     _isConnected = false;

@@ -6,6 +6,7 @@ import '../../../../core/audio/system_sound_service.dart';
 import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/realtime_sync_service.dart';
 import '../../../../core/ui/mascot/mascot.dart';
+import '../../../../core/ui/vivid_icon_palette.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/user_profile_type.dart';
 import 'admin_dashboard_view.dart';
@@ -34,6 +35,7 @@ class DashboardShell extends StatefulWidget {
     required this.onLogout,
     required this.onRefresh,
     required this.onProfileTypeSelected,
+    this.onSilentRefresh,
     this.canGoBack = false,
     this.onGoBack,
   });
@@ -43,6 +45,7 @@ class DashboardShell extends StatefulWidget {
   final ValueChanged<String> onSectionSelected;
   final VoidCallback onLogout;
   final VoidCallback onRefresh;
+  final VoidCallback? onSilentRefresh;
   final ValueChanged<UserProfileType> onProfileTypeSelected;
   final bool canGoBack;
   final VoidCallback? onGoBack;
@@ -122,29 +125,80 @@ class _DashboardShellState extends State<DashboardShell> {
     widget.onLogout();
   }
 
+  void _showLiveBanner({
+    required String title,
+    String content = '',
+    String className = '',
+    String teacherName = '',
+    String? targetSection,
+  }) {
+    _announcementDismissTimer?.cancel();
+    setState(() {
+      _liveAnnouncement = {
+        'title': title,
+        'content': content,
+        'className': className,
+        'teacherName': teacherName,
+        'targetSection': targetSection ?? '',
+      };
+    });
+    _announcementDismissTimer = Timer(const Duration(seconds: 8), () {
+      if (mounted) {
+        setState(() => _liveAnnouncement = null);
+      }
+    });
+  }
+
   void _handleRealtimeEvent(RealtimeSyncEvent event) {
     if (!mounted) return;
+    final data = event.data;
     if (event.type == 'CLASS_ANNOUNCEMENT') {
       SystemSoundService.notification();
-      final data = event.data;
-      _announcementDismissTimer?.cancel();
-      setState(() {
-        _liveAnnouncement = {
-          'title': data['title']?.toString().trim().isNotEmpty == true
-              ? data['title'].toString()
-              : 'Novo aviso no mural da turma',
-          'content': data['content']?.toString() ?? '',
-          'className': data['className']?.toString() ?? '',
-          'teacherName': data['teacherName']?.toString() ?? 'Professor(a)',
-        };
-      });
-      _announcementDismissTimer = Timer(const Duration(seconds: 8), () {
-        if (mounted) {
-          setState(() => _liveAnnouncement = null);
-        }
-      });
+      _showLiveBanner(
+        title: data['title']?.toString().trim().isNotEmpty == true
+            ? data['title'].toString()
+            : 'Novo aviso no mural da turma',
+        content: data['content']?.toString() ?? '',
+        className: data['className']?.toString() ?? '',
+        teacherName: data['teacherName']?.toString() ?? 'Professor(a)',
+      );
+    } else if (event.type == 'NOTIFICATION_ADDED') {
+      SystemSoundService.notification();
+      final notifType = data['type']?.toString().trim().toUpperCase();
+      final isPendingCorrection = notifType == 'CORRECTION_PENDING';
+      _showLiveBanner(
+        title: data['title']?.toString().trim().isNotEmpty == true
+            ? data['title'].toString()
+            : 'Nova notificação',
+        content: data['message']?.toString() ?? '',
+        teacherName: isPendingCorrection
+            ? 'Correção Pendente'
+            : 'Sistema Duolinfo',
+        targetSection: isPendingCorrection ? 'reviewExercises' : null,
+      );
+    } else if (event.type == 'EXERCISE_CREATED') {
+      SystemSoundService.notification();
+      final title = data['title']?.toString().trim();
+      _showLiveBanner(
+        title: 'Novo exercício publicado',
+        content: title != null && title.isNotEmpty
+            ? title
+            : 'Um novo exercício está disponível na sua turma.',
+        teacherName: 'Atividades',
+      );
+    } else if (event.type == 'SUBMISSION_GRADED') {
+      SystemSoundService.notification();
+      final exTitle = data['exerciseTitle']?.toString().trim();
+      _showLiveBanner(
+        title: 'Atividade corrigida',
+        content: exTitle != null && exTitle.isNotEmpty
+            ? '$exTitle avaliada pelo professor.'
+            : 'Sua atividade recebeu correção.',
+        teacherName: 'Correção',
+      );
     } else if (event.type == 'TEACHER_NOTE_ADDED' ||
-        event.type == 'CLASS_INVITED') {
+        event.type == 'CLASS_INVITED' ||
+        event.type == 'EXERCISE_SUBMITTED') {
       SystemSoundService.notification();
     }
   }
@@ -247,7 +301,21 @@ class _DashboardShellState extends State<DashboardShell> {
             onOpenNotifications: () {
               SystemSoundService.notification();
               if (widget.data.profileType == UserProfileType.student) {
-                StudentNotificationsDialog.show(context);
+                StudentNotificationsDialog.show(
+                  context,
+                  onUpdated: widget.onRefresh,
+                );
+              } else if (widget.data.profileType == UserProfileType.teacher) {
+                StudentNotificationsDialog.showForTeacher(
+                  context,
+                  onUpdated: widget.onRefresh,
+                  onNavigateAction: (actionUrl, type) {
+                    if (actionUrl == '/review-exercises' ||
+                        type == 'CORRECTION_PENDING') {
+                      widget.onSectionSelected('reviewExercises');
+                    }
+                  },
+                );
               } else if (widget.data.availableProfileTypes.contains(
                 UserProfileType.admin,
               )) {
@@ -292,62 +360,182 @@ class _DashboardShellState extends State<DashboardShell> {
                   elevation: 4,
                   height: 64,
                   labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-                  destinations:
-                      widget.data.profileType == UserProfileType.student
-                      ? const [
-                          NavigationDestination(
-                            icon: Icon(Icons.home_outlined),
-                            selectedIcon: Icon(Icons.home_rounded),
-                            label: 'Início',
-                          ),
-                          NavigationDestination(
-                            icon: Icon(Icons.school_outlined),
-                            selectedIcon: Icon(Icons.school_rounded),
-                            label: 'Turmas',
-                          ),
-                          NavigationDestination(
-                            icon: Icon(Icons.psychology_outlined),
-                            selectedIcon: Icon(Icons.psychology_rounded),
-                            label: 'Prática',
-                          ),
-                          NavigationDestination(
-                            icon: Icon(Icons.menu_book_outlined),
-                            selectedIcon: Icon(Icons.menu_book_rounded),
-                            label: 'Vocabulário',
-                          ),
-                          NavigationDestination(
-                            icon: Icon(Icons.widgets_outlined),
-                            selectedIcon: Icon(Icons.widgets_rounded),
-                            label: 'Mais',
-                          ),
-                        ]
-                      : const [
-                          NavigationDestination(
-                            icon: Icon(Icons.dashboard_outlined),
-                            selectedIcon: Icon(Icons.dashboard_rounded),
-                            label: 'Início',
-                          ),
-                          NavigationDestination(
-                            icon: Icon(Icons.groups_outlined),
-                            selectedIcon: Icon(Icons.groups_rounded),
-                            label: 'Turmas',
-                          ),
-                          NavigationDestination(
-                            icon: Icon(Icons.insights_outlined),
-                            selectedIcon: Icon(Icons.insights_rounded),
-                            label: 'Analytics',
-                          ),
-                          NavigationDestination(
-                            icon: Icon(Icons.assignment_outlined),
-                            selectedIcon: Icon(Icons.assignment_rounded),
-                            label: 'Atividades',
-                          ),
-                          NavigationDestination(
-                            icon: Icon(Icons.widgets_outlined),
-                            selectedIcon: Icon(Icons.widgets_rounded),
-                            label: 'Mais',
-                          ),
-                        ],
+                    destinations:
+                        widget.data.profileType == UserProfileType.student
+                        ? [
+                            NavigationDestination(
+                              icon: Icon(
+                                Icons.home_outlined,
+                                color: VividIconPalette.colorFor(
+                                  Icons.home_outlined,
+                                  brightness: Theme.of(context).brightness,
+                                ).withValues(alpha: 0.78),
+                              ),
+                              selectedIcon: Icon(
+                                Icons.home_rounded,
+                                color: VividIconPalette.colorFor(
+                                  Icons.home_rounded,
+                                  brightness: Theme.of(context).brightness,
+                                ),
+                              ),
+                              label: 'Início',
+                            ),
+                            NavigationDestination(
+                              icon: Icon(
+                                Icons.school_outlined,
+                                color: VividIconPalette.colorFor(
+                                  Icons.school_outlined,
+                                  brightness: Theme.of(context).brightness,
+                                ).withValues(alpha: 0.78),
+                              ),
+                              selectedIcon: Icon(
+                                Icons.school_rounded,
+                                color: VividIconPalette.colorFor(
+                                  Icons.school_rounded,
+                                  brightness: Theme.of(context).brightness,
+                                ),
+                              ),
+                              label: 'Turmas',
+                            ),
+                            NavigationDestination(
+                              icon: Icon(
+                                Icons.psychology_outlined,
+                                color: VividIconPalette.colorFor(
+                                  Icons.psychology_outlined,
+                                  brightness: Theme.of(context).brightness,
+                                ).withValues(alpha: 0.78),
+                              ),
+                              selectedIcon: Icon(
+                                Icons.psychology_rounded,
+                                color: VividIconPalette.colorFor(
+                                  Icons.psychology_rounded,
+                                  brightness: Theme.of(context).brightness,
+                                ),
+                              ),
+                              label: 'Prática',
+                            ),
+                            NavigationDestination(
+                              icon: Icon(
+                                Icons.menu_book_outlined,
+                                color: VividIconPalette.colorFor(
+                                  Icons.menu_book_outlined,
+                                  brightness: Theme.of(context).brightness,
+                                ).withValues(alpha: 0.78),
+                              ),
+                              selectedIcon: Icon(
+                                Icons.menu_book_rounded,
+                                color: VividIconPalette.colorFor(
+                                  Icons.menu_book_rounded,
+                                  brightness: Theme.of(context).brightness,
+                                ),
+                              ),
+                              label: 'Vocabulário',
+                            ),
+                            NavigationDestination(
+                              icon: Icon(
+                                Icons.widgets_outlined,
+                                color: VividIconPalette.colorFor(
+                                  Icons.widgets_outlined,
+                                  brightness: Theme.of(context).brightness,
+                                ).withValues(alpha: 0.78),
+                              ),
+                              selectedIcon: Icon(
+                                Icons.widgets_rounded,
+                                color: VividIconPalette.colorFor(
+                                  Icons.widgets_rounded,
+                                  brightness: Theme.of(context).brightness,
+                                ),
+                              ),
+                              label: 'Mais',
+                            ),
+                          ]
+                        : [
+                            NavigationDestination(
+                              icon: Icon(
+                                Icons.dashboard_outlined,
+                                color: VividIconPalette.colorFor(
+                                  Icons.dashboard_outlined,
+                                  brightness: Theme.of(context).brightness,
+                                ).withValues(alpha: 0.78),
+                              ),
+                              selectedIcon: Icon(
+                                Icons.dashboard_rounded,
+                                color: VividIconPalette.colorFor(
+                                  Icons.dashboard_rounded,
+                                  brightness: Theme.of(context).brightness,
+                                ),
+                              ),
+                              label: 'Início',
+                            ),
+                            NavigationDestination(
+                              icon: Icon(
+                                Icons.groups_outlined,
+                                color: VividIconPalette.colorFor(
+                                  Icons.groups_outlined,
+                                  brightness: Theme.of(context).brightness,
+                                ).withValues(alpha: 0.78),
+                              ),
+                              selectedIcon: Icon(
+                                Icons.groups_rounded,
+                                color: VividIconPalette.colorFor(
+                                  Icons.groups_rounded,
+                                  brightness: Theme.of(context).brightness,
+                                ),
+                              ),
+                              label: 'Turmas',
+                            ),
+                            NavigationDestination(
+                              icon: Icon(
+                                Icons.insights_outlined,
+                                color: VividIconPalette.colorFor(
+                                  Icons.insights_outlined,
+                                  brightness: Theme.of(context).brightness,
+                                ).withValues(alpha: 0.78),
+                              ),
+                              selectedIcon: Icon(
+                                Icons.insights_rounded,
+                                color: VividIconPalette.colorFor(
+                                  Icons.insights_rounded,
+                                  brightness: Theme.of(context).brightness,
+                                ),
+                              ),
+                              label: 'Analytics',
+                            ),
+                            NavigationDestination(
+                              icon: Icon(
+                                Icons.assignment_outlined,
+                                color: VividIconPalette.colorFor(
+                                  Icons.assignment_outlined,
+                                  brightness: Theme.of(context).brightness,
+                                ).withValues(alpha: 0.78),
+                              ),
+                              selectedIcon: Icon(
+                                Icons.assignment_rounded,
+                                color: VividIconPalette.colorFor(
+                                  Icons.assignment_rounded,
+                                  brightness: Theme.of(context).brightness,
+                                ),
+                              ),
+                              label: 'Atividades',
+                            ),
+                            NavigationDestination(
+                              icon: Icon(
+                                Icons.widgets_outlined,
+                                color: VividIconPalette.colorFor(
+                                  Icons.widgets_outlined,
+                                  brightness: Theme.of(context).brightness,
+                                ).withValues(alpha: 0.78),
+                              ),
+                              selectedIcon: Icon(
+                                Icons.widgets_rounded,
+                                color: VividIconPalette.colorFor(
+                                  Icons.widgets_rounded,
+                                  brightness: Theme.of(context).brightness,
+                                ),
+                              ),
+                              label: 'Mais',
+                            ),
+                          ],
                 )
               : null,
           body: Row(
@@ -387,13 +575,26 @@ class _DashboardShellState extends State<DashboardShell> {
                           setState(() => _liveAnnouncement = null);
                         },
                         onViewClasses:
-                            widget.data.profileType == UserProfileType.student
+                            (_liveAnnouncement!['targetSection']
+                                    ?.toString()
+                                    .isNotEmpty ??
+                                false)
                             ? () {
+                                final dest =
+                                    _liveAnnouncement!['targetSection']!
+                                        .toString();
                                 _announcementDismissTimer?.cancel();
                                 setState(() => _liveAnnouncement = null);
-                                widget.onSectionSelected('classes');
+                                widget.onSectionSelected(dest);
                               }
-                            : null,
+                            : (widget.data.profileType ==
+                                      UserProfileType.student
+                                  ? () {
+                                      _announcementDismissTimer?.cancel();
+                                      setState(() => _liveAnnouncement = null);
+                                      widget.onSectionSelected('classes');
+                                    }
+                                  : null),
                       ),
                     Expanded(
                       child: SizedBox.expand(
@@ -459,6 +660,7 @@ class _DashboardShellState extends State<DashboardShell> {
       'achievements' => 'Conquistas',
       'ranking' => 'Ranking Geral',
       'groupRanking' => 'Ranking por Turma',
+      'rankings' => 'Rankings',
       'classAnalytics' => 'Analytics da Turma',
       'manageExercises' => 'Gerenciar Atividades',
       'createExercise' => 'Criar Atividade',
@@ -483,27 +685,59 @@ class _DashboardShellState extends State<DashboardShell> {
         widget.onGoBack ?? () => widget.onSectionSelected('profile');
     switch (widget.data.profileType) {
       case UserProfileType.student:
+        final primaryStudentLang = SupportedLanguages.normalizeOrDefault(
+          (widget.data.studentProfile?.languages.isNotEmpty ?? false)
+              ? SupportedLanguages.splitLanguageAndLevel(
+                  widget.data.studentProfile!.languages.first,
+                ).language
+              : null,
+          kDefaultSupportedLanguage,
+        );
         if (widget.activeSection == 'classes') {
           return StudentClassesView(
             data: widget.data,
             onRefresh: widget.onRefresh,
+            onSilentRefresh: widget.onSilentRefresh,
             onSectionSelected: widget.onSectionSelected,
           );
         }
         if (widget.activeSection == 'srsReview') {
-          return SrsReviewView(onBack: backCallback);
+          return SrsReviewView(
+            onBack: backCallback,
+            initialLanguage: primaryStudentLang,
+          );
         }
         if (widget.activeSection == 'aiConversation') {
           return AiConversationView(onBack: backCallback);
         }
         if (widget.activeSection == 'pronunciation') {
-          return PronunciationPracticeView(onBack: backCallback);
+          return PronunciationPracticeView(
+            onBack: backCallback,
+            initialLanguage: primaryStudentLang,
+          );
         }
         if (widget.activeSection == 'communityReview') {
           return CommunityPeerReviewView(onBack: backCallback);
         }
         if (widget.activeSection == 'learningPath') {
-          return PersonalizedLearningPathView(onBack: backCallback);
+          final enrolledLangs = <String>[];
+          for (final raw
+              in widget.data.studentProfile?.languages ?? const <String>[]) {
+            final parsed = SupportedLanguages.splitLanguageAndLevel(
+              raw,
+            ).language;
+            final normalized = SupportedLanguages.normalize(parsed);
+            if (normalized != null && !enrolledLangs.contains(normalized)) {
+              enrolledLangs.add(normalized);
+            }
+          }
+          return PersonalizedLearningPathView(
+            onBack: backCallback,
+            initialLanguage: enrolledLangs.isNotEmpty
+                ? enrolledLangs.first
+                : primaryStudentLang,
+            enrolledLanguages: enrolledLangs,
+          );
         }
         if (widget.activeSection == 'mistakes') {
           return StudentMistakesView(onBack: backCallback);
@@ -521,6 +755,7 @@ class _DashboardShellState extends State<DashboardShell> {
           return LearningFeaturePage(
             section: widget.activeSection,
             onBackToProfile: backCallback,
+            data: widget.data,
           );
         }
         return StudentDashboardView(
@@ -541,6 +776,13 @@ class _DashboardShellState extends State<DashboardShell> {
           return TeacherClassAnalyticsView(
             data: widget.data,
             onBack: backCallback,
+          );
+        }
+        if (widget.activeSection == 'rankings') {
+          return LearningFeaturePage(
+            section: 'rankings',
+            onBackToProfile: backCallback,
+            data: widget.data,
           );
         }
         if (const {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_feedback_widgets.dart';
+import '../../../../core/ui/vivid_icon_palette.dart';
 
 class DashboardEmptyState extends StatelessWidget {
   const DashboardEmptyState({
@@ -47,7 +48,10 @@ class DashboardEmptyState extends StatelessWidget {
           AppEmptyIllustration(
             icon: icon,
             size: 80,
-            accentColor: theme.colorScheme.primary,
+            accentColor: VividIconPalette.colorFor(
+              icon,
+              brightness: theme.brightness,
+            ),
           ),
           const SizedBox(height: 18),
           Text(

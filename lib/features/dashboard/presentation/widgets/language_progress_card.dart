@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/ui/language_flag.dart';
+import '../../../../core/xp/xp_level_progression.dart';
 import '../../domain/entities/student_language_entity.dart';
 
 class LanguageProgressCard extends StatelessWidget {
@@ -12,6 +13,7 @@ class LanguageProgressCard extends StatelessWidget {
   Widget build(BuildContext context) {
     const studentGreen = Color(0xFF58CC02);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final levelInfo = XpLevelProgression.fromXp(language.score);
 
     return Card(
       elevation: 0,
@@ -56,7 +58,7 @@ class LanguageProgressCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Chip(
                   label: Text(
-                    'Nível ${language.level}',
+                    'Nv. ${levelInfo.level} • ${language.level}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
@@ -79,7 +81,7 @@ class LanguageProgressCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Pontuação acumulada',
+                    'Nível ${levelInfo.level} • ${levelInfo.currentLevelXp}/${levelInfo.xpRequiredForNextLevel} XP',
                     style: TextStyle(
                       fontSize: 13,
                       color: isDark ? Colors.white70 : Colors.grey.shade600,
@@ -89,7 +91,7 @@ class LanguageProgressCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '${language.score} XP',
+                  '${language.score} XP total',
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -102,7 +104,7 @@ class LanguageProgressCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: LinearProgressIndicator(
-                value: (language.score % 1000) / 1000.0,
+                value: levelInfo.progress,
                 backgroundColor: isDark ? Colors.white12 : Colors.grey.shade100,
                 valueColor: const AlwaysStoppedAnimation<Color>(studentGreen),
                 minHeight: 8,

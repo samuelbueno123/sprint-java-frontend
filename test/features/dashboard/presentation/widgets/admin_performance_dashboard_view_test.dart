@@ -30,13 +30,16 @@ Map<String, dynamic> _sampleTelemetryPayload() {
       'heapUsedPercent': 37.5,
       'nonHeapUsedMb': 68,
       'threadCount': 34,
+      'jvmActiveThreads': 34,
       'peakThreadCount': 40,
       'daemonThreadCount': 28,
       'gcCount': 12,
       'gcTimeMs': 84,
       'processCpuPercent': 14.2,
+      'systemCpuPercent': 27.4,
       'systemLoadAverage': 0.75,
       'availableProcessors': 8,
+      'logicalProcessors': 8,
     },
     'databasePool': <String, dynamic>{
       'pingMs': 2.1,
@@ -234,5 +237,47 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(BarChart), findsWidgets);
     });
+
+    testWidgets(
+      'distinguishes hardware CPU threads (8 threads CPU) from JVM software threads (34) and plots system + JVM CPU',
+      (tester) async {
+        tester.view.physicalSize = const Size(1440, 1200);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: AdminPerformanceDashboardView(
+                performanceLoader: () async => _sampleTelemetryPayload(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('CPU & Threads Hardware'), findsOneWidget);
+        expect(find.text('8 threads CPU'), findsOneWidget);
+        expect(find.text('27.4%'), findsOneWidget);
+        expect(find.text('JVM 14.2% · 34 threads Java (Tomcat)'), findsOneWidget);
+        expect(find.text('34 threads'), findsNothing);
+        expect(find.text('CPU Sist. %'), findsOneWidget);
+        expect(find.text('CPU JVM %'), findsOneWidget);
+
+        await tester.tap(find.text('JVM, CPU & HTTP'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('CPU do Sistema Host (27.4% em 8 threads CPU)'),
+          findsOneWidget,
+        );
+        expect(
+          find.text(
+            'CPU do Processo JVM (14.2% · 34 threads Java ativas, pico 40)',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }

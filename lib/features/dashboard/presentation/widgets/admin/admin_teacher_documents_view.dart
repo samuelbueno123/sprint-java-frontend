@@ -1,16 +1,22 @@
 import 'dart:math';
 
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../../core/constants/app_feedback_widgets.dart';
 import '../../../../../core/network/api_client.dart';
 import '../../../../../core/theme/admin_geral_theme.dart';
+import '../../../../../core/ui/in_app_file_viewer.dart';
+import '../../../../../core/utils/file_download_helper.dart';
 import '../responsive_layout.dart';
 
 class AdminTeacherDocumentsView extends StatefulWidget {
-  const AdminTeacherDocumentsView({super.key});
+  const AdminTeacherDocumentsView({super.key, this.dio});
+
+  final Dio? dio;
 
   @override
   State<AdminTeacherDocumentsView> createState() =>
@@ -18,7 +24,7 @@ class AdminTeacherDocumentsView extends StatefulWidget {
 }
 
 class _AdminTeacherDocumentsViewState extends State<AdminTeacherDocumentsView> {
-  final Dio _dio = ApiClient().dio;
+  late final Dio _dio = widget.dio ?? ApiClient().dio;
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -57,7 +63,7 @@ class _AdminTeacherDocumentsViewState extends State<AdminTeacherDocumentsView> {
 
       final q = _searchController.text.trim();
       if (q.isNotEmpty) {
-        queryParams['query'] = q;
+        queryParams['search'] = q;
       }
 
       final response = await _dio.get(
@@ -66,15 +72,18 @@ class _AdminTeacherDocumentsViewState extends State<AdminTeacherDocumentsView> {
       );
 
       final data = response.data;
-      if (data is Map<String, dynamic>) {
-        final content = data['content'] as List<dynamic>? ?? [];
+      if (!mounted) return;
+      if (data is Map) {
+        final mapped = Map<String, dynamic>.from(data);
+        final content = mapped['content'] as List<dynamic>? ?? [];
         setState(() {
           _documents = content
-              .map((e) => Map<String, dynamic>.from(e))
+              .map((e) => Map<String, dynamic>.from(e as Map))
               .toList();
-          _currentPage = data['page'] ?? 0;
-          _totalPages = max(1, (data['totalPages'] as num?)?.toInt() ?? 1);
-          _totalElements = (data['totalElements'] as num?)?.toInt() ?? 0;
+          _currentPage =
+              ((mapped['number'] ?? mapped['page']) as num?)?.toInt() ?? 0;
+          _totalPages = max(1, (mapped['totalPages'] as num?)?.toInt() ?? 1);
+          _totalElements = (mapped['totalElements'] as num?)?.toInt() ?? 0;
           _isLoading = false;
         });
       } else {
@@ -90,6 +99,55 @@ class _AdminTeacherDocumentsViewState extends State<AdminTeacherDocumentsView> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _openLocalFileInApp() async {
+    try {
+      final files = await FilePicker.pickFiles();
+      if (!mounted || files.isEmpty) return;
+      final picked = files.first;
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+      if (bytes.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Não foi possível ler o conteúdo deste arquivo.'),
+          ),
+        );
+        return;
+      }
+      await InAppFileViewerDialog.showBytes(
+        context,
+        fileName: picked.name,
+        bytes: bytes,
+        subtitle: 'Arquivo local aberto no visualizador interno',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao selecionar arquivo: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _openDocumentInApp(Map<String, dynamic> doc) {
+    final id = doc['id'];
+    final fileName = doc['fileName']?.toString() ?? 'documento';
+    final contentType = doc['contentType']?.toString();
+    final teacherName = doc['teacherName']?.toString() ?? 'Docente';
+    final institution = doc['institutionName']?.toString() ?? 'Sem instituição';
+
+    InAppFileViewerDialog.openFromUrl(
+      context,
+      dio: _dio,
+      url: '/api/admin/documents/$id/download',
+      fileName: fileName,
+      contentType: contentType,
+      subtitle: '$teacherName · $institution',
+    );
   }
 
   String _formatBytes(num? bytes) {
@@ -125,7 +183,9 @@ class _AdminTeacherDocumentsViewState extends State<AdminTeacherDocumentsView> {
     if (mime.contains('image') ||
         ext.endsWith('.jpg') ||
         ext.endsWith('.png') ||
-        ext.endsWith('.jpeg')) {
+        ext.endsWith('.jpeg') ||
+        ext.endsWith('.webp') ||
+        ext.endsWith('.gif')) {
       return Icons.image_rounded;
     }
     if (mime.contains('word') ||
@@ -145,7 +205,8 @@ class _AdminTeacherDocumentsViewState extends State<AdminTeacherDocumentsView> {
     if (mime.contains('image') ||
         ext.endsWith('.jpg') ||
         ext.endsWith('.png') ||
-        ext.endsWith('.jpeg')) {
+        ext.endsWith('.jpeg') ||
+        ext.endsWith('.webp')) {
       return const Color(0xFF0284C7);
     }
     return const Color(0xFF4F46E5);
@@ -153,11 +214,13 @@ class _AdminTeacherDocumentsViewState extends State<AdminTeacherDocumentsView> {
 
   void _showDocumentDetails(Map<String, dynamic> doc) {
     final id = doc['id'];
-    final fileName = doc['fileName'] ?? 'documento';
-    final teacherName = doc['teacherName'] ?? 'Docente';
-    final teacherEmail = doc['teacherEmail'] ?? '-';
-    final institution = doc['institutionName'] ?? 'Não informada';
-    final contentType = doc['contentType'] ?? 'application/octet-stream';
+    final fileName = doc['fileName']?.toString() ?? 'documento';
+    final teacherName = doc['teacherName']?.toString() ?? 'Docente';
+    final teacherEmail = doc['teacherEmail']?.toString() ?? '-';
+    final institution =
+        doc['institutionName']?.toString() ?? 'Não informada';
+    final contentType =
+        doc['contentType']?.toString() ?? 'application/octet-stream';
     final sizeFormatted = _formatBytes(doc['fileSize'] as num?);
     final created = _formatDateTime(doc['createdAt']?.toString());
 
@@ -206,15 +269,23 @@ class _AdminTeacherDocumentsViewState extends State<AdminTeacherDocumentsView> {
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Fechar'),
           ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.download_rounded, size: 17),
+            label: const Text('Baixar'),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _downloadDocument(id, fileName, contentType: contentType);
+            },
+          ),
           FilledButton.icon(
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF4F46E5),
             ),
-            icon: const Icon(Icons.download_rounded),
-            label: const Text('Baixar Arquivo'),
+            icon: const Icon(Icons.visibility_rounded),
+            label: const Text('Abrir no App'),
             onPressed: () {
               Navigator.of(ctx).pop();
-              _downloadDocument(id, fileName);
+              _openDocumentInApp(doc);
             },
           ),
         ],
@@ -222,20 +293,32 @@ class _AdminTeacherDocumentsViewState extends State<AdminTeacherDocumentsView> {
     );
   }
 
-  Future<void> _downloadDocument(dynamic id, String fileName) async {
+  Future<void> _downloadDocument(
+    dynamic id,
+    String fileName, {
+    String? contentType,
+  }) async {
     try {
       final downloadUrl = '/api/admin/documents/$id/download';
-      // In web or desktop, we can request the byte payload via dio
       final resp = await _dio.get<List<int>>(
         downloadUrl,
         options: Options(responseType: ResponseType.bytes),
+      );
+      final rawBytes = resp.data ?? const <int>[];
+      final bytes = Uint8List.fromList(rawBytes);
+      final downloaded = await triggerBytesDownload(
+        bytes: bytes,
+        fileName: fileName,
+        mimeType: contentType ?? 'application/octet-stream',
       );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Arquivo "$fileName" (${_formatBytes(resp.data?.length)}) baixado com sucesso pelo endpoint administrativo!',
+            downloaded
+                ? 'Download de "$fileName" iniciado (${_formatBytes(bytes.length)}).'
+                : 'Arquivo "$fileName" (${_formatBytes(bytes.length)}) obtido.',
           ),
           backgroundColor: const Color(0xFF059669),
         ),
@@ -313,32 +396,54 @@ class _AdminTeacherDocumentsViewState extends State<AdminTeacherDocumentsView> {
                       ),
                     ),
                     const SizedBox(width: 14),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Documentos & Diplomas Docentes',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Documentos & Diplomas Docentes',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Auditoria, inspeção técnica e download de comprovações de professores da plataforma.',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            fontSize: 13,
+                          Text(
+                            'Abra PDFs, imagens e documentos diretamente no aplicativo ou faça o download.',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 13,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
-                IconButton(
-                  tooltip: 'Atualizar Documentos',
-                  onPressed: _loadDocuments,
-                  icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AdminGeralTheme.deepRoyal,
+                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      onPressed: _openLocalFileInApp,
+                      icon: const Icon(Icons.file_open_rounded, size: 18),
+                      label: const Text('Abrir Arquivo Local'),
+                    ),
+                    IconButton(
+                      tooltip: 'Atualizar Documentos',
+                      onPressed: _loadDocuments,
+                      icon: const Icon(
+                        Icons.refresh_rounded,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -347,35 +452,50 @@ class _AdminTeacherDocumentsViewState extends State<AdminTeacherDocumentsView> {
           const SizedBox(height: 20),
 
           // Stat Cards
-          Row(
-            children: [
-              Expanded(
-                child: _buildMetricCard(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stack = constraints.maxWidth < 600;
+              final cards = [
+                _buildMetricCard(
                   title: 'Total de Comprovações',
                   value: '$_totalElements',
                   icon: Icons.file_copy_rounded,
                   color: const Color(0xFF4F46E5),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildMetricCard(
+                _buildMetricCard(
                   title: 'Docentes Verificados',
                   value: '$distinctTeachers',
                   icon: Icons.person_search_rounded,
                   color: const Color(0xFF0D9488),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildMetricCard(
+                _buildMetricCard(
                   title: 'Volume na Página',
                   value: _formatBytes(totalBytes),
                   icon: Icons.storage_rounded,
                   color: AdminGeralTheme.purplePrimary,
                 ),
-              ),
-            ],
+              ];
+              if (stack) {
+                return Column(
+                  children: [
+                    cards[0],
+                    const SizedBox(height: 10),
+                    cards[1],
+                    const SizedBox(height: 10),
+                    cards[2],
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: cards[0]),
+                  const SizedBox(width: 12),
+                  Expanded(child: cards[1]),
+                  const SizedBox(width: 12),
+                  Expanded(child: cards[2]),
+                ],
+              );
+            },
           ),
 
           const SizedBox(height: 20),
@@ -513,7 +633,8 @@ class _AdminTeacherDocumentsViewState extends State<AdminTeacherDocumentsView> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Não foram localizados certificados ou diplomas com os critérios selecionados.',
+                      'Não foram localizados certificados enviados ou use "Abrir Arquivo Local" acima para abrir qualquer arquivo no app.',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 13,
@@ -550,102 +671,142 @@ class _AdminTeacherDocumentsViewState extends State<AdminTeacherDocumentsView> {
                       color: Theme.of(context).colorScheme.outlineVariant,
                     ),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(icon, color: color, size: 24),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => _openDocumentInApp(doc),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Wrap(
+                        spacing: 12,
+                        runSpacing: 10,
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Wrap(
-                                spacing: 8,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  Text(
-                                    fileName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.withValues(
-                                        alpha: 0.15,
-                                      ),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      sizeFormatted,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Docente: $teacherName ($teacherEmail) • $institution',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
+                                child: Icon(icon, color: color, size: 24),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Enviado em $created • ID #${doc['id']}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant
-                                      .withValues(alpha: 0.75),
+                              const SizedBox(width: 14),
+                              Flexible(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Wrap(
+                                      spacing: 8,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
+                                      children: [
+                                        Text(
+                                          fileName,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.withValues(
+                                              alpha: 0.15,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            sizeFormatted,
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Docente: $teacherName ($teacherEmail) • $institution',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Enviado em $created • ID #${doc['id']}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                            .withValues(alpha: 0.75),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: color),
-                            foregroundColor: color,
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: color,
+                                  foregroundColor: Colors.white,
+                                ),
+                                icon: const Icon(
+                                  Icons.visibility_rounded,
+                                  size: 16,
+                                ),
+                                label: const Text('Abrir no App'),
+                                onPressed: () => _openDocumentInApp(doc),
+                              ),
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(color: color),
+                                  foregroundColor: color,
+                                ),
+                                icon: const Icon(
+                                  Icons.info_outline_rounded,
+                                  size: 16,
+                                ),
+                                label: const Text('Detalhes'),
+                                onPressed: () => _showDocumentDetails(doc),
+                              ),
+                              IconButton(
+                                tooltip: 'Baixar Comprovação',
+                                icon: Icon(
+                                  Icons.download_rounded,
+                                  color: color,
+                                ),
+                                onPressed: () => _downloadDocument(
+                                  doc['id'],
+                                  fileName,
+                                  contentType: contentType,
+                                ),
+                              ),
+                            ],
                           ),
-                          icon: const Icon(
-                            Icons.info_outline_rounded,
-                            size: 16,
-                          ),
-                          label: const Text('Inspecionar'),
-                          onPressed: () => _showDocumentDetails(doc),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          tooltip: 'Baixar Comprovação',
-                          icon: Icon(Icons.download_rounded, color: color),
-                          onPressed: () =>
-                              _downloadDocument(doc['id'], fileName),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 );

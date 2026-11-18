@@ -9,6 +9,7 @@ class TeacherClassAssignment {
     required this.startDate,
     required this.endDate,
     required this.reason,
+    this.schoolClassPictureUrl,
   });
 
   final int? id;
@@ -18,6 +19,7 @@ class TeacherClassAssignment {
   final String startDate;
   final String? endDate;
   final String? reason;
+  final String? schoolClassPictureUrl;
 
   String get resolvedLanguage => SupportedLanguages.normalizeOrDefault(
     schoolClassLanguage,

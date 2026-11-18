@@ -127,6 +127,7 @@ class SupportedLanguages {
   static String levelEmoji(String? rawLevel) {
     final clean = _stripAccentsLower(rawLevel ?? '');
     if (clean.contains('avanc') ||
+        clean.contains('dificil') ||
         clean.contains('c1') ||
         clean.contains('c2') ||
         clean.contains('fluen') ||
@@ -134,12 +135,14 @@ class SupportedLanguages {
       return '🚀';
     }
     if (clean.contains('interm') ||
+        clean.contains('medio') ||
         clean.contains('b1') ||
         clean.contains('b2')) {
       return '⚡';
     }
     if (clean.contains('basic') ||
         clean.contains('inici') ||
+        clean.contains('facil') ||
         clean.contains('a1') ||
         clean.contains('a2')) {
       return '🌱';

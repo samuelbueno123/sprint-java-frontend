@@ -13,6 +13,7 @@ import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/ui/language_flag.dart';
 import '../../../../core/ui/motion_kit.dart';
+import '../../../../core/ui/vivid_icon_palette.dart';
 import 'learning_features.dart';
 
 class TeacherDashboardView extends StatelessWidget {
@@ -70,7 +71,7 @@ class TeacherDashboardView extends StatelessWidget {
                         title: 'Idiomas Lecionados',
                         value: teacher.taughtLanguages.length.toString(),
                         icon: Icons.record_voice_over_rounded,
-                        accentColor: _purple,
+                        accentColor: VividIconPalette.pink,
                         subtitle: 'Idiomas sob sua ministração',
                       ),
                     ),
@@ -81,7 +82,7 @@ class TeacherDashboardView extends StatelessWidget {
                         title: 'Especializações',
                         value: teacher.specializationAreas.length.toString(),
                         icon: Icons.workspace_premium_outlined,
-                        accentColor: const Color(0xFFE5902D),
+                        accentColor: VividIconPalette.yellow,
                         subtitle: 'Áreas de domínio técnico',
                       ),
                     ),
@@ -150,18 +151,14 @@ class TeacherDashboardView extends StatelessWidget {
                                   spacing: 8,
                                   runSpacing: 8,
                                   children: kSupportedLanguages.map((lang) {
-                                    final meta = SupportedLanguages.metaFor(
-                                      lang,
-                                    );
                                     final selected = selectedLanguages.contains(
                                       lang,
                                     );
                                     return FilterChip(
                                       selected: selected,
-                                      avatar: Icon(
-                                        meta.icon,
-                                        size: 15,
-                                        color: meta.color,
+                                      avatar: LanguageFlag.forLanguage(
+                                        lang,
+                                        width: 18,
                                       ),
                                       label: Text(lang),
                                       onSelected: (value) {
@@ -333,21 +330,21 @@ class TeacherDashboardView extends StatelessWidget {
                 title: 'Idiomas de Ensino',
                 value: teacher.taughtLanguages.length.toString(),
                 icon: Icons.record_voice_over_rounded,
-                accentColor: _purple,
+                accentColor: VividIconPalette.pink,
                 onTap: () => onSectionSelected?.call('languages'),
               ),
               InfoStatCard(
                 title: 'Especializações',
                 value: teacher.specializationAreas.length.toString(),
                 icon: Icons.workspace_premium_outlined,
-                accentColor: const Color(0xFFE5902D),
+                accentColor: VividIconPalette.yellow,
                 onTap: () => onSectionSelected?.call('languages'),
               ),
               InfoStatCard(
                 title: 'Turmas Atribuídas',
                 value: data.teacherAssignments.length.toString(),
                 icon: Icons.groups_rounded,
-                accentColor: const Color(0xFF3579E8),
+                accentColor: VividIconPalette.indigo,
                 onTap: () => onSectionSelected?.call('classes'),
               ),
               InfoStatCard(
@@ -356,7 +353,7 @@ class TeacherDashboardView extends StatelessWidget {
                     ? teacher.institution
                     : 'Cadastrada',
                 icon: Icons.account_balance_rounded,
-                accentColor: const Color(0xFF32946B),
+                accentColor: VividIconPalette.teal,
                 onTap: () => onSectionSelected?.call('classes'),
               ),
             ],
@@ -699,7 +696,7 @@ class TeacherDashboardView extends StatelessWidget {
                 title: 'Turmas ativas',
                 value: activeAssignments.toString(),
                 icon: Icons.groups_rounded,
-                accentColor: _purple,
+                accentColor: VividIconPalette.indigo,
                 subtitle: 'Gerenciar turmas',
                 onTap: () => onSectionSelected?.call('classes'),
               ),
@@ -707,7 +704,7 @@ class TeacherDashboardView extends StatelessWidget {
                 title: 'Minhas atividades',
                 value: assignments.length.toString(),
                 icon: Icons.library_books_outlined,
-                accentColor: const Color(0xFF3579E8),
+                accentColor: VividIconPalette.blue,
                 subtitle: 'Acessar exercícios',
                 onTap: () => onSectionSelected?.call('manageExercises'),
               ),
@@ -715,7 +712,7 @@ class TeacherDashboardView extends StatelessWidget {
                 title: 'Idiomas lecionados',
                 value: teacher.taughtLanguages.length.toString(),
                 icon: Icons.record_voice_over_rounded,
-                accentColor: const Color(0xFF32946B),
+                accentColor: VividIconPalette.pink,
                 subtitle: 'Editar idiomas',
                 onTap: () => onSectionSelected?.call('languages'),
               ),
@@ -723,7 +720,7 @@ class TeacherDashboardView extends StatelessWidget {
                 title: 'Especializações',
                 value: teacher.specializationAreas.length.toString(),
                 icon: Icons.workspace_premium_outlined,
-                accentColor: const Color(0xFFE5902D),
+                accentColor: VividIconPalette.yellow,
                 subtitle: 'Ver competências',
                 onTap: () => onSectionSelected?.call('languages'),
               ),
@@ -786,10 +783,10 @@ class TeacherDashboardView extends StatelessWidget {
                               width: width,
                               child: _teacherQuickAction(
                                 context,
-                                icon: Icons.trending_up_rounded,
+                                icon: Icons.emoji_events_rounded,
                                 label: 'Ver rankings',
                                 onPressed: () =>
-                                    onSectionSelected?.call('teacherRanking'),
+                                    onSectionSelected?.call('rankings'),
                               ),
                             ),
                           ],
@@ -947,12 +944,16 @@ class TeacherDashboardView extends StatelessWidget {
   }) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final vividColor = VividIconPalette.colorFor(
+      icon,
+      brightness: theme.brightness,
+    );
 
     return AppHoverCard(
       onTap: onPressed,
       borderRadius: 14,
       scale: 1.025,
-      accentColor: primary ? _purple : theme.colorScheme.primary,
+      accentColor: primary ? _purple : vividColor,
       child: Container(
         height: 52,
         padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -964,7 +965,7 @@ class TeacherDashboardView extends StatelessWidget {
           border: Border.all(
             color: primary
                 ? _purple
-                : theme.colorScheme.outlineVariant.withValues(alpha: 0.8),
+                : vividColor.withValues(alpha: isDark ? 0.35 : 0.25),
             width: primary ? 1.5 : 1.0,
           ),
           boxShadow: [
@@ -983,13 +984,13 @@ class TeacherDashboardView extends StatelessWidget {
               decoration: BoxDecoration(
                 color: primary
                     ? Colors.white.withValues(alpha: 0.2)
-                    : _purple.withValues(alpha: isDark ? 0.22 : 0.12),
+                    : vividColor.withValues(alpha: isDark ? 0.22 : 0.14),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 icon,
                 size: 18,
-                color: primary ? Colors.white : _purple,
+                color: primary ? Colors.white : vividColor,
               ),
             ),
             const SizedBox(width: 12),
@@ -1010,7 +1011,7 @@ class TeacherDashboardView extends StatelessWidget {
               size: 13,
               color: primary
                   ? Colors.white.withValues(alpha: 0.7)
-                  : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                  : vividColor.withValues(alpha: 0.75),
             ),
           ],
         ),
@@ -1076,13 +1077,22 @@ class TeacherDashboardView extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.groups_rounded,
-                        color: assignment.isActive
-                            ? _purple
-                            : const Color(0xFF9296A5),
-                        size: 21,
-                      ),
+                      if (assignment.schoolClassPictureUrl != null &&
+                          assignment.schoolClassPictureUrl!.trim().isNotEmpty)
+                        AppUserAvatar(
+                          name: assignment.schoolClassName,
+                          pictureUrl: assignment.schoolClassPictureUrl,
+                          radius: 16,
+                          backgroundColor: _purple,
+                        )
+                      else
+                        Icon(
+                          Icons.groups_rounded,
+                          color: assignment.isActive
+                              ? _purple
+                              : const Color(0xFF9296A5),
+                          size: 21,
+                        ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -1313,12 +1323,18 @@ class _ProfileCard extends StatelessWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: TeacherDashboardView._purple.withValues(alpha: 0.12),
+                    color: VividIconPalette.containerColorFor(
+                      icon,
+                      brightness: Theme.of(context).brightness,
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     icon,
-                    color: TeacherDashboardView._purple,
+                    color: VividIconPalette.colorFor(
+                      icon,
+                      brightness: Theme.of(context).brightness,
+                    ),
                     size: 18,
                   ),
                 ),

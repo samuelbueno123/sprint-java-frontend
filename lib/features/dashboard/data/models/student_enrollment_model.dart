@@ -11,6 +11,7 @@ class StudentEnrollmentModel {
     required this.enrollmentDate,
     this.cancellationDate,
     required this.status,
+    this.schoolClassPictureUrl,
   });
 
   factory StudentEnrollmentModel.fromJson(Map<String, dynamic> json) {
@@ -31,6 +32,7 @@ class StudentEnrollmentModel {
       enrollmentDate: json['enrollmentDate']?.toString() ?? '',
       cancellationDate: json['cancellationDate']?.toString(),
       status: json['status']?.toString() ?? '',
+      schoolClassPictureUrl: json['schoolClassPictureUrl']?.toString(),
     );
   }
 
@@ -42,6 +44,7 @@ class StudentEnrollmentModel {
   final String enrollmentDate;
   final String? cancellationDate;
   final String status;
+  final String? schoolClassPictureUrl;
 
   StudentEnrollment toEntity() => StudentEnrollment(
     id: id,
@@ -52,5 +55,6 @@ class StudentEnrollmentModel {
     enrollmentDate: enrollmentDate,
     cancellationDate: cancellationDate,
     status: status,
+    schoolClassPictureUrl: schoolClassPictureUrl,
   );
 }

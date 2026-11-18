@@ -137,9 +137,16 @@ class _CommunitySubmissionDialogState
                     'Você pode publicar e avaliar apenas textos do seu nível.',
                 border: OutlineInputBorder(),
               ),
-              items: _levelsFor(
-                _language,
-              ).map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
+              items: _levelsFor(_language)
+                  .map(
+                    (l) => DropdownMenuItem(
+                      value: l,
+                      child: Text(
+                        SupportedLanguages.formatLevelWithEmoji(l),
+                      ),
+                    ),
+                  )
+                  .toList(),
               onChanged: (v) => setState(
                 () => _targetLevel = v ?? _levelsFor(_language).first,
               ),

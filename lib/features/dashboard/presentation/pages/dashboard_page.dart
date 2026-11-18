@@ -86,6 +86,7 @@ class _DashboardPageState extends State<DashboardPage> {
             onSectionSelected: _viewModel.setActiveSection,
             onLogout: _handleLogout,
             onRefresh: _viewModel.loadDashboardData,
+            onSilentRefresh: () => _viewModel.loadDashboardData(silent: true),
           );
         }
 

@@ -4,14 +4,22 @@ import 'package:frontend/core/audio/system_sound_service.dart';
 import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/language_flag.dart';
 import 'package:frontend/core/ui/mascot/mascot.dart';
 import 'package:frontend/core/xp/xp_animation_controller.dart';
 import '../audio_speech_helper.dart';
 
 class PronunciationPracticeView extends StatefulWidget {
-  const PronunciationPracticeView({super.key, required this.onBack});
+  const PronunciationPracticeView({
+    super.key,
+    required this.onBack,
+    this.dio,
+    this.initialLanguage = kDefaultSupportedLanguage,
+  });
 
   final VoidCallback onBack;
+  final Dio? dio;
+  final String initialLanguage;
 
   @override
   State<PronunciationPracticeView> createState() =>
@@ -19,13 +27,16 @@ class PronunciationPracticeView extends StatefulWidget {
 }
 
 class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
-  final Dio _dio = ApiClient().dio;
+  late final Dio _dio = widget.dio ?? ApiClient().dio;
   late Future<void> _loadFuture;
 
   List<Map<String, dynamic>> _challenges = [];
   Map<String, dynamic>? _selectedChallenge;
   Map<String, dynamic>? _evaluationResult;
-  String _selectedLanguage = kDefaultSupportedLanguage;
+  late String _selectedLanguage = SupportedLanguages.normalizeOrDefault(
+    widget.initialLanguage,
+    kDefaultSupportedLanguage,
+  );
   bool _evaluating = false;
   bool _isListening = false;
   String _spokenText = '';
@@ -256,10 +267,9 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
                 spacing: 8,
                 runSpacing: 8,
                 children: kSupportedLanguages.map((lang) {
-                  final meta = SupportedLanguages.metaFor(lang);
                   return ChoiceChip(
                     selected: _selectedLanguage == lang,
-                    avatar: Icon(meta.icon, size: 15, color: meta.color),
+                    avatar: LanguageFlag.forLanguage(lang, width: 18),
                     label: Text(lang),
                     onSelected: (selected) {
                       if (selected && _selectedLanguage != lang) {
@@ -312,7 +322,28 @@ class _PronunciationPracticeViewState extends State<PronunciationPracticeView> {
               const SizedBox(height: 24),
 
               if (_selectedChallenge != null)
-                _buildChallengeCard(colors, _selectedChallenge!),
+                _buildChallengeCard(colors, _selectedChallenge!)
+              else
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.record_voice_over_rounded,
+                          size: 42,
+                          color: colors.onSurfaceVariant,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Nenhum desafio de pronúncia encontrado para $_selectedLanguage.',
+                          style: TextStyle(color: colors.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
         );

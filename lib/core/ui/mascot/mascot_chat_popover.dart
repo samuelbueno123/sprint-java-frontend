@@ -120,12 +120,16 @@ class _MascotChatPopoverState extends State<MascotChatPopover> {
     bool isDark,
     MascotActivityContext activity,
   ) {
+    final isExerciseQuestion =
+        activity.activityId?.startsWith('exercise:') == true;
     final hasCustomHelp =
         activity.mascotHelpMessage != null &&
         activity.mascotHelpMessage!.trim().isNotEmpty;
     final helpText = hasCustomHelp
         ? activity.mascotHelpMessage!.trim()
-        : 'Este exercício ainda não possui uma dica personalizada do professor. Leia o enunciado com atenção, revise as alternativas e use o áudio quando disponível!';
+        : (isExerciseQuestion
+              ? 'Esta questão ainda não possui uma dica personalizada do professor. Leia o enunciado com atenção, revise as alternativas e use o áudio quando disponível!'
+              : 'Este exercício ainda não possui uma dica personalizada do professor. Leia o enunciado com atenção, revise as alternativas e use o áudio quando disponível!');
 
     return Padding(
       padding: const EdgeInsets.all(14),
@@ -147,7 +151,9 @@ class _MascotChatPopoverState extends State<MascotChatPopover> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Dica da Atividade',
+                      isExerciseQuestion
+                          ? 'Dica da Questão'
+                          : 'Dica da Atividade',
                       style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w800,

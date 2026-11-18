@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/audio/system_sound_service.dart';
 import '../../../../core/theme/admin_geral_theme.dart';
+import '../../../../core/ui/vivid_icon_palette.dart';
 import '../../domain/entities/user_profile_type.dart';
 
 class DashboardSidebar extends StatelessWidget {
@@ -277,6 +278,14 @@ class DashboardSidebar extends StatelessWidget {
                   onTap: () => onSectionSelected('teacherRanking'),
                 ),
                 _NavItem(
+                  icon: Icons.emoji_events_rounded,
+                  label: 'Rankings',
+                  isSelected: activeSection == 'rankings',
+                  accentColor: _accentColor,
+                  isCollapsed: isCollapsed,
+                  onTap: () => onSectionSelected('rankings'),
+                ),
+                _NavItem(
                   icon: Icons.insights_rounded,
                   label: 'Analytics da Turma',
                   isSelected: activeSection == 'classAnalytics',
@@ -433,16 +442,21 @@ class _NavItemState extends State<_NavItem> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final unselectedIconColor = isDark ? Colors.white70 : Colors.grey.shade600;
     final unselectedTextColor = isDark ? Colors.white : Colors.grey.shade800;
+    final vividIconColor = VividIconPalette.colorFor(
+      widget.icon,
+      brightness: isDark ? Brightness.dark : Brightness.light,
+    );
 
     Widget iconWidget = Icon(
       widget.icon,
       color: _isAdminTheme && widget.isSelected
           ? Colors.white
           : (widget.isSelected
-                ? widget.accentColor
-                : (_isHovered ? widget.accentColor : unselectedIconColor)),
+                ? vividIconColor
+                : (_isHovered
+                      ? vividIconColor
+                      : vividIconColor.withValues(alpha: isDark ? 0.92 : 0.88))),
       size: 22,
     );
 

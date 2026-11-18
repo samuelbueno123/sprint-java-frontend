@@ -9,6 +9,7 @@ import '../../../../../core/constants/supported_languages.dart';
 import '../../../../../core/network/api_client.dart';
 import '../../../../../core/theme/admin_geral_theme.dart';
 import '../../../../../core/ui/motion_kit.dart';
+import '../../../../../core/ui/vivid_icon_palette.dart';
 import '../responsive_layout.dart';
 
 class AdminPerformanceDashboardView extends StatefulWidget {
@@ -16,10 +17,12 @@ class AdminPerformanceDashboardView extends StatefulWidget {
     super.key,
     this.onOpenSystemHealth,
     this.performanceLoader,
+    this.enableAutoRefresh,
   });
 
   final VoidCallback? onOpenSystemHealth;
   final Future<Map<String, dynamic>> Function()? performanceLoader;
+  final bool? enableAutoRefresh;
 
   @override
   State<AdminPerformanceDashboardView> createState() =>
@@ -42,7 +45,16 @@ class _AdminPerformanceDashboardViewState
   @override
   void initState() {
     super.initState();
+    final shouldAutoRefresh =
+        widget.enableAutoRefresh ?? (widget.performanceLoader == null);
+    _autoRefresh = shouldAutoRefresh;
     _loadPerformance();
+    if (_autoRefresh) {
+      _autoRefreshTimer = Timer.periodic(
+        const Duration(seconds: 5),
+        (_) => _loadPerformance(isBackground: true),
+      );
+    }
   }
 
   @override
@@ -428,9 +440,17 @@ class _AdminPerformanceDashboardViewState
     final p95Ms = (http['p95LatencyMs'] as num?) ?? 0;
     final heapPct = ((jvm['heapUsedPercent'] as num?) ?? 0).toDouble();
     final heapUsed = (jvm['heapUsedMb'] as num?) ?? 0;
+    final heapCommitted = (jvm['heapCommittedMb'] as num?) ?? heapUsed;
     final heapMax = (jvm['heapMaxMb'] as num?) ?? 0;
-    final cpuPct = ((jvm['processCpuPercent'] as num?) ?? 0).toDouble();
-    final threads = (jvm['threadCount'] as num?) ?? 0;
+    final procCpuPct = ((jvm['processCpuPercent'] as num?) ?? 0).toDouble();
+    final sysCpuPct =
+        ((jvm['systemCpuPercent'] as num?) ?? procCpuPct).toDouble();
+    final logicalCpus =
+        (jvm['logicalProcessors'] as num?) ??
+        (jvm['availableProcessors'] as num?) ??
+        0;
+    final jvmThreads =
+        (jvm['jvmActiveThreads'] as num?) ?? (jvm['threadCount'] as num?) ?? 0;
     final dbPing = (pool['pingMs'] as num?) ?? 0;
     final activeConn = (pool['activeConnections'] as num?) ?? 0;
     final maxConn = (pool['maximumPoolSize'] as num?) ?? 10;
@@ -464,7 +484,8 @@ class _AdminPerformanceDashboardViewState
             title: 'Memória JVM Heap',
             metricValue: heapUsed,
             metricSuffix: ' MB',
-            subtitle: 'Alocado de $heapMax MB • GC ${jvm['gcCount'] ?? 0}x',
+            subtitle:
+                'Reservado $heapCommitted/$heapMax MB • GC ${jvm['gcCount'] ?? 0}x',
             percent: (heapPct / 100.0).clamp(0.0, 1.0),
             centerText: '${heapPct.toStringAsFixed(0)}%',
             centerSub: 'Heap',
@@ -474,15 +495,17 @@ class _AdminPerformanceDashboardViewState
             icon: Icons.memory_rounded,
           ),
           _TelemetryGaugeCard(
-            title: 'CPU & Threads JVM',
-            metricValue: threads,
-            metricSuffix: ' threads',
+            title: 'CPU & Threads Hardware',
+            metricValue: logicalCpus,
+            metricSuffix: ' threads CPU',
             subtitle:
-                '${jvm['availableProcessors'] ?? '-'} núcleos • Pico ${jvm['peakThreadCount'] ?? '-'}',
-            percent: (cpuPct / 100.0).clamp(0.0, 1.0),
-            centerText: '${cpuPct.toStringAsFixed(1)}%',
+                'JVM ${procCpuPct.toStringAsFixed(1)}% · $jvmThreads threads Java (Tomcat)',
+            percent: (sysCpuPct / 100.0).clamp(0.0, 1.0),
+            centerText: '${sysCpuPct.toStringAsFixed(1)}%',
             centerSub: 'CPU',
-            color: AdminGeralTheme.goldMetallic,
+            color: sysCpuPct > 85
+                ? const Color(0xFFDC2626)
+                : AdminGeralTheme.goldMetallic,
             icon: Icons.speed_rounded,
           ),
           _TelemetryGaugeCard(
@@ -602,13 +625,23 @@ class _AdminPerformanceDashboardViewState
     }
   }
 
+  double _smartPercentMaxY(double peak) {
+    if (peak <= 14) return 20;
+    if (peak <= 32) return 40;
+    if (peak <= 52) return 60;
+    if (peak <= 72) return 80;
+    return 100;
+  }
+
   Widget _buildCpuHeapLineChartCard(
     BuildContext context,
     List<Map<String, dynamic>> history,
   ) {
     final heapSpots = <FlSpot>[];
-    final cpuSpots = <FlSpot>[];
+    final sysCpuSpots = <FlSpot>[];
+    final procCpuSpots = <FlSpot>[];
     final labels = <String>[];
+    var peakObserved = 0.0;
 
     for (var i = 0; i < history.length; i++) {
       final point = history[i];
@@ -616,14 +649,23 @@ class _AdminPerformanceDashboardViewState
         0.0,
         100.0,
       );
-      final cpu = ((point['processCpuPercent'] as num?) ?? 0).toDouble().clamp(
-        0.0,
-        100.0,
-      );
+      final procCpu = ((point['processCpuPercent'] as num?) ?? 0)
+          .toDouble()
+          .clamp(0.0, 100.0);
+      final sysCpu = ((point['systemCpuPercent'] as num?) ?? procCpu)
+          .toDouble()
+          .clamp(0.0, 100.0);
+      if (heap > peakObserved) peakObserved = heap;
+      if (sysCpu > peakObserved) peakObserved = sysCpu;
+      if (procCpu > peakObserved) peakObserved = procCpu;
       heapSpots.add(FlSpot(i.toDouble(), heap));
-      cpuSpots.add(FlSpot(i.toDouble(), cpu));
+      sysCpuSpots.add(FlSpot(i.toDouble(), sysCpu));
+      procCpuSpots.add(FlSpot(i.toDouble(), procCpu));
       labels.add(point['label']?.toString() ?? '#$i');
     }
+
+    final maxY = _smartPercentMaxY(peakObserved);
+    final interval = maxY / 4;
 
     return InteractiveMotionCard(
       padding: const EdgeInsets.all(20),
@@ -643,7 +685,7 @@ class _AdminPerformanceDashboardViewState
                   SizedBox(width: 8),
                   Flexible(
                     child: Text(
-                      'Curva JVM Heap % vs CPU Processo (%)',
+                      'Curva Heap % vs CPU Sistema & JVM (%)',
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
@@ -657,14 +699,21 @@ class _AdminPerformanceDashboardViewState
                 runSpacing: 6,
                 children: [
                   _ChartLegendDot(color: Color(0xFF7C3AED), label: 'Heap %'),
-                  _ChartLegendDot(color: AdminGeralTheme.goldMetallic, label: 'CPU %'),
+                  _ChartLegendDot(
+                    color: AdminGeralTheme.goldMetallic,
+                    label: 'CPU Sist. %',
+                  ),
+                  _ChartLegendDot(
+                    color: Color(0xFF0284C7),
+                    label: 'CPU JVM %',
+                  ),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 6),
           Text(
-            'Janela móvel real das últimas ${history.length} amostras capturadas no backend.',
+            'Janela móvel real das últimas ${history.length} amostras (escala auto 0–${maxY.toInt()}%).',
             style: TextStyle(
               fontSize: 12,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -678,10 +727,10 @@ class _AdminPerformanceDashboardViewState
                 : LineChart(
                     LineChartData(
                       minY: 0,
-                      maxY: 100,
+                      maxY: maxY,
                       gridData: FlGridData(
                         show: true,
-                        horizontalInterval: 25,
+                        horizontalInterval: interval,
                         getDrawingHorizontalLine: (v) => FlLine(
                           color: Theme.of(
                             context,
@@ -702,7 +751,7 @@ class _AdminPerformanceDashboardViewState
                           sideTitles: SideTitles(
                             showTitles: true,
                             reservedSize: 38,
-                            interval: 25,
+                            interval: interval,
                             getTitlesWidget: (v, _) => Text(
                               '${v.toInt()}%',
                               style: const TextStyle(fontSize: 10),
@@ -739,7 +788,11 @@ class _AdminPerformanceDashboardViewState
                             final timeLabel = idx >= 0 && idx < labels.length
                                 ? labels[idx]
                                 : '';
-                            final name = s.barIndex == 0 ? 'Heap' : 'CPU';
+                            final name = switch (s.barIndex) {
+                              0 => 'Heap',
+                              1 => 'CPU Sist.',
+                              _ => 'CPU JVM',
+                            };
                             return LineTooltipItem(
                               '$timeLabel • $name: ${s.y.toStringAsFixed(1)}%',
                               const TextStyle(
@@ -757,12 +810,12 @@ class _AdminPerformanceDashboardViewState
                           isCurved: heapSpots.length > 2,
                           color: const Color(0xFF7C3AED),
                           barWidth: 3,
-                          dotData: FlDotData(show: heapSpots.length <= 8),
+                          dotData: FlDotData(show: heapSpots.length <= 12),
                           belowBarData: BarAreaData(
                             show: true,
                             gradient: LinearGradient(
                               colors: [
-                                const Color(0xFF7C3AED).withValues(alpha: 0.28),
+                                const Color(0xFF7C3AED).withValues(alpha: 0.25),
                                 const Color(0xFF7C3AED).withValues(alpha: 0.02),
                               ],
                               begin: Alignment.topCenter,
@@ -771,17 +824,24 @@ class _AdminPerformanceDashboardViewState
                           ),
                         ),
                         LineChartBarData(
-                          spots: cpuSpots,
-                          isCurved: cpuSpots.length > 2,
+                          spots: sysCpuSpots,
+                          isCurved: sysCpuSpots.length > 2,
                           color: AdminGeralTheme.goldMetallic,
                           barWidth: 3,
-                          dotData: FlDotData(show: cpuSpots.length <= 8),
+                          dotData: FlDotData(show: sysCpuSpots.length <= 12),
                           belowBarData: BarAreaData(
                             show: true,
                             color: AdminGeralTheme.goldMetallic.withValues(
-                              alpha: 0.10,
+                              alpha: 0.12,
                             ),
                           ),
+                        ),
+                        LineChartBarData(
+                          spots: procCpuSpots,
+                          isCurved: procCpuSpots.length > 2,
+                          color: const Color(0xFF0284C7),
+                          barWidth: 2.2,
+                          dotData: FlDotData(show: procCpuSpots.length <= 12),
                         ),
                       ],
                     ),
@@ -1277,6 +1337,19 @@ class _AdminPerformanceDashboardViewState
     Map<String, dynamic> pool,
   ) {
     final heapPct = ((jvm['heapUsedPercent'] as num?) ?? 0).toDouble() / 100.0;
+    final procCpuPct = ((jvm['processCpuPercent'] as num?) ?? 0).toDouble();
+    final sysCpuPct =
+        ((jvm['systemCpuPercent'] as num?) ?? procCpuPct).toDouble();
+    final logicalCpus =
+        (jvm['logicalProcessors'] as num?) ??
+        (jvm['availableProcessors'] as num?) ??
+        0;
+    final jvmThreads =
+        (jvm['jvmActiveThreads'] as num?) ?? (jvm['threadCount'] as num?) ?? 0;
+    final peakThreads = (jvm['peakThreadCount'] as num?) ?? jvmThreads;
+    final hostTotalMem = (jvm['hostTotalMemoryMb'] as num?) ?? 0;
+    final hostFreeMem = (jvm['hostFreeMemoryMb'] as num?) ?? 0;
+    final hostMemPct = ((jvm['hostMemoryUsedPercent'] as num?) ?? 0).toDouble();
     final poolPct =
         ((pool['utilizationPercent'] as num?) ?? 0).toDouble() / 100.0;
     final errPct = ((http['errorRatePercent'] as num?) ?? 0).toDouble() / 100.0;
@@ -1293,7 +1366,30 @@ class _AdminPerformanceDashboardViewState
           const SizedBox(height: 16),
           _GaugeDetailRow(
             label:
-                'Memória Heap (${jvm['heapUsedMb'] ?? 0} / ${jvm['heapMaxMb'] ?? 0} MB)',
+                'CPU do Sistema Host (${sysCpuPct.toStringAsFixed(1)}% em $logicalCpus threads CPU)',
+            percent: (sysCpuPct / 100.0).clamp(0.0, 1.0),
+            color: AdminGeralTheme.goldMetallic,
+          ),
+          const SizedBox(height: 12),
+          _GaugeDetailRow(
+            label:
+                'CPU do Processo JVM (${procCpuPct.toStringAsFixed(1)}% · $jvmThreads threads Java ativas, pico $peakThreads)',
+            percent: (procCpuPct / 100.0).clamp(0.0, 1.0),
+            color: const Color(0xFF0284C7),
+          ),
+          const SizedBox(height: 12),
+          if (hostTotalMem > 0) ...[
+            _GaugeDetailRow(
+              label:
+                  'RAM Física do Host (${hostTotalMem - hostFreeMem} / $hostTotalMem MB · ${hostMemPct.toStringAsFixed(1)}%)',
+              percent: (hostMemPct / 100.0).clamp(0.0, 1.0),
+              color: const Color(0xFF6366F1),
+            ),
+            const SizedBox(height: 12),
+          ],
+          _GaugeDetailRow(
+            label:
+                'Memória Heap JVM (${jvm['heapUsedMb'] ?? 0} / ${jvm['heapMaxMb'] ?? 0} MB)',
             percent: heapPct,
             color: const Color(0xFF7C3AED),
           ),
@@ -1515,7 +1611,12 @@ class _SubTabPill extends StatelessWidget {
               Icon(
                 icon,
                 size: 18,
-                color: selected ? Colors.white : scheme.onSurfaceVariant,
+                color: selected
+                    ? Colors.white
+                    : VividIconPalette.colorFor(
+                        icon,
+                        brightness: Theme.of(context).brightness,
+                      ),
               ),
               const SizedBox(width: 8),
               Text(

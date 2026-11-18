@@ -65,18 +65,26 @@ class DashboardRepositoryImpl implements DashboardRepository {
         final model = await _remoteDataSource.getOwnTeacherProfile();
         if (model != null) {
           var institutionName = model.institution;
+          var institutionPicture = model.institutionPictureUrl;
           if (model.institutionId != null) {
             try {
-              institutionName =
-                  await _remoteDataSource.getInstitutionName(
-                    model.institutionId!,
-                  ) ??
-                  institutionName;
+              final instInfo = await _remoteDataSource.getInstitutionInfo(
+                model.institutionId!,
+              );
+              if (instInfo != null) {
+                institutionName =
+                    instInfo['name']?.toString() ?? institutionName;
+                institutionPicture =
+                    instInfo['pictureUrl']?.toString() ?? institutionPicture;
+              }
             } catch (_) {
               // Keep the identifier from the profile if institution lookup fails.
             }
           }
-          teacherProfile = model.toEntity(institutionName: institutionName);
+          teacherProfile = model.toEntity(
+            institutionName: institutionName,
+            institutionPicture: institutionPicture,
+          );
           final teacherId = teacherProfile?.id;
           if (teacherId != null) {
             try {
@@ -98,10 +106,19 @@ class DashboardRepositoryImpl implements DashboardRepository {
       }
     }
 
-    Future<void> fetchAdminNotifications() async {
-      if (isAdmin) {
+    Future<void> fetchUnreadNotifications() async {
+      if (home.profileType == UserProfileType.teacher) {
+        unreadNotificationsCount = await _remoteDataSource
+            .getTeacherUnreadNotificationsCount();
+      } else if (home.profileType == UserProfileType.admin || isAdmin) {
         unreadNotificationsCount = await _remoteDataSource
             .getUnreadNotificationsCount();
+      } else if (isTeacher) {
+        unreadNotificationsCount = await _remoteDataSource
+            .getTeacherUnreadNotificationsCount();
+      } else if (isStudent) {
+        unreadNotificationsCount = await _remoteDataSource
+            .getStudentUnreadNotificationsCount();
       }
     }
 
@@ -109,7 +126,7 @@ class DashboardRepositoryImpl implements DashboardRepository {
     await Future.wait([
       fetchStudentData(),
       fetchTeacherData(),
-      fetchAdminNotifications(),
+      fetchUnreadNotifications(),
     ]);
 
     final displayName = studentProfile?.name ?? teacherProfile?.name;

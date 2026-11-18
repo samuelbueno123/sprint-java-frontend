@@ -320,24 +320,30 @@ class AnimatedRadialGauge extends StatelessWidget {
       circularStrokeCap: CircularStrokeCap.round,
       progressColor: color,
       backgroundColor: color.withValues(alpha: 0.14),
-      center: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            centerLabel,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: color,
-            ),
+      center: Padding(
+        padding: EdgeInsets.all(lineWidth + 2),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                centerLabel,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
+              ),
+              if (subtitle != null)
+                Text(
+                  subtitle!,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(fontSize: 10),
+                ),
+            ],
           ),
-          if (subtitle != null)
-            Text(
-              subtitle!,
-              style: Theme.of(
-                context,
-              ).textTheme.labelSmall?.copyWith(fontSize: 10),
-            ),
-        ],
+        ),
       ),
     );
   }

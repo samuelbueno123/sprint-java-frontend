@@ -51,12 +51,16 @@ class DashboardViewModel extends ChangeNotifier {
           case 'PROFILE_UPDATED':
           case 'ENROLLMENT_UPDATED':
           case 'NOTIFICATION_ADDED':
+          case 'NOTIFICATION_UPDATED':
           case 'CLASS_ANNOUNCEMENT':
           case 'TEACHER_NOTE_ADDED':
           case 'CLASS_INVITED':
           case 'SUBMISSION_GRADED':
           case 'EXERCISE_CREATED':
+          case 'EXERCISE_SUBMITTED':
           case 'RANKING_UPDATED':
+          case 'SRS_REVIEW_COMPLETED':
+          case 'INSTITUTION_REQUEST_DECIDED':
             // Recarrega os dados em background para manter a interface 100% síncrona
             loadDashboardData(silent: true);
             break;

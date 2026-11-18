@@ -10,6 +10,7 @@ class TeacherClassAssignmentModel {
     required this.startDate,
     required this.endDate,
     required this.reason,
+    this.schoolClassPictureUrl,
   });
 
   factory TeacherClassAssignmentModel.fromJson(Map<String, dynamic> json) {
@@ -29,6 +30,7 @@ class TeacherClassAssignmentModel {
       startDate: json['startDate']?.toString() ?? '',
       endDate: json['endDate']?.toString(),
       reason: json['reason'] as String?,
+      schoolClassPictureUrl: json['schoolClassPictureUrl']?.toString(),
     );
   }
 
@@ -39,6 +41,7 @@ class TeacherClassAssignmentModel {
   final String startDate;
   final String? endDate;
   final String? reason;
+  final String? schoolClassPictureUrl;
 
   TeacherClassAssignment toEntity() => TeacherClassAssignment(
     id: id,
@@ -48,5 +51,6 @@ class TeacherClassAssignmentModel {
     startDate: startDate,
     endDate: endDate,
     reason: reason,
+    schoolClassPictureUrl: schoolClassPictureUrl,
   );
 }

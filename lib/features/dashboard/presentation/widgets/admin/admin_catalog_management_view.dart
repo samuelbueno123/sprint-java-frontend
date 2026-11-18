@@ -11,71 +11,138 @@ import '../../../../../core/ui/language_flag.dart';
 import '../../../../../core/ui/motion_kit.dart';
 import '../responsive_layout.dart';
 
-class _AddCatalogOptionDialog extends StatefulWidget {
-  const _AddCatalogOptionDialog({
+class _CatalogOptionDialog extends StatefulWidget {
+  const _CatalogOptionDialog({
     required this.initialType,
-    required this.onCreateOption,
+    this.existingOption,
+    required this.onSaveOption,
   });
 
   final String initialType;
-  final Future<Map<String, dynamic>> Function(Map<String, dynamic> payload)
-  onCreateOption;
+  final Map<String, dynamic>? existingOption;
+  final Future<Map<String, dynamic>> Function(
+    Map<String, dynamic> payload,
+    dynamic editingId,
+  )
+  onSaveOption;
 
   @override
-  State<_AddCatalogOptionDialog> createState() =>
-      _AddCatalogOptionDialogState();
+  State<_CatalogOptionDialog> createState() => _CatalogOptionDialogState();
 }
 
-class _AddCatalogOptionDialogState extends State<_AddCatalogOptionDialog> {
+class _CatalogOptionDialogState extends State<_CatalogOptionDialog> {
   final TextEditingController _valueCtrl = TextEditingController();
-  final TextEditingController _codeCtrl = TextEditingController();
+  final TextEditingController _manualFlagCodeCtrl = TextEditingController();
+  final TextEditingController _manualFlagUrlCtrl = TextEditingController();
+
   late String _type;
+  late String _flagMode;
   bool _active = true;
   bool _saving = false;
   String? _validationError;
 
+  bool get _isEditing => widget.existingOption != null;
+  bool get _isCoreProtectedLanguage {
+    final existing = widget.existingOption;
+    if (existing == null) return false;
+    final rawType = existing['catalogType']?.toString().trim().toUpperCase();
+    return rawType == 'LANGUAGE' &&
+        SupportedLanguages.isSupported(existing['value']?.toString());
+  }
+
   @override
   void initState() {
     super.initState();
-    _type = 'PROFICIENCY_LEVEL';
+    final existing = widget.existingOption;
+    if (existing != null) {
+      final rawType =
+          existing['catalogType']?.toString().trim().toUpperCase() ?? 'LANGUAGE';
+      _type = rawType == 'LANGUAGE' ? 'LANGUAGE' : 'PROFICIENCY_LEVEL';
+      _valueCtrl.text = existing['value']?.toString() ?? '';
+      _active = existing['active'] != false;
+      _flagMode =
+          existing['flagMode']?.toString().trim().toUpperCase() == 'MANUAL'
+          ? 'MANUAL'
+          : 'AUTO';
+      _manualFlagCodeCtrl.text = existing['flagCode']?.toString() ?? 'br';
+      _manualFlagUrlCtrl.text = existing['flagUrl']?.toString() ?? '';
+    } else {
+      _type = widget.initialType == 'PROFICIENCY_LEVEL'
+          ? 'PROFICIENCY_LEVEL'
+          : 'LANGUAGE';
+      _flagMode = 'AUTO';
+      _manualFlagCodeCtrl.text = 'br';
+    }
   }
 
   @override
   void dispose() {
     _valueCtrl.dispose();
-    _codeCtrl.dispose();
+    _manualFlagCodeCtrl.dispose();
+    _manualFlagUrlCtrl.dispose();
     super.dispose();
   }
+
+  String _autoPreviewCode() =>
+      LanguageFlag.codeString(LanguageFlag.resolveCode(_valueCtrl.text));
 
   Future<void> _submit() async {
     final val = _valueCtrl.text.trim();
     if (val.isEmpty) {
-      setState(() => _validationError = 'Informe o valor da opção.');
+      setState(() => _validationError = 'Informe o nome da opção.');
       return;
     }
-    if (_type == 'LANGUAGE' && !SupportedLanguages.isSupported(val)) {
-      setState(
-        () => _validationError =
-            'Apenas os 6 idiomas oficiais (${kSupportedLanguages.join(', ')}) são permitidos.',
-      );
-      return;
+    if (_type == 'LANGUAGE' && _flagMode == 'MANUAL') {
+      final code = _manualFlagCodeCtrl.text.trim();
+      final url = _manualFlagUrlCtrl.text.trim();
+      if (code.isEmpty && url.isEmpty) {
+        setState(
+          () => _validationError =
+              'No modo Manual, selecione/informe uma bandeira ou cole uma URL.',
+        );
+        return;
+      }
+      if (url.isNotEmpty &&
+          !url.toLowerCase().startsWith('http://') &&
+          !url.toLowerCase().startsWith('https://')) {
+        setState(
+          () => _validationError =
+              'URL inválida. Utilize um link http:// ou https://.',
+        );
+        return;
+      }
     }
+
     setState(() {
       _saving = true;
       _validationError = null;
     });
-    final cd = _codeCtrl.text.trim();
+
+    final manualCode = _manualFlagCodeCtrl.text.trim();
+    final manualUrl = _manualFlagUrlCtrl.text.trim();
+
+    final payload = <String, dynamic>{
+      'catalogType': _type,
+      'value': _type == 'LANGUAGE'
+          ? (SupportedLanguages.normalize(val) ?? val)
+          : val,
+      'active': _isCoreProtectedLanguage ? true : _active,
+      if (_type == 'LANGUAGE') ...{
+        'flagMode': _flagMode,
+        'flagCode': _flagMode == 'MANUAL' ? manualCode : _autoPreviewCode(),
+        'flagUrl': _flagMode == 'MANUAL' && manualUrl.isNotEmpty
+            ? manualUrl
+            : null,
+      },
+    };
+
     try {
-      final created = await widget.onCreateOption(<String, dynamic>{
-        'catalogType': _type,
-        'value': _type == 'LANGUAGE'
-            ? (SupportedLanguages.normalize(val) ?? val)
-            : val,
-        'code': cd.isNotEmpty ? cd : null,
-        'active': _active,
-      });
+      final result = await widget.onSaveOption(
+        payload,
+        widget.existingOption?['id'],
+      );
       if (mounted) {
-        Navigator.of(context).pop(created);
+        Navigator.of(context).pop(result);
       }
     } catch (e) {
       if (!mounted) return;
@@ -91,76 +158,233 @@ class _AddCatalogOptionDialogState extends State<_AddCatalogOptionDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isLanguage = _type == 'LANGUAGE';
+    final effectivePreviewCode = _flagMode == 'MANUAL'
+        ? _manualFlagCodeCtrl.text.trim()
+        : _autoPreviewCode();
+
     return AlertDialog(
-      title: const Row(
+      title: Row(
         children: [
-          Icon(Icons.add_circle_outline_rounded, color: AdminGeralTheme.indigoMid),
-          SizedBox(width: 8),
-          Text('Nova Opção de Catálogo'),
+          Icon(
+            _isEditing ? Icons.flag_rounded : Icons.add_circle_outline_rounded,
+            color: AdminGeralTheme.indigoMid,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _isEditing
+                  ? 'Configurar Opção & Bandeira'
+                  : 'Nova Opção de Catálogo',
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
       content: SizedBox(
-        width: 440,
+        width: 480,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0D9488).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: const Color(0xFF0D9488).withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Text(
-                  'Os 6 idiomas base (${kSupportedLanguages.join(', ')}) são estruturais e imutáveis. Adicione abaixo novos Níveis de Proficiência.',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF0F766E),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: _type,
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Tipo de Entrada',
                   border: OutlineInputBorder(),
                 ),
                 items: const [
                   DropdownMenuItem(
+                    value: 'LANGUAGE',
+                    child: Text(
+                      'Idioma (LANGUAGE)',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  DropdownMenuItem(
                     value: 'PROFICIENCY_LEVEL',
-                    child: Text('Nível de Proficiência (PROFICIENCY_LEVEL)'),
+                    child: Text(
+                      'Nível de Proficiência (PROFICIENCY_LEVEL)',
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
-                onChanged: null,
+                onChanged: _isEditing
+                    ? null
+                    : (val) {
+                        if (val != null) {
+                          setState(() {
+                            _type = val;
+                            _validationError = null;
+                          });
+                        }
+                      },
               ),
               const SizedBox(height: 14),
               TextField(
                 controller: _valueCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Nome do nível (ex: Intermediário Plus, C1)',
-                  border: OutlineInputBorder(),
+                enabled: !_isCoreProtectedLanguage,
+                onChanged: (_) {
+                  if (isLanguage && _flagMode == 'AUTO') {
+                    setState(() {});
+                  }
+                },
+                decoration: InputDecoration(
+                  labelText: isLanguage
+                      ? 'Nome do idioma (ex: Coreano, Português, Mandarim)'
+                      : 'Nome do nível (ex: Intermediário Plus, C1)',
+                  border: const OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _codeCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Código / Sigla (ex: B2, C1)',
-                  border: OutlineInputBorder(),
+              if (isLanguage) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Bandeira do Idioma',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                 ),
-              ),
-              const SizedBox(height: 14),
-              SwitchListTile(
-                title: const Text('Disponível Imediatamente (Ativo)'),
-                value: _active,
-                onChanged: (val) => setState(() => _active = val),
-              ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      avatar: const Icon(Icons.auto_awesome_rounded, size: 16),
+                      label: const Text('Automática'),
+                      selected: _flagMode == 'AUTO',
+                      onSelected: (_) => setState(() => _flagMode = 'AUTO'),
+                    ),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.tune_rounded, size: 16),
+                      label: const Text('Manual (Admin)'),
+                      selected: _flagMode == 'MANUAL',
+                      onSelected: (_) {
+                        setState(() {
+                          _flagMode = 'MANUAL';
+                          if (_manualFlagCodeCtrl.text.trim().isEmpty) {
+                            _manualFlagCodeCtrl.text = _autoPreviewCode();
+                          }
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0D9488).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF0D9488).withValues(alpha: 0.28),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      LanguageFlag.fromMetadata(
+                        language: _valueCtrl.text,
+                        flagMode: _flagMode,
+                        flagCode: effectivePreviewCode,
+                        flagUrl: _flagMode == 'MANUAL'
+                            ? _manualFlagUrlCtrl.text
+                            : null,
+                        width: 42,
+                        borderRadius: 6,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _flagMode == 'AUTO'
+                                  ? 'Detecção Automática Ativa'
+                                  : 'Configuração Manual Ativa',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _flagMode == 'AUTO'
+                                  ? 'Código detectado: ${effectivePreviewCode.toUpperCase()}'
+                                  : 'Código/emoji: ${effectivePreviewCode.isEmpty ? "personalizado" : effectivePreviewCode.toUpperCase()}',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_flagMode == 'MANUAL') ...[
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Escolha rápida de bandeira:',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: kCatalogFlagPresets.map((preset) {
+                      final selected =
+                          _manualFlagCodeCtrl.text.trim().toLowerCase() ==
+                          preset.code;
+                      return ChoiceChip(
+                        avatar: LanguageFlag.forLanguage(
+                          preset.code,
+                          width: 18,
+                          borderRadius: 3,
+                        ),
+                        label: Text(
+                          preset.label,
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        selected: selected,
+                        onSelected: (_) => setState(() {
+                          _manualFlagCodeCtrl.text = preset.code;
+                        }),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _manualFlagCodeCtrl,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      labelText:
+                          'Código país ou emoji manual (ex: pt, kr, us, gb, 🇧🇷)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _manualFlagUrlCtrl,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      labelText: 'URL de imagem da bandeira (opcional)',
+                      hintText: 'https://...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ],
+              if (!_isCoreProtectedLanguage) ...[
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  title: const Text('Disponível Imediatamente (Ativo)'),
+                  value: _active,
+                  onChanged: (val) => setState(() => _active = val),
+                ),
+              ],
               if (_validationError != null) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -192,7 +416,7 @@ class _AddCatalogOptionDialogState extends State<_AddCatalogOptionDialog> {
                     color: Colors.white,
                   ),
                 )
-              : const Text('Salvar Opção'),
+              : Text(_isEditing ? 'Salvar Alterações' : 'Salvar Opção'),
         ),
       ],
     );
@@ -200,7 +424,9 @@ class _AddCatalogOptionDialogState extends State<_AddCatalogOptionDialog> {
 }
 
 class AdminCatalogManagementView extends StatefulWidget {
-  const AdminCatalogManagementView({super.key});
+  const AdminCatalogManagementView({super.key, this.dio});
+
+  final Dio? dio;
 
   @override
   State<AdminCatalogManagementView> createState() =>
@@ -209,7 +435,7 @@ class AdminCatalogManagementView extends StatefulWidget {
 
 class _AdminCatalogManagementViewState
     extends State<AdminCatalogManagementView> {
-  final Dio _dio = ApiClient().dio;
+  late final Dio _dio = widget.dio ?? ApiClient().dio;
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -232,6 +458,9 @@ class _AdminCatalogManagementViewState
     super.dispose();
   }
 
+  static bool _isLanguageType(dynamic rawType) =>
+      rawType?.toString().trim().toUpperCase() == 'LANGUAGE';
+
   Future<void> _loadCatalogOptions() async {
     setState(() {
       _isLoading = true;
@@ -250,9 +479,10 @@ class _AdminCatalogManagementViewState
       );
 
       final List<dynamic> data = response.data is List ? response.data : [];
+      if (!mounted) return;
       setState(() {
         _catalogOptions = data
-            .map((e) => Map<String, dynamic>.from(e))
+            .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
         _isLoading = false;
       });
@@ -270,7 +500,7 @@ class _AdminCatalogManagementViewState
     final currentActive = option['active'] == true;
     try {
       final response = await _dio.patch('/api/admin/catalog/$id/toggle');
-      final updated = Map<String, dynamic>.from(response.data);
+      final updated = Map<String, dynamic>.from(response.data as Map);
       if (!mounted) return;
       setState(() {
         final index = _catalogOptions.indexWhere((o) => o['id'] == id);
@@ -351,29 +581,48 @@ class _AdminCatalogManagementViewState
     }
   }
 
-  Future<void> _showAddOptionDialog() async {
+  Future<void> _showOptionDialog({Map<String, dynamic>? existingOption}) async {
     final initialType = _selectedType == 'PROFICIENCY_LEVEL'
         ? 'PROFICIENCY_LEVEL'
         : 'LANGUAGE';
-    final created = await showDialog<Map<String, dynamic>>(
+    final saved = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => _AddCatalogOptionDialog(
+      builder: (ctx) => _CatalogOptionDialog(
         initialType: initialType,
-        onCreateOption: (payload) async {
+        existingOption: existingOption,
+        onSaveOption: (payload, editingId) async {
+          if (editingId != null) {
+            final resp = await _dio.put(
+              '/api/admin/catalog/$editingId',
+              data: payload,
+            );
+            return Map<String, dynamic>.from(resp.data as Map);
+          }
           final resp = await _dio.post('/api/admin/catalog', data: payload);
           return Map<String, dynamic>.from(resp.data as Map);
         },
       ),
     );
-    if (!mounted || created == null) return;
+    if (!mounted || saved == null) return;
     SystemSoundService.success();
     setState(() {
-      _catalogOptions.insert(0, created);
+      if (existingOption != null) {
+        final idx = _catalogOptions.indexWhere(
+          (o) => o['id'] == existingOption['id'],
+        );
+        if (idx != -1) {
+          _catalogOptions[idx] = saved;
+        }
+      } else {
+        _catalogOptions.insert(0, saved);
+      }
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Opção "${created['value'] ?? ''}" adicionada com sucesso!',
+          existingOption != null
+              ? 'Opção "${saved['value'] ?? ''}" atualizada com sucesso!'
+              : 'Opção "${saved['value'] ?? ''}" adicionada com sucesso!',
         ),
         backgroundColor: const Color(0xFF059669),
       ),
@@ -382,18 +631,13 @@ class _AdminCatalogManagementViewState
 
   @override
   Widget build(BuildContext context) {
-    final visibleOptions = _catalogOptions.where((opt) {
-      if (opt['catalogType'] == 'LANGUAGE') {
-        return SupportedLanguages.isSupported(opt['value']?.toString());
-      }
-      return true;
-    }).toList();
-
     final query = _searchController.text.trim().toLowerCase();
-    final filtered = visibleOptions.where((opt) {
+    final filtered = _catalogOptions.where((opt) {
       if (query.isNotEmpty) {
         final val = (opt['value'] ?? '').toString().toLowerCase();
-        final code = (opt['code'] ?? '').toString().toLowerCase();
+        final code = (opt['flagCode'] ?? opt['code'] ?? '')
+            .toString()
+            .toLowerCase();
         if (!val.contains(query) && !code.contains(query)) {
           return false;
         }
@@ -401,10 +645,12 @@ class _AdminCatalogManagementViewState
       return true;
     }).toList();
 
-    final totalCount = visibleOptions.length;
-    final totalActive = visibleOptions.where((o) => o['active'] == true).length;
-    final totalLanguages = visibleOptions
-        .where((o) => o['catalogType'] == 'LANGUAGE')
+    final totalCount = _catalogOptions.length;
+    final totalActive = _catalogOptions
+        .where((o) => o['active'] == true)
+        .length;
+    final totalLanguages = _catalogOptions
+        .where((o) => _isLanguageType(o['catalogType']))
         .length;
 
     return SingleChildScrollView(
@@ -441,25 +687,27 @@ class _AdminCatalogManagementViewState
                       ),
                     ),
                     const SizedBox(width: 14),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Catálogo & Idiomas Oficiais',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Catálogo & Idiomas Oficiais',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Gerencie idiomas suportados, níveis e taxonomias com impacto imediato.',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            fontSize: 13,
+                          Text(
+                            'Cadastre idiomas, escolha bandeira automática ou manual e gerencie níveis de proficiência.',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 13,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -472,7 +720,7 @@ class _AdminCatalogManagementViewState
                         foregroundColor: const Color(0xFF0F766E),
                         textStyle: const TextStyle(fontWeight: FontWeight.w700),
                       ),
-                      onPressed: _showAddOptionDialog,
+                      onPressed: () => _showOptionDialog(),
                       icon: const Icon(Icons.add_rounded),
                       label: const Text('Nova Opção'),
                     ),
@@ -493,35 +741,50 @@ class _AdminCatalogManagementViewState
           const SizedBox(height: 20),
 
           // Stat Cards
-          Row(
-            children: [
-              Expanded(
-                child: _buildMetricCard(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stack = constraints.maxWidth < 600;
+              final cards = [
+                _buildMetricCard(
                   title: 'Total de Itens',
                   value: '$totalCount',
                   icon: Icons.list_alt_rounded,
                   color: const Color(0xFF0D9488),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildMetricCard(
+                _buildMetricCard(
                   title: 'Idiomas Registrados',
                   value: '$totalLanguages',
                   icon: Icons.language_rounded,
                   color: const Color(0xFF2563EB),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildMetricCard(
+                _buildMetricCard(
                   title: 'Opções Ativas',
                   value: '$totalActive',
                   icon: Icons.check_circle_rounded,
                   color: const Color(0xFF059669),
                 ),
-              ),
-            ],
+              ];
+              if (stack) {
+                return Column(
+                  children: [
+                    cards[0],
+                    const SizedBox(height: 10),
+                    cards[1],
+                    const SizedBox(height: 10),
+                    cards[2],
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: cards[0]),
+                  const SizedBox(width: 12),
+                  Expanded(child: cards[1]),
+                  const SizedBox(width: 12),
+                  Expanded(child: cards[2]),
+                ],
+              );
+            },
           ),
 
           const SizedBox(height: 20),
@@ -537,70 +800,65 @@ class _AdminCatalogManagementViewState
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText:
-                                'Filtrar por nome ou sigla (ex: Inglês, ES, B2)...',
-                            prefixIcon: const Icon(Icons.search_rounded),
-                            suffixIcon: _searchController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear_rounded),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setState(() {});
-                                    },
-                                  )
-                                : null,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                          ),
-                          onChanged: (_) => setState(() {}),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText:
+                            'Filtrar por idioma, sigla ou bandeira (ex: Coreano, KR, B2)...',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear_rounded),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() {});
+                                },
+                              )
+                            : null,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      DropdownButton<String>(
-                        value: _selectedType,
-                        underline: const SizedBox(),
-                        items: _types
-                            .map(
-                              (t) => DropdownMenuItem(
-                                value: t,
-                                child: Text(
-                                  t == 'ALL'
-                                      ? 'Todos os Tipos'
-                                      : t == 'LANGUAGE'
-                                      ? 'Idiomas'
-                                      : 'Níveis de Proficiência',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
-                                ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  DropdownButton<String>(
+                    value: _selectedType,
+                    underline: const SizedBox(),
+                    items: _types
+                        .map(
+                          (t) => DropdownMenuItem(
+                            value: t,
+                            child: Text(
+                              t == 'ALL'
+                                  ? 'Todos os Tipos'
+                                  : t == 'LANGUAGE'
+                                  ? 'Idiomas'
+                                  : 'Níveis de Proficiência',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
                               ),
-                            )
-                            .toList(),
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _selectedType = val;
-                            });
-                            _loadCatalogOptions();
-                          }
-                        },
-                      ),
-                    ],
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _selectedType = val;
+                        });
+                        _loadCatalogOptions();
+                      }
+                    },
                   ),
                 ],
               ),
@@ -693,9 +951,15 @@ class _AdminCatalogManagementViewState
               separatorBuilder: (context, index) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final item = filtered[index];
-                final isLanguage = item['catalogType'] == 'LANGUAGE';
+                final isLanguage = _isLanguageType(item['catalogType']);
+                final isCoreLanguage =
+                    isLanguage &&
+                    SupportedLanguages.isSupported(item['value']?.toString());
                 final isActive = item['active'] == true;
-                final code = item['code']?.toString() ?? '';
+                final flagMode =
+                    item['flagMode']?.toString().trim().toUpperCase() ?? 'AUTO';
+                final flagCode = item['flagCode']?.toString() ?? '';
+                final flagUrl = item['flagUrl']?.toString();
 
                 return Card(
                   elevation: 0,
@@ -710,194 +974,233 @@ class _AdminCatalogManagementViewState
                       horizontal: 16,
                       vertical: 12,
                     ),
-                    child: Row(
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 10,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: (isLanguage
-                                    ? AdminGeralTheme.bluePrimary
-                                    : AdminGeralTheme.purplePrimary)
-                                .withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: AdminGeralTheme.goldMetallic.withValues(
-                                alpha: 0.55,
-                              ),
-                            ),
-                          ),
-                          child: isLanguage
-                              ? LanguageFlag.forLanguage(
-                                  item['value']?.toString(),
-                                  width: 24,
-                                )
-                              : const Icon(
-                                  Icons.school_rounded,
-                                  color: AdminGeralTheme.purplePrimary,
-                                  size: 22,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: (isLanguage
+                                        ? AdminGeralTheme.bluePrimary
+                                        : AdminGeralTheme.purplePrimary)
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: AdminGeralTheme.goldMetallic
+                                      .withValues(alpha: 0.55),
                                 ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                spacing: 8,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  Text(
-                                    item['value']?.toString() ?? '',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 15,
+                              ),
+                              child: isLanguage
+                                  ? LanguageFlag.fromMetadata(
+                                      language: item['value']?.toString(),
+                                      flagMode: flagMode,
+                                      flagCode: flagCode,
+                                      flagUrl: flagUrl,
+                                      width: 28,
+                                    )
+                                  : const Icon(
+                                      Icons.school_rounded,
+                                      color: AdminGeralTheme.purplePrimary,
+                                      size: 22,
                                     ),
-                                  ),
-                                  if (code.isNotEmpty)
+                            ),
+                            const SizedBox(width: 14),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(
+                                      item['value']?.toString() ?? '',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 15,
+                                      ),
+                                    ),
                                     Container(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
+                                        horizontal: 8,
                                         vertical: 2,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: Colors.grey.withValues(
-                                          alpha: 0.15,
-                                        ),
-                                        borderRadius: BorderRadius.circular(6),
+                                        color: isLanguage
+                                            ? const Color(
+                                                0xFF0D9488,
+                                              ).withValues(alpha: 0.12)
+                                            : const Color(
+                                                0xFF6366F1,
+                                              ).withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
-                                        code,
-                                        style: const TextStyle(
+                                        isLanguage ? 'Idioma' : 'Proficiência',
+                                        style: TextStyle(
                                           fontSize: 11,
-                                          fontWeight: FontWeight.w800,
+                                          fontWeight: FontWeight.w700,
+                                          color: isLanguage
+                                              ? const Color(0xFF0D9488)
+                                              : const Color(0xFF6366F1),
                                         ),
                                       ),
                                     ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isLanguage
-                                          ? const Color(
-                                              0xFF0D9488,
-                                            ).withValues(alpha: 0.12)
-                                          : const Color(
-                                              0xFF6366F1,
-                                            ).withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      isLanguage ? 'Idioma' : 'Proficiência',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: isLanguage
-                                            ? const Color(0xFF0D9488)
-                                            : const Color(0xFF6366F1),
+                                    if (isLanguage)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 7,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: flagMode == 'MANUAL'
+                                              ? AdminGeralTheme.goldMetallic
+                                                    .withValues(alpha: 0.18)
+                                              : const Color(
+                                                  0xFF2563EB,
+                                                ).withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          flagMode == 'MANUAL'
+                                              ? 'Bandeira Manual${flagCode.isNotEmpty ? " · ${flagCode.toUpperCase()}" : ""}'
+                                              : 'Bandeira Auto${flagCode.isNotEmpty ? " · ${flagCode.toUpperCase()}" : ""}',
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: flagMode == 'MANUAL'
+                                                ? AdminGeralTheme.goldDark
+                                                : AdminGeralTheme.bluePrimary,
+                                          ),
+                                        ),
                                       ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Tipo: ${item['catalogType']} • ID #${item['id']}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: () =>
+                                  _showOptionDialog(existingOption: item),
+                              icon: Icon(
+                                isLanguage
+                                    ? Icons.flag_rounded
+                                    : Icons.edit_outlined,
+                                size: 15,
+                              ),
+                              label: Text(
+                                isLanguage ? 'Bandeira' : 'Editar',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (isCoreLanguage)
+                              Tooltip(
+                                message:
+                                    'Os 6 idiomas base do aplicativo são estruturais e permanentes.',
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(
+                                      0xFF0D9488,
+                                    ).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: const Color(
+                                        0xFF0D9488,
+                                      ).withValues(alpha: 0.35),
                                     ),
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Tipo: ${item['catalogType']} • ID #${item['id']}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.lock_rounded,
+                                        size: 14,
+                                        color: Color(0xFF0F766E),
+                                      ),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'Idioma Oficial Fixo',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF0F766E),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
+                              )
+                            else ...[
+                              FilterChip(
+                                selected: isActive,
+                                selectedColor: const Color(
+                                  0xFF059669,
+                                ).withValues(alpha: 0.18),
+                                checkmarkColor: const Color(0xFF059669),
+                                avatar: Icon(
+                                  isActive
+                                      ? Icons.check_circle_rounded
+                                      : Icons.pause_circle_rounded,
+                                  size: 16,
+                                  color: isActive
+                                      ? const Color(0xFF059669)
+                                      : Colors.grey,
+                                ),
+                                label: Text(
+                                  isActive ? 'Ativo' : 'Inativo',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                    color: isActive
+                                        ? const Color(0xFF059669)
+                                        : Colors.grey,
+                                  ),
+                                ),
+                                onSelected: (_) => _toggleOptionActive(item),
+                              ),
+                              IconButton(
+                                tooltip: 'Excluir opção',
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: Color(0xFFB42318),
+                                  size: 20,
+                                ),
+                                onPressed: () => _deleteOption(item),
                               ),
                             ],
-                          ),
+                          ],
                         ),
-                        // Status badge & Toggle (protegido para os 6 idiomas oficiais)
-                        if (isLanguage &&
-                            SupportedLanguages.isSupported(
-                              item['value']?.toString(),
-                            ))
-                          Tooltip(
-                            message:
-                                'Os 6 idiomas base do aplicativo são estruturais e permanentes.',
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(
-                                  0xFF0D9488,
-                                ).withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: const Color(
-                                    0xFF0D9488,
-                                  ).withValues(alpha: 0.35),
-                                ),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.lock_rounded,
-                                    size: 14,
-                                    color: Color(0xFF0F766E),
-                                  ),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'Idioma Oficial Fixo',
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: Color(0xFF0F766E),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        else ...[
-                          FilterChip(
-                            selected: isActive,
-                            selectedColor: const Color(
-                              0xFF059669,
-                            ).withValues(alpha: 0.18),
-                            checkmarkColor: const Color(0xFF059669),
-                            avatar: Icon(
-                              isActive
-                                  ? Icons.check_circle_rounded
-                                  : Icons.pause_circle_rounded,
-                              size: 16,
-                              color: isActive
-                                  ? const Color(0xFF059669)
-                                  : Colors.grey,
-                            ),
-                            label: Text(
-                              isActive ? 'Ativo' : 'Inativo',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12,
-                                color: isActive
-                                    ? const Color(0xFF059669)
-                                    : Colors.grey,
-                              ),
-                            ),
-                            onSelected: (_) => _toggleOptionActive(item),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            tooltip: 'Excluir opção',
-                            icon: const Icon(
-                              Icons.delete_outline_rounded,
-                              color: Color(0xFFB42318),
-                              size: 20,
-                            ),
-                            onPressed: () => _deleteOption(item),
-                          ),
-                        ],
                       ],
                     ),
                   ),

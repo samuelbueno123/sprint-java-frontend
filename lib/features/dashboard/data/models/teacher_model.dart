@@ -7,6 +7,7 @@ class TeacherModel {
     required this.name,
     required this.email,
     this.institutionId,
+    this.institutionPictureUrl,
     required this.institution,
     required this.taughtLanguages,
     required this.specializationAreas,
@@ -30,6 +31,7 @@ class TeacherModel {
       name: json['name'] as String? ?? '',
       email: json['email'] as String? ?? '',
       institutionId: (json['institutionId'] as num?)?.toInt(),
+      institutionPictureUrl: json['institutionPictureUrl']?.toString(),
       institution:
           json['institution'] as String? ??
           (json['institutionId'] == null
@@ -50,6 +52,7 @@ class TeacherModel {
   final String name;
   final String email;
   final int? institutionId;
+  final String? institutionPictureUrl;
   final String institution;
   final List<String> taughtLanguages;
   final List<String> specializationAreas;
@@ -59,13 +62,15 @@ class TeacherModel {
   final bool institutionAdmin;
   final bool primaryInstitutionAdmin;
 
-  TeacherProfile toEntity({String? institutionName}) => TeacherProfile(
-    id: id,
-    googleId: googleId,
-    name: name,
-    email: email,
-    institution: institutionName ?? institution,
-    institutionId: institutionId,
+  TeacherProfile toEntity({String? institutionName, String? institutionPicture}) =>
+      TeacherProfile(
+        id: id,
+        googleId: googleId,
+        name: name,
+        email: email,
+        institution: institutionName ?? institution,
+        institutionId: institutionId,
+        institutionPictureUrl: institutionPicture ?? institutionPictureUrl,
     taughtLanguages: taughtLanguages,
     specializationAreas: specializationAreas,
     bibliography: bibliography,

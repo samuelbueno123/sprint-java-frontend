@@ -282,13 +282,13 @@ void main() {
             'schoolClassId': 5,
             'schoolClassName': 'Turma Inglês B1',
             'description': 'Prática guiada',
-            'mascotHelpMessage': 'Dica antiga',
             'questions': [
               {
                 'style': 'Múltipla escolha',
                 'question': 'Yesterday I ___ to work.',
                 'options': ['go', 'went'],
                 'correctAnswer': 'went',
+                'mascotHelpMessage': 'Dica antiga',
               },
             ],
           },
@@ -314,14 +314,14 @@ void main() {
         await tester.tap(find.text('Tempos Verbais'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Dica do Bode'), findsOneWidget);
+        expect(find.text('Dica do Bode (1)'), findsOneWidget);
         await tester.tap(find.text('Editar'));
         await tester.pumpAndSettle();
 
         expect(find.text('Editar Atividade'), findsOneWidget);
         final helpField = find.widgetWithText(
           TextField,
-          'Dica do Bode Branco (opcional)',
+          'Dica da Questão 1 (opcional)',
         );
         expect(helpField, findsOneWidget);
 
@@ -331,8 +331,9 @@ void main() {
 
         expect(capturedPath, '/api/exercises/42');
         expect(capturedBody, isNotNull);
+        final capturedQuestions = capturedBody!['questions'] as List<dynamic>;
         expect(
-          capturedBody!['mascotHelpMessage'],
+          (capturedQuestions.first as Map<String, dynamic>)['mascotHelpMessage'],
           'Foque no advérbio Yesterday!',
         );
         expect(capturedBody!['title'], 'Past Simple vs Present Perfect');

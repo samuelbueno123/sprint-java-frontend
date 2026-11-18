@@ -5,10 +5,12 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_feedback_widgets.dart';
 import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/ui/language_flag.dart';
 import '../../../../core/ui/mascot/mascot.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/teacher_class_assignment.dart';
 import '../../domain/entities/teacher_profile.dart';
+import 'audio_speech_helper.dart';
 import 'responsive_layout.dart';
 import 'teacher_exercise_preview_screen.dart';
 
@@ -21,6 +23,7 @@ class TeacherCreateExerciseScreen extends StatefulWidget {
     this.dataLoadError,
     required this.onBack,
     required this.onSaved,
+    this.dio,
   });
 
   final DashboardData data;
@@ -29,6 +32,7 @@ class TeacherCreateExerciseScreen extends StatefulWidget {
   final String? dataLoadError;
   final VoidCallback onBack;
   final Future<void> Function() onSaved;
+  final Dio? dio;
 
   @override
   State<TeacherCreateExerciseScreen> createState() =>
@@ -97,7 +101,7 @@ class _TeacherCreateExerciseScreenState
   final _aiInstructions = TextEditingController();
   final List<_ComposerQuestion> _questions = [_ComposerQuestion()];
 
-  final Dio _dio = ApiClient().dio;
+  late final Dio _dio = widget.dio ?? ApiClient().dio;
   final ScrollController _scrollController = ScrollController();
   final List<_ClassOption> _availableClasses = [];
   bool _loadingClasses = false;
@@ -227,10 +231,35 @@ class _TeacherCreateExerciseScreenState
     super.dispose();
   }
 
+  bool _isMultipleChoice(String style) => style == 'Múltipla Escolha';
+  bool _isTrueFalse(String style) => style == 'Verdadeiro ou Falso';
+  bool _isMatching(String style) => style == 'Correspondência';
+  bool _isAudio(String style) => style == 'Áudio';
+
   bool _usesOptions(String style) =>
-      style == 'Múltipla Escolha' ||
-      style == 'Correspondência' ||
-      style == 'Verdadeiro ou Falso';
+      _isMultipleChoice(style) || _isTrueFalse(style);
+
+  void _applyQuestionStyle(_ComposerQuestion question, String newStyle) {
+    final prevStyle = question.style;
+    question.style = newStyle;
+    if (_isTrueFalse(newStyle)) {
+      question.options[0].text = 'Verdadeiro';
+      question.options[1].text = 'Falso';
+      question.options[2].clear();
+      question.options[3].clear();
+      if (question.correctAnswer != 'Verdadeiro' &&
+          question.correctAnswer != 'Falso') {
+        question.correctAnswer = 'Verdadeiro';
+      }
+    } else if (_isMultipleChoice(newStyle) && _isTrueFalse(prevStyle)) {
+      for (final opt in question.options) {
+        opt.clear();
+      }
+      question.correctAnswer = null;
+    } else if (_isAudio(newStyle) && question.prompt.text.trim().isEmpty) {
+      question.prompt.text = 'Ouça o áudio e escreva o que foi dito';
+    }
+  }
 
   Future<void> _pickDueDate() async {
     final today = DateTime.now();
@@ -276,7 +305,46 @@ class _TeacherCreateExerciseScreenState
         if (q.prompt.text.trim().isEmpty) {
           issues.add('• Questão $qNum: Informe o enunciado (pergunta).');
         }
-        if (_usesOptions(q.style)) {
+        if (_isTrueFalse(q.style)) {
+          if (q.correctAnswer != 'Verdadeiro' && q.correctAnswer != 'Falso') {
+            q.correctAnswer = 'Verdadeiro';
+          }
+        } else if (_isMatching(q.style)) {
+          final validPairs = q.pairs
+              .where(
+                (p) =>
+                    p.left.text.trim().isNotEmpty &&
+                    p.right.text.trim().isNotEmpty,
+              )
+              .toList();
+          final hasIncompletePair = q.pairs.any(
+            (p) => p.left.text.trim().isEmpty != p.right.text.trim().isEmpty,
+          );
+          if (validPairs.length < 2) {
+            issues.add(
+              '• Questão $qNum: Preencha ao menos 2 pares completos (esquerda ↔ direita) em Correspondência.',
+            );
+          } else if (hasIncompletePair) {
+            issues.add(
+              '• Questão $qNum: Complete ou remova o par de correspondência preenchido pela metade.',
+            );
+          }
+        } else if (_isAudio(q.style)) {
+          final spoken = q.audioText.text.trim();
+          if (spoken.isEmpty) {
+            issues.add(
+              '• Questão $qNum: Informe a frase que será falada no áudio.',
+            );
+          }
+          final expected = q.audioSameAsAnswer
+              ? spoken
+              : q.expectedAnswer.text.trim();
+          if (expected.isEmpty) {
+            issues.add(
+              '• Questão $qNum: Informe a resposta esperada da questão de áudio.',
+            );
+          }
+        } else if (_isMultipleChoice(q.style)) {
           final opts = q.options
               .map((c) => c.text.trim())
               .where((t) => t.isNotEmpty)
@@ -331,9 +399,9 @@ class _TeacherCreateExerciseScreenState
           'languageName': _language,
           'proficiencyLevel': _level,
           'description': _description.text.trim(),
-          'mascotHelpMessage': _mascotHelp.text.trim().isEmpty
-              ? null
-              : _mascotHelp.text.trim(),
+          'mascotHelpMessage': _contentOnly && _mascotHelp.text.trim().isNotEmpty
+              ? _mascotHelp.text.trim()
+              : null,
           'contentBody': _contentOnly ? _content.text.trim() : null,
           'mediaUrl': _mediaUrl.text.trim().isEmpty
               ? null
@@ -486,6 +554,52 @@ class _TeacherCreateExerciseScreenState
   }
 
   Map<String, dynamic> _questionToJson(_ComposerQuestion question) {
+    final tip = question.mascotHelp.text.trim();
+    if (_isTrueFalse(question.style)) {
+      final correct = question.correctAnswer == 'Falso'
+          ? 'Falso'
+          : 'Verdadeiro';
+      return {
+        'style': question.style,
+        'question': question.prompt.text.trim(),
+        'options': const ['Verdadeiro', 'Falso'],
+        'correctAnswer': correct,
+        'expectedAnswer': null,
+        if (tip.isNotEmpty) 'mascotHelpMessage': tip,
+      };
+    }
+    if (_isMatching(question.style)) {
+      final encodedPairs = question.pairs
+          .where(
+            (p) =>
+                p.left.text.trim().isNotEmpty && p.right.text.trim().isNotEmpty,
+          )
+          .map((p) => '${p.left.text.trim()} => ${p.right.text.trim()}')
+          .toList();
+      return {
+        'style': question.style,
+        'question': question.prompt.text.trim(),
+        'options': encodedPairs,
+        'correctAnswer': encodedPairs.join(' | '),
+        'expectedAnswer': encodedPairs.join(' | '),
+        if (tip.isNotEmpty) 'mascotHelpMessage': tip,
+      };
+    }
+    if (_isAudio(question.style)) {
+      final spoken = question.audioText.text.trim();
+      final expected = question.audioSameAsAnswer && spoken.isNotEmpty
+          ? spoken
+          : question.expectedAnswer.text.trim();
+      return {
+        'style': question.style,
+        'question': question.prompt.text.trim(),
+        'options': <String>[],
+        'correctAnswer': null,
+        'expectedAnswer': expected,
+        if (spoken.isNotEmpty) 'audioText': spoken,
+        if (tip.isNotEmpty) 'mascotHelpMessage': tip,
+      };
+    }
     final useOptions = _usesOptions(question.style);
     final options = question.options
         .map((controller) => controller.text.trim())
@@ -497,6 +611,7 @@ class _TeacherCreateExerciseScreenState
       'options': useOptions ? options : <String>[],
       'correctAnswer': useOptions ? question.correctAnswer : null,
       'expectedAnswer': useOptions ? null : question.expectedAnswer.text.trim(),
+      if (tip.isNotEmpty) 'mascotHelpMessage': tip,
     };
   }
 
@@ -545,6 +660,50 @@ class _TeacherCreateExerciseScreenState
 
   Future<void> _preview() async {
     final previewQuestions = _questions.map((q) {
+      final tip = q.mascotHelp.text.trim();
+      if (_isTrueFalse(q.style)) {
+        return {
+          'prompt': q.prompt.text.trim(),
+          'style': q.style,
+          'options': const ['Verdadeiro', 'Falso'],
+          'expectedAnswer': q.correctAnswer == 'Falso' ? 'Falso' : 'Verdadeiro',
+          'explanation': '',
+          if (tip.isNotEmpty) 'mascotHelpMessage': tip,
+        };
+      }
+      if (_isMatching(q.style)) {
+        final encodedPairs = q.pairs
+            .where(
+              (p) =>
+                  p.left.text.trim().isNotEmpty &&
+                  p.right.text.trim().isNotEmpty,
+            )
+            .map((p) => '${p.left.text.trim()} => ${p.right.text.trim()}')
+            .toList();
+        return {
+          'prompt': q.prompt.text.trim(),
+          'style': q.style,
+          'options': encodedPairs,
+          'expectedAnswer': encodedPairs.join(' | '),
+          'explanation': '',
+          if (tip.isNotEmpty) 'mascotHelpMessage': tip,
+        };
+      }
+      if (_isAudio(q.style)) {
+        final spoken = q.audioText.text.trim();
+        final expected = q.audioSameAsAnswer && spoken.isNotEmpty
+            ? spoken
+            : q.expectedAnswer.text.trim();
+        return {
+          'prompt': q.prompt.text.trim(),
+          'style': q.style,
+          'options': const <String>[],
+          'expectedAnswer': expected,
+          'audioText': spoken,
+          'explanation': '',
+          if (tip.isNotEmpty) 'mascotHelpMessage': tip,
+        };
+      }
       return {
         'prompt': q.prompt.text.trim(),
         'style': q.style,
@@ -556,6 +715,7 @@ class _TeacherCreateExerciseScreenState
             ? q.expectedAnswer.text.trim()
             : (q.correctAnswer ?? ''),
         'explanation': '',
+        if (tip.isNotEmpty) 'mascotHelpMessage': tip,
       };
     }).toList();
 
@@ -569,11 +729,12 @@ class _TeacherCreateExerciseScreenState
           category: _category,
           theme: _theme.text.trim().isEmpty ? 'Geral' : _theme.text.trim(),
           level: _level,
+          language: _language ?? 'Inglês',
           questions: previewQuestions,
           contentBody: _contentOnly ? _content.text.trim() : null,
-          mascotHelpMessage: _mascotHelp.text.trim().isEmpty
-              ? null
-              : _mascotHelp.text.trim(),
+          mascotHelpMessage: _contentOnly && _mascotHelp.text.trim().isNotEmpty
+              ? _mascotHelp.text.trim()
+              : null,
           onBack: () => Navigator.pop(context),
         ),
       ),
@@ -833,6 +994,7 @@ class _TeacherCreateExerciseScreenState
                                   ? 'Carregando turmas...'
                                   : 'Nenhuma turma disponível')
                             : 'Selecione a turma',
+                        overflow: TextOverflow.ellipsis,
                       ),
                       items: _availableClasses
                           .map(
@@ -878,7 +1040,19 @@ class _TeacherCreateExerciseScreenState
                           .map(
                             (value) => DropdownMenuItem(
                               value: value,
-                              child: Text(value),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  LanguageFlag.forLanguage(value, width: 20),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      value,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           )
                           .toList(),
@@ -902,20 +1076,19 @@ class _TeacherCreateExerciseScreenState
                             (value) => DropdownMenuItem(
                               value: value,
                               child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
-                                    Icons.circle,
-                                    size: 10,
-                                    color: value == 'Fácil'
-                                        ? const Color(0xFF2EB872)
-                                        : value == 'Médio'
-                                        ? const Color(0xFFE5902D)
-                                        : value == 'Difícil'
-                                        ? const Color(0xFFE53935)
-                                        : const Color(0xFF5869D8),
+                                  Text(
+                                    SupportedLanguages.levelEmoji(value),
+                                    style: const TextStyle(fontSize: 15),
                                   ),
                                   const SizedBox(width: 8),
-                                  Text(value),
+                                  Flexible(
+                                    child: Text(
+                                      value,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -956,29 +1129,6 @@ class _TeacherCreateExerciseScreenState
             label: 'Descrição (opcional)',
             hint: 'Adicione instruções ou contexto para os alunos.',
             maxLines: 3,
-          ),
-          const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Padding(
-                padding: EdgeInsets.only(top: 6),
-                child: MascotPoseEmblem(
-                  state: MascotState.clickBleat,
-                  size: 36,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _textField(
-                  controller: _mascotHelp,
-                  label: 'Dica do Bode Branco para esta atividade (opcional)',
-                  hint:
-                      'Orientação exibida no balão de ajuda do mascote durante a atividade.',
-                  maxLines: 3,
-                ),
-              ),
-            ],
           ),
           if (_availableClasses.isEmpty && !_loadingClasses) ...[
             const SizedBox(height: 12),
@@ -1037,6 +1187,29 @@ class _TeacherCreateExerciseScreenState
             return null;
           },
         ),
+        const SizedBox(height: 14),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: MascotPoseEmblem(
+                state: MascotState.clickBleat,
+                size: 34,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _textField(
+                controller: _mascotHelp,
+                label: 'Dica do Bode Branco para este conteúdo (opcional)',
+                hint:
+                    'Orientação exibida no balão de ajuda do mascote neste material teórico.',
+                maxLines: 3,
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerLeft,
@@ -1053,13 +1226,25 @@ class _TeacherCreateExerciseScreenState
 
   String _normalizeGeneratedStyle(String? rawStyle) {
     final lower = (rawStyle ?? '').trim().toLowerCase();
-    if (lower.contains('verdadeiro') || lower.contains('falso')) {
+    if (lower.contains('verdadeiro') ||
+        lower.contains('falso') ||
+        lower.contains('true_false') ||
+        lower.contains('true/false')) {
       return 'Verdadeiro ou Falso';
+    }
+    if (lower.contains('correspond') ||
+        lower.contains('match') ||
+        lower.contains('associ') ||
+        lower.contains('ligar')) {
+      return 'Correspondência';
     }
     if (lower.contains('aberta') || lower.contains('discursiva')) {
       return 'Discursiva';
     }
-    if (lower.contains('áudio') || lower.contains('audio')) {
+    if (lower.contains('áudio') ||
+        lower.contains('audio') ||
+        lower.contains('escuta') ||
+        lower.contains('listening')) {
       return 'Áudio';
     }
     if (lower.contains('completar') || lower.contains('lacuna')) {
@@ -1134,32 +1319,81 @@ class _TeacherCreateExerciseScreenState
       final generated = <_ComposerQuestion>[];
       for (final item in items) {
         final q = _ComposerQuestion();
-        q.style = _normalizeGeneratedStyle(item['style']?.toString());
+        final resolvedStyle = _normalizeGeneratedStyle(
+          item['style']?.toString(),
+        );
+        _applyQuestionStyle(q, resolvedStyle);
         q.prompt.text = (item['question'] ?? '').toString().trim();
         final rawOpts = (item['options'] as List? ?? const [])
             .map((e) => e.toString().trim())
             .where((e) => e.isNotEmpty)
             .toList();
-        if (_usesOptions(q.style)) {
-          final effectiveOpts = rawOpts.isNotEmpty
+        if (_isTrueFalse(q.style)) {
+          q.options[0].text = 'Verdadeiro';
+          q.options[1].text = 'Falso';
+          final correctRaw =
+              (item['correctAnswer'] ?? item['expectedAnswer'] ?? '')
+                  .toString()
+                  .trim()
+                  .toLowerCase();
+          q.correctAnswer = correctRaw.contains('fals')
+              ? 'Falso'
+              : 'Verdadeiro';
+        } else if (_isMatching(q.style)) {
+          final pairTokens = rawOpts.isNotEmpty
               ? rawOpts
-              : (q.style == 'Verdadeiro ou Falso'
-                    ? ['Verdadeiro', 'Falso']
-                    : <String>[]);
-          for (
-            var i = 0;
-            i < q.options.length && i < effectiveOpts.length;
-            i++
-          ) {
-            q.options[i].text = effectiveOpts[i];
+              : (item['correctAnswer'] ?? item['expectedAnswer'] ?? '')
+                    .toString()
+                    .split(RegExp(r'[|;\n]+'))
+                    .map((e) => e.trim())
+                    .where((e) => e.isNotEmpty)
+                    .toList();
+          final parsed = <({String l, String r})>[];
+          for (final tok in pairTokens) {
+            final sep = tok.contains('=>')
+                ? '=>'
+                : (tok.contains('->') ? '->' : (tok.contains('=') ? '=' : ''));
+            if (sep.isEmpty) continue;
+            final idx = tok.indexOf(sep);
+            final left = tok.substring(0, idx).trim();
+            final right = tok.substring(idx + sep.length).trim();
+            if (left.isNotEmpty && right.isNotEmpty) {
+              parsed.add((l: left, r: right));
+            }
+          }
+          q.setPairCount(parsed.length < 2 ? 2 : parsed.length);
+          for (var i = 0; i < parsed.length && i < q.pairs.length; i++) {
+            q.pairs[i].left.text = parsed[i].l;
+            q.pairs[i].right.text = parsed[i].r;
+          }
+        } else if (_isAudio(q.style)) {
+          final spoken =
+              (item['audioText'] ??
+                      item['expectedAnswer'] ??
+                      item['correctAnswer'] ??
+                      '')
+                  .toString()
+                  .trim();
+          final expected =
+              (item['expectedAnswer'] ?? item['correctAnswer'] ?? spoken)
+                  .toString()
+                  .trim();
+          q.audioText.text = spoken;
+          q.expectedAnswer.text = expected;
+          q.audioSameAsAnswer =
+              spoken.isNotEmpty &&
+              spoken.toLowerCase() == expected.toLowerCase();
+        } else if (_isMultipleChoice(q.style)) {
+          for (var i = 0; i < q.options.length && i < rawOpts.length; i++) {
+            q.options[i].text = rawOpts[i];
           }
           final correct = (item['correctAnswer'] ?? item['expectedAnswer'])
               ?.toString()
               .trim();
-          if (correct != null && effectiveOpts.contains(correct)) {
+          if (correct != null && rawOpts.contains(correct)) {
             q.correctAnswer = correct;
-          } else if (effectiveOpts.isNotEmpty) {
-            q.correctAnswer = effectiveOpts.first;
+          } else if (rawOpts.isNotEmpty) {
+            q.correctAnswer = rawOpts.first;
           }
         } else {
           q.expectedAnswer.text =
@@ -1167,6 +1401,7 @@ class _TeacherCreateExerciseScreenState
                   .toString()
                   .trim();
         }
+        q.mascotHelp.text = (item['mascotHelpMessage'] ?? '').toString().trim();
         generated.add(q);
       }
 
@@ -1266,10 +1501,27 @@ class _TeacherCreateExerciseScreenState
     }
   }
 
+  String _effectiveAnswerText(_ComposerQuestion question) {
+    if (_isMatching(question.style)) {
+      return question.pairs
+          .where(
+            (p) =>
+                p.left.text.trim().isNotEmpty && p.right.text.trim().isNotEmpty,
+          )
+          .map((p) => '${p.left.text.trim()} => ${p.right.text.trim()}')
+          .join(' | ');
+    }
+    if (_isAudio(question.style)) {
+      return question.audioSameAsAnswer
+          ? question.audioText.text.trim()
+          : question.expectedAnswer.text.trim();
+    }
+    return (question.correctAnswer ?? question.expectedAnswer.text).trim();
+  }
+
   Future<void> _generateExplanationWithAi(_ComposerQuestion question) async {
     final prompt = question.prompt.text.trim();
-    final answer = (question.correctAnswer ?? question.expectedAnswer.text)
-        .trim();
+    final answer = _effectiveAnswerText(question);
     if (prompt.isEmpty) {
       _showMessage('Informe o enunciado da pergunta primeiro.');
       return;
@@ -1452,6 +1704,7 @@ class _TeacherCreateExerciseScreenState
                     width: wide ? 160 : (constraints.maxWidth - 12) / 2,
                     child: DropdownButtonFormField<int>(
                       initialValue: _aiQuestionCount,
+                      isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Quantidade',
                       ),
@@ -1459,7 +1712,10 @@ class _TeacherCreateExerciseScreenState
                           .map(
                             (count) => DropdownMenuItem(
                               value: count,
-                              child: Text('$count questões'),
+                              child: Text(
+                                '$count questões',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           )
                           .toList(),
@@ -1472,6 +1728,7 @@ class _TeacherCreateExerciseScreenState
                     width: wide ? 156 : (constraints.maxWidth - 12) / 2,
                     child: DropdownButtonFormField<String>(
                       initialValue: _aiQuestionStyle,
+                      isExpanded: true,
                       decoration: const InputDecoration(labelText: 'Estilo'),
                       items: ['Todos os estilos', ..._questionStyles]
                           .map(
@@ -1711,7 +1968,7 @@ class _TeacherCreateExerciseScreenState
                 runSpacing: 4,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  if (_usesOptions(question.style))
+                  if (_isMultipleChoice(question.style))
                     TextButton.icon(
                       onPressed: question.generatingOptions
                           ? null
@@ -1776,7 +2033,14 @@ class _TeacherCreateExerciseScreenState
                           for (final opt in question.options) {
                             opt.clear();
                           }
+                          for (final pair in question.pairs) {
+                            pair.left.clear();
+                            pair.right.clear();
+                          }
+                          question.audioText.clear();
+                          question.audioSameAsAnswer = true;
                           question.expectedAnswer.clear();
+                          question.mascotHelp.clear();
                           question.correctAnswer = null;
                           question.aiExplanation = null;
                         });
@@ -1805,6 +2069,7 @@ class _TeacherCreateExerciseScreenState
                   SizedBox(
                     width: width,
                     child: DropdownButtonFormField<String>(
+                      key: ValueKey('style_${question.id}_${question.style}'),
                       initialValue: question.style,
                       isExpanded: true,
                       decoration: const InputDecoration(
@@ -1820,7 +2085,7 @@ class _TeacherCreateExerciseScreenState
                           .toList(),
                       onChanged: (value) {
                         if (value != null) {
-                          setState(() => question.style = value);
+                          setState(() => _applyQuestionStyle(question, value));
                         }
                       },
                     ),
@@ -1829,8 +2094,16 @@ class _TeacherCreateExerciseScreenState
                     width: width,
                     child: _textField(
                       controller: question.prompt,
-                      label: 'Pergunta',
-                      hint: 'Digite o enunciado',
+                      label: _isAudio(question.style)
+                          ? 'Instrução para o aluno'
+                          : 'Pergunta',
+                      hint: _isAudio(question.style)
+                          ? 'Ex: Ouça o áudio e escreva o que você entendeu'
+                          : (_isMatching(question.style)
+                                ? 'Ex: Associe cada palavra à sua tradução'
+                                : (_isTrueFalse(question.style)
+                                      ? 'Digite a afirmação (Verdadeira ou Falsa)'
+                                      : 'Digite o enunciado')),
                       validator: (value) =>
                           value == null || value.trim().isEmpty
                           ? 'Informe o enunciado'
@@ -1842,7 +2115,13 @@ class _TeacherCreateExerciseScreenState
             },
           ),
           const SizedBox(height: 12),
-          if (_usesOptions(question.style))
+          if (_isTrueFalse(question.style))
+            _trueFalseEditor(context, question)
+          else if (_isMatching(question.style))
+            _matchingEditor(context, question)
+          else if (_isAudio(question.style))
+            _audioQuestionEditor(context, question)
+          else if (_isMultipleChoice(question.style))
             _optionsEditor(context, question)
           else
             _textField(
@@ -1851,6 +2130,29 @@ class _TeacherCreateExerciseScreenState
               hint: 'Informe a resposta ou os critérios esperados',
               maxLines: 3,
             ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: MascotPoseEmblem(
+                  state: MascotState.clickBleat,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _textField(
+                  controller: question.mascotHelp,
+                  label: 'Dica do Bode Branco para esta questão (opcional)',
+                  hint:
+                      'Orientação exibida no balão de ajuda quando o aluno responder a Questão ${index + 1}.',
+                  maxLines: 2,
+                ),
+              ),
+            ],
+          ),
           if (question.aiExplanation != null) ...[
             const SizedBox(height: 12),
             Container(
@@ -1909,6 +2211,269 @@ class _TeacherCreateExerciseScreenState
                 ],
               ),
             ).animate().fadeIn(duration: 250.ms).slideY(begin: 0.05, end: 0),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _trueFalseEditor(BuildContext context, _ComposerQuestion question) {
+    final colors = Theme.of(context).colorScheme;
+    final current = question.correctAnswer == 'Falso' ? 'Falso' : 'Verdadeiro';
+    Widget optionTile(String label, IconData icon, Color accent) {
+      final selected = current == label;
+      return Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => setState(() => question.correctAnswer = label),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            decoration: BoxDecoration(
+              color: selected
+                  ? accent.withValues(alpha: 0.14)
+                  : colors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected ? accent : colors.outlineVariant,
+                width: selected ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                  color: selected ? accent : colors.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: selected ? accent : colors.onSurface,
+                  ),
+                ),
+                if (selected) ...[
+                  const SizedBox(width: 6),
+                  Icon(Icons.verified_rounded, size: 16, color: accent),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Gabarito (Verdadeiro ou Falso)',
+          style: TextStyle(
+            color: colors.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            optionTile(
+              'Verdadeiro',
+              Icons.check_circle_rounded,
+              const Color(0xFF16A34A),
+            ),
+            const SizedBox(width: 12),
+            optionTile(
+              'Falso',
+              Icons.cancel_rounded,
+              const Color(0xFFDC2626),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _matchingEditor(BuildContext context, _ComposerQuestion question) {
+    final colors = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                'Pares de Correspondência (Coluna A ↔ Coluna B)',
+                style: TextStyle(
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            if (question.pairs.length < 6)
+              TextButton.icon(
+                onPressed: () => setState(() => question.addPair()),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Adicionar par'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        for (var i = 0; i < question.pairs.length; i++) ...[
+          Row(
+            children: [
+              Expanded(
+                child: _textField(
+                  controller: question.pairs[i].left,
+                  label: 'Par ${i + 1} — Esquerda',
+                  hint: 'Ex: Apple',
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Icon(
+                  Icons.compare_arrows_rounded,
+                  color: Color(0xFF4F46E5),
+                ),
+              ),
+              Expanded(
+                child: _textField(
+                  controller: question.pairs[i].right,
+                  label: 'Par ${i + 1} — Direita',
+                  hint: 'Ex: Maçã',
+                ),
+              ),
+              if (question.pairs.length > 2)
+                IconButton(
+                  tooltip: 'Remover par',
+                  onPressed: () => setState(() => question.removePairAt(i)),
+                  icon: Icon(
+                    Icons.remove_circle_outline_rounded,
+                    color: colors.error,
+                    size: 20,
+                  ),
+                ),
+            ],
+          ),
+          if (i < question.pairs.length - 1) const SizedBox(height: 10),
+        ],
+        const SizedBox(height: 6),
+        Text(
+          'O aluno verá os itens da direita embaralhados para ligar aos pares da esquerda.',
+          style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+
+  Widget _audioQuestionEditor(
+    BuildContext context,
+    _ComposerQuestion question,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+    final lang = _language ?? 'Inglês';
+    Future<void> testPlayback(double rate) async {
+      final spoken = question.audioText.text.trim();
+      if (spoken.isEmpty) {
+        _showMessage('Digite primeiro a frase que será falada no áudio.');
+        return;
+      }
+      final ok = await AudioSpeechHelper.speak(
+        spoken,
+        languageName: lang,
+        rate: rate,
+      );
+      if (!ok && mounted) {
+        _showMessage(
+          'Síntese de áudio indisponível fora do navegador. Ela tocará normalmente para os alunos na Web.',
+        );
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.primaryContainer.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.headphones_rounded, size: 18, color: colors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Mecânica de Escuta ($lang)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: colors.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _textField(
+            controller: question.audioText,
+            label: 'Frase falada no áudio ($lang)',
+            hint: 'Ex: Where is the train station?',
+            onChanged: (value) {
+              if (question.audioSameAsAnswer) {
+                question.expectedAnswer.text = value;
+              }
+            },
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: () => testPlayback(1.0),
+                icon: const Icon(Icons.volume_up_rounded, size: 18),
+                label: const Text('Ouvir prévia'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => testPlayback(0.65),
+                icon: const Icon(Icons.slow_motion_video_rounded, size: 18),
+                label: const Text('Ouvir devagar'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Resposta esperada = frase do áudio (Ditado)',
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500),
+                ),
+              ),
+              Switch.adaptive(
+                value: question.audioSameAsAnswer,
+                onChanged: (checked) => setState(() {
+                  question.audioSameAsAnswer = checked;
+                  if (checked) {
+                    question.expectedAnswer.text = question.audioText.text;
+                  }
+                }),
+              ),
+            ],
+          ),
+          if (!question.audioSameAsAnswer) ...[
+            const SizedBox(height: 8),
+            _textField(
+              controller: question.expectedAnswer,
+              label: 'Gabarito / resposta esperada',
+              hint: 'Resposta esperada ao ouvir o áudio',
+              maxLines: 2,
+            ),
           ],
         ],
       ),
@@ -2053,9 +2618,46 @@ class _TeacherCreateExerciseScreenState
 
   Widget _publishedExercises(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final indexed = widget.exercises.asMap().entries.toList();
+    final hasCreatedAt = indexed.any(
+      (entry) =>
+          DateTime.tryParse(entry.value['createdAt']?.toString() ?? '') != null,
+    );
+    if (hasCreatedAt) {
+      indexed.sort((a, b) {
+        final da = DateTime.tryParse(a.value['createdAt']?.toString() ?? '');
+        final db = DateTime.tryParse(b.value['createdAt']?.toString() ?? '');
+        if (da != null && db != null) {
+          final cmp = db.compareTo(da);
+          if (cmp != 0) return cmp;
+        } else if (db != null) {
+          return 1;
+        } else if (da != null) {
+          return -1;
+        }
+        return a.key.compareTo(b.key);
+      });
+    }
+    const maxPublishedShown = 10;
+    final recentExercises = indexed
+        .take(maxPublishedShown)
+        .map((entry) => entry.value)
+        .toList(growable: false);
+    final totalCount = widget.exercises.length;
+
     return _ComposerCard(
       title: 'Conteúdos publicados',
       icon: Icons.library_books_outlined,
+      action: totalCount > maxPublishedShown
+          ? Text(
+              'Últimos $maxPublishedShown de $totalCount',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: colors.onSurfaceVariant,
+              ),
+            )
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2078,7 +2680,7 @@ class _TeacherCreateExerciseScreenState
               label: const Text('Atualizar'),
             ),
           ],
-          if (widget.exercises.isEmpty)
+          if (recentExercises.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
@@ -2089,7 +2691,7 @@ class _TeacherCreateExerciseScreenState
               ),
             )
           else
-            for (final exercise in widget.exercises)
+            for (final exercise in recentExercises)
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(
@@ -2146,26 +2748,68 @@ class _TeacherCreateExerciseScreenState
 }
 
 class _ComposerQuestion {
+  static int _nextId = 0;
+
   _ComposerQuestion()
-    : style = 'Múltipla Escolha',
+    : id = _nextId++,
+      style = 'Múltipla Escolha',
       prompt = TextEditingController(),
       expectedAnswer = TextEditingController(),
-      options = List.generate(4, (_) => TextEditingController());
+      mascotHelp = TextEditingController(),
+      audioText = TextEditingController(),
+      options = List.generate(4, (_) => TextEditingController()),
+      pairs = List.generate(
+        3,
+        (_) => (left: TextEditingController(), right: TextEditingController()),
+      );
 
+  final int id;
   String style;
   final TextEditingController prompt;
   final TextEditingController expectedAnswer;
+  final TextEditingController mascotHelp;
+  final TextEditingController audioText;
   final List<TextEditingController> options;
+  final List<({TextEditingController left, TextEditingController right})> pairs;
+  bool audioSameAsAnswer = true;
   String? correctAnswer;
   String? aiExplanation;
   bool generatingOptions = false;
   bool generatingExplanation = false;
 
+  void addPair() {
+    pairs.add((left: TextEditingController(), right: TextEditingController()));
+  }
+
+  void removePairAt(int index) {
+    if (index < 0 || index >= pairs.length || pairs.length <= 2) return;
+    final removed = pairs.removeAt(index);
+    removed.left.dispose();
+    removed.right.dispose();
+  }
+
+  void setPairCount(int count) {
+    while (pairs.length < count) {
+      addPair();
+    }
+    while (pairs.length > count && pairs.length > 2) {
+      final removed = pairs.removeLast();
+      removed.left.dispose();
+      removed.right.dispose();
+    }
+  }
+
   void dispose() {
     prompt.dispose();
     expectedAnswer.dispose();
+    mascotHelp.dispose();
+    audioText.dispose();
     for (final option in options) {
       option.dispose();
+    }
+    for (final pair in pairs) {
+      pair.left.dispose();
+      pair.right.dispose();
     }
   }
 }

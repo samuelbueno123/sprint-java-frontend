@@ -7,9 +7,12 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_feedback_widgets.dart';
 import '../../../../core/constants/supported_languages.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/realtime_sync_service.dart';
 import '../../../../core/ui/language_flag.dart';
 import '../../../../core/ui/motion_kit.dart';
+import '../../../../core/ui/vivid_icon_palette.dart';
 import '../../../../core/xp/xp_animation_controller.dart';
+import '../../../../core/xp/xp_level_progression.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/student_enrollment.dart';
 import 'animated_xp_avatar_ring.dart';
@@ -81,7 +84,7 @@ class StudentDashboardView extends StatelessWidget {
                         title: 'Idiomas Cadastrados',
                         value: languages.length.toString(),
                         icon: Icons.language_rounded,
-                        accentColor: _blue,
+                        accentColor: VividIconPalette.sky,
                         subtitle: 'Idiomas em aprendizado',
                         onTap: () => onSectionSelected?.call('lesson'),
                       ),
@@ -95,7 +98,7 @@ class StudentDashboardView extends StatelessWidget {
                             ? 'Sem turma'
                             : data.studentEnrollments.first.status,
                         icon: Icons.verified_user_rounded,
-                        accentColor: const Color(0xFF32946B),
+                        accentColor: VividIconPalette.green,
                         subtitle: 'Ver turmas vinculadas',
                         onTap: () => onSectionSelected?.call('classes'),
                       ),
@@ -208,14 +211,14 @@ class StudentDashboardView extends StatelessWidget {
                   title: 'Total de Idiomas',
                   value: languages.length.toString(),
                   icon: Icons.language_rounded,
-                  accentColor: _blue,
+                  accentColor: VividIconPalette.sky,
                   onTap: () => onSectionSelected?.call('languages'),
                 ),
                 InfoStatCard(
                   title: 'Turmas Ativas',
                   value: data.studentEnrollments.length.toString(),
                   icon: Icons.groups_rounded,
-                  accentColor: const Color(0xFF58CC02),
+                  accentColor: VividIconPalette.indigo,
                   onTap: () => onSectionSelected?.call('classes'),
                 ),
                 InfoStatCard(
@@ -224,14 +227,14 @@ class StudentDashboardView extends StatelessWidget {
                       ? 'Sem matrícula'
                       : data.studentEnrollments.first.status,
                   icon: Icons.verified_user_rounded,
-                  accentColor: const Color(0xFFE5902D),
+                  accentColor: VividIconPalette.green,
                   onTap: () => onSectionSelected?.call('classes'),
                 ),
                 InfoStatCard(
                   title: 'Matrículas',
                   value: data.studentEnrollments.length.toString(),
                   icon: Icons.insights_rounded,
-                  accentColor: const Color(0xFF7651C8),
+                  accentColor: VividIconPalette.cyan,
                   onTap: () => onSectionSelected?.call('classes'),
                 ),
               ],
@@ -318,7 +321,7 @@ class StudentDashboardView extends StatelessWidget {
                       title: 'Idiomas Cadastrados',
                       value: languages.length.toString(),
                       icon: Icons.menu_book_rounded,
-                      accentColor: _blue,
+                      accentColor: VividIconPalette.blue,
                       subtitle: 'Gerenciar idiomas no plano',
                       onTap: () => onSectionSelected?.call('languages'),
                     ),
@@ -330,7 +333,7 @@ class StudentDashboardView extends StatelessWidget {
                       title: 'Turmas Ativas',
                       value: enrollments.length.toString(),
                       icon: Icons.groups_rounded,
-                      accentColor: const Color(0xFFE5902D),
+                      accentColor: VividIconPalette.indigo,
                       subtitle: 'Ver turmas matriculadas',
                       onTap: () => onSectionSelected?.call('classes'),
                     ),
@@ -343,7 +346,7 @@ class StudentDashboardView extends StatelessWidget {
                       value:
                           '${student?.languageScores.values.fold<int>(0, (a, b) => a + b) ?? 0} XP',
                       icon: Icons.emoji_events_rounded,
-                      accentColor: const Color(0xFF32946B),
+                      accentColor: VividIconPalette.yellow,
                       subtitle: 'Ver conquistas e ranking',
                       onTap: () => onSectionSelected?.call('achievements'),
                     ),
@@ -680,12 +683,16 @@ class StudentDashboardView extends StatelessWidget {
   }) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final vividColor = VividIconPalette.colorFor(
+      icon,
+      brightness: theme.brightness,
+    );
 
     return AppHoverCard(
       onTap: onPressed,
       borderRadius: 14,
       scale: 1.025,
-      accentColor: primary ? _blue : theme.colorScheme.primary,
+      accentColor: primary ? _blue : vividColor,
       child: Container(
         height: 52,
         padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -697,7 +704,7 @@ class StudentDashboardView extends StatelessWidget {
           border: Border.all(
             color: primary
                 ? _blue
-                : theme.colorScheme.outlineVariant.withValues(alpha: 0.8),
+                : vividColor.withValues(alpha: isDark ? 0.35 : 0.25),
             width: primary ? 1.5 : 1.0,
           ),
           boxShadow: [
@@ -716,13 +723,13 @@ class StudentDashboardView extends StatelessWidget {
               decoration: BoxDecoration(
                 color: primary
                     ? Colors.white.withValues(alpha: 0.2)
-                    : _blue.withValues(alpha: isDark ? 0.22 : 0.12),
+                    : vividColor.withValues(alpha: isDark ? 0.22 : 0.14),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 icon,
                 size: 18,
-                color: primary ? Colors.white : _blue,
+                color: primary ? Colors.white : vividColor,
               ),
             ),
             const SizedBox(width: 12),
@@ -743,7 +750,7 @@ class StudentDashboardView extends StatelessWidget {
               size: 13,
               color: primary
                   ? Colors.white.withValues(alpha: 0.7)
-                  : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                  : vividColor.withValues(alpha: 0.75),
             ),
           ],
         ),
@@ -860,7 +867,16 @@ class StudentDashboardView extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.groups_rounded, color: _blue, size: 21),
+                    if (enrollment.schoolClassPictureUrl != null &&
+                        enrollment.schoolClassPictureUrl!.trim().isNotEmpty)
+                      AppUserAvatar(
+                        name: enrollment.schoolClassName,
+                        pictureUrl: enrollment.schoolClassPictureUrl,
+                        radius: 16,
+                        backgroundColor: _blue,
+                      )
+                    else
+                      const Icon(Icons.groups_rounded, color: _blue, size: 21),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -1004,12 +1020,18 @@ class _ProfileCard extends StatelessWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: StudentDashboardView._blue.withValues(alpha: 0.12),
+                    color: VividIconPalette.containerColorFor(
+                      icon,
+                      brightness: Theme.of(context).brightness,
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     icon,
-                    color: StudentDashboardView._blue,
+                    color: VividIconPalette.colorFor(
+                      icon,
+                      brightness: Theme.of(context).brightness,
+                    ),
                     size: 18,
                   ),
                 ),
@@ -1234,6 +1256,19 @@ class _StudentInstitutionMembersViewState
         children: [
           Row(
             children: [
+              if (widget.data.studentProfile?.institutionPictureUrl != null &&
+                  widget.data.studentProfile!.institutionPictureUrl!
+                      .trim()
+                      .isNotEmpty) ...[
+                AppUserAvatar(
+                  name: instTitle,
+                  pictureUrl:
+                      widget.data.studentProfile!.institutionPictureUrl,
+                  radius: 24,
+                  backgroundColor: _blue,
+                ),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1485,13 +1520,22 @@ class _StudentInstitutionMembersViewState
                               color: accent.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Text(
-                              l,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                LanguageFlag.forLanguage(l, width: 15),
+                                const SizedBox(width: 5),
+                                Text(
+                                  l,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         )
@@ -1521,16 +1565,26 @@ class _StudentProgressSummaryCard extends StatefulWidget {
 class _StudentProgressSummaryCardState
     extends State<_StudentProgressSummaryCard> {
   late Future<Map<String, dynamic>> _future;
+  StreamSubscription<RealtimeSyncEvent>? _realtimeSub;
 
   @override
   void initState() {
     super.initState();
     _future = _load();
     XpAnimationController.pendingXp.addListener(_onXpEarned);
+    _realtimeSub = RealtimeSyncService.instance.events.listen((event) {
+      if (!mounted) return;
+      if (event.type == 'RANKING_UPDATED' ||
+          event.type == 'SUBMISSION_GRADED' ||
+          event.type == 'SRS_REVIEW_COMPLETED') {
+        setState(() => _future = _load());
+      }
+    });
   }
 
   @override
   void dispose() {
+    _realtimeSub?.cancel();
     XpAnimationController.pendingXp.removeListener(_onXpEarned);
     super.dispose();
   }
@@ -1607,49 +1661,70 @@ class _StudentProgressSummaryCardState
             final todayXp = _int(data, 'todayXp');
             final goalXp = _int(data, 'dailyGoalXp');
             final goalMinutes = _int(data, 'dailyGoalMinutes');
+            final totalXp = _int(data, 'totalXp');
+            final levelInfo = XpLevelProgression.fromXp(totalXp);
             final reached = data['dailyGoalReached'] == true;
             final progress = goalXp <= 0
                 ? 0.0
                 : (todayXp / goalXp).clamp(0.0, 1.0).toDouble();
             final criteria = data['calculationCriteria']?.toString();
 
-            Widget metric(String label, String value, IconData icon) =>
-                Container(
-                  constraints: const BoxConstraints(minWidth: 130),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colors.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: colors.outlineVariant),
+            Widget metric(String label, String value, IconData icon) {
+              final brightness = Theme.of(context).brightness;
+              final iconColor = VividIconPalette.colorFor(
+                icon,
+                brightness: brightness,
+              );
+              return Container(
+                constraints: const BoxConstraints(minWidth: 145),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: iconColor.withValues(
+                      alpha: brightness == Brightness.dark ? 0.35 : 0.28,
+                    ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon, size: 20, color: colors.primary),
-                      const SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            value,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
-                              color: colors.onSurface,
-                            ),
-                          ),
-                          Text(
-                            label,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: colors.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: iconColor.withValues(
+                          alpha: brightness == Brightness.dark ? 0.22 : 0.14,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                    ],
-                  ),
-                );
+                      child: Icon(icon, size: 20, color: iconColor),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          value,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: colors.onSurface,
+                          ),
+                        ),
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1697,6 +1772,79 @@ class _StudentProgressSummaryCardState
                           ? const Color(0xFF32946B)
                           : const Color(0xFF2563EB),
                     ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.22),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2563EB),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              'Nível ${levelInfo.level}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Progresso para o Nível ${levelInfo.level + 1}',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: colors.onSurface,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            '${levelInfo.currentLevelXp} / ${levelInfo.xpRequiredForNextLevel} XP',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF2563EB),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      TweenAnimationBuilder<double>(
+                        tween: Tween<double>(begin: 0.0, end: levelInfo.progress),
+                        duration: const Duration(milliseconds: 900),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, animatedLvlProgress, _) => ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: LinearProgressIndicator(
+                            value: animatedLvlProgress,
+                            minHeight: 10,
+                            backgroundColor: colors.surfaceContainerHighest,
+                            color: const Color(0xFF58CC02),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -1769,16 +1917,33 @@ class _StudentProfileBannerState extends State<_StudentProfileBanner> {
   int _bestStreak = 0;
   int _dailyXp = 0;
   int _dailyGoalXp = 50;
+  int _totalXp = 0;
+  StreamSubscription<RealtimeSyncEvent>? _realtimeSub;
 
   @override
   void initState() {
     super.initState();
+    _totalXp =
+        widget.data.studentProfile?.languageScores.values.fold<int>(
+          0,
+          (sum, score) => sum + score,
+        ) ??
+        0;
     _fetchProgress();
     XpAnimationController.pendingXp.addListener(_onPendingXpChanged);
+    _realtimeSub = RealtimeSyncService.instance.events.listen((event) {
+      if (!mounted) return;
+      if (event.type == 'RANKING_UPDATED' ||
+          event.type == 'SUBMISSION_GRADED' ||
+          event.type == 'SRS_REVIEW_COMPLETED') {
+        _fetchProgress();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _realtimeSub?.cancel();
     XpAnimationController.pendingXp.removeListener(_onPendingXpChanged);
     super.dispose();
   }
@@ -1814,6 +1979,9 @@ class _StudentProfileBannerState extends State<_StudentProfileBanner> {
         _dailyXp =
             ((d['todayXp'] ?? d['dailyXp']) as num?)?.toInt() ?? _dailyXp;
         _dailyGoalXp = (d['dailyGoalXp'] as num?)?.toInt() ?? 50;
+        if (d['totalXp'] is num) {
+          _totalXp = (d['totalXp'] as num).toInt();
+        }
       });
     } catch (_) {}
   }
@@ -1874,6 +2042,7 @@ class _StudentProfileBannerState extends State<_StudentProfileBanner> {
                     pictureUrl: widget.data.user.picture,
                     dailyXp: _dailyXp,
                     dailyGoalXp: _dailyGoalXp,
+                    totalXp: _totalXp,
                     radius: isMobile ? 38 : 41,
                     ringSize: isMobile ? 92 : 98,
                   ),

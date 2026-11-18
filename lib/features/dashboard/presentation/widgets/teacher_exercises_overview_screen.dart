@@ -657,7 +657,14 @@ class _TeacherExercisesOverviewScreenState
         ? styles.first
         : 'Misto';
     final createdAt = _dateLabel(exercise['createdAt']);
+    final questionTipsCount = questions
+        .whereType<Map>()
+        .where(
+          (q) => q['mascotHelpMessage']?.toString().trim().isNotEmpty == true,
+        )
+        .length;
     final hasMascotHelp =
+        questionTipsCount > 0 ||
         exercise['mascotHelpMessage']?.toString().trim().isNotEmpty == true;
 
     return Card(
@@ -699,18 +706,20 @@ class _TeacherExercisesOverviewScreenState
                       color: const Color(0xFF4F46E5).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.tips_and_updates_rounded,
                           size: 13,
                           color: Color(0xFF4F46E5),
                         ),
-                        SizedBox(width: 4),
+                        const SizedBox(width: 4),
                         Text(
-                          'Dica do Bode',
-                          style: TextStyle(
+                          questionTipsCount > 0
+                              ? 'Dica do Bode ($questionTipsCount)'
+                              : 'Dica do Bode',
+                          style: const TextStyle(
                             color: Color(0xFF4F46E5),
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -1139,6 +1148,8 @@ class _EditExerciseDialogState extends State<_EditExerciseDialog> {
   late final TextEditingController _themeCtrl;
   late final TextEditingController _descriptionCtrl;
   late final TextEditingController _mascotHelpCtrl;
+  late final List<TextEditingController> _questionTipCtrls;
+  late final List<String> _questionPrompts;
   late String _category;
   late String _level;
   DateTime? _dueDate;
@@ -1159,6 +1170,22 @@ class _EditExerciseDialogState extends State<_EditExerciseDialog> {
     _mascotHelpCtrl = TextEditingController(
       text: widget.exercise['mascotHelpMessage']?.toString() ?? '',
     );
+    final rawQuestions = (widget.exercise['questions'] as List? ?? const [])
+        .whereType<Map>()
+        .toList();
+    _questionTipCtrls = rawQuestions
+        .map(
+          (item) => TextEditingController(
+            text: item['mascotHelpMessage']?.toString() ?? '',
+          ),
+        )
+        .toList();
+    _questionPrompts = rawQuestions
+        .map(
+          (item) =>
+              (item['question'] ?? item['prompt'] ?? '').toString().trim(),
+        )
+        .toList();
 
     final rawCat = widget.exercise['category']?.toString().trim() ?? '';
     _category = rawCat.isEmpty ? _defaultCategories.first : rawCat;
@@ -1179,6 +1206,9 @@ class _EditExerciseDialogState extends State<_EditExerciseDialog> {
     _themeCtrl.dispose();
     _descriptionCtrl.dispose();
     _mascotHelpCtrl.dispose();
+    for (final ctrl in _questionTipCtrls) {
+      ctrl.dispose();
+    }
     super.dispose();
   }
 
@@ -1224,21 +1254,29 @@ class _EditExerciseDialogState extends State<_EditExerciseDialog> {
         ? null
         : '${_dueDate!.year.toString().padLeft(4, '0')}-${_dueDate!.month.toString().padLeft(2, '0')}-${_dueDate!.day.toString().padLeft(2, '0')}';
 
-    final questions = (widget.exercise['questions'] as List? ?? const [])
+    final rawQuestions = (widget.exercise['questions'] as List? ?? const [])
         .whereType<Map>()
-        .map((q) {
-          final rawOpts = q['options'] as List? ?? const [];
-          return <String, dynamic>{
-            'style': (q['style'] ?? 'Múltipla Escolha').toString(),
-            'question': (q['question'] ?? q['prompt'] ?? '').toString(),
-            'options': rawOpts.map((e) => e.toString()).toList(),
-            if (q['correctAnswer'] != null)
-              'correctAnswer': q['correctAnswer'].toString(),
-            if (q['expectedAnswer'] != null)
-              'expectedAnswer': q['expectedAnswer'].toString(),
-          };
-        })
         .toList();
+    final questions = <Map<String, dynamic>>[];
+    for (var i = 0; i < rawQuestions.length; i++) {
+      final q = rawQuestions[i];
+      final rawOpts = q['options'] as List? ?? const [];
+      final qTip = i < _questionTipCtrls.length
+          ? _questionTipCtrls[i].text.trim()
+          : (q['mascotHelpMessage']?.toString().trim() ?? '');
+      questions.add(<String, dynamic>{
+        'style': (q['style'] ?? 'Múltipla Escolha').toString(),
+        'question': (q['question'] ?? q['prompt'] ?? '').toString(),
+        'options': rawOpts.map((e) => e.toString()).toList(),
+        if (q['correctAnswer'] != null)
+          'correctAnswer': q['correctAnswer'].toString(),
+        if (q['expectedAnswer'] != null)
+          'expectedAnswer': q['expectedAnswer'].toString(),
+        if (q['audioText'] != null && q['audioText'].toString().trim().isNotEmpty)
+          'audioText': q['audioText'].toString(),
+        if (qTip.isNotEmpty) 'mascotHelpMessage': qTip,
+      });
+    }
 
     final helpText = _mascotHelpCtrl.text.trim();
 
@@ -1249,7 +1287,9 @@ class _EditExerciseDialogState extends State<_EditExerciseDialog> {
       'languageName': languageName,
       'proficiencyLevel': _level,
       'description': _descriptionCtrl.text.trim(),
-      'mascotHelpMessage': helpText.isEmpty ? null : helpText,
+      'mascotHelpMessage': _questionTipCtrls.isEmpty && helpText.isNotEmpty
+          ? helpText
+          : null,
       'contentBody': widget.exercise['contentBody'],
       'mediaUrl': widget.exercise['mediaUrl'],
       'dueDate': dueDateStr,
@@ -1323,7 +1363,13 @@ class _EditExerciseDialogState extends State<_EditExerciseDialog> {
                       ),
                       items: levelItems
                           .map(
-                            (l) => DropdownMenuItem(value: l, child: Text(l)),
+                            (l) => DropdownMenuItem(
+                              value: l,
+                              child: Text(
+                                SupportedLanguages.formatLevelWithEmoji(l),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           )
                           .toList(),
                       onChanged: (val) {
@@ -1351,16 +1397,43 @@ class _EditExerciseDialogState extends State<_EditExerciseDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: _mascotHelpCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Dica do Bode Branco (opcional)',
-                  hintText:
-                      'Orientação exibida no balão de ajuda do mascote durante a atividade.',
-                  isDense: true,
+              if (_questionTipCtrls.isEmpty)
+                TextField(
+                  controller: _mascotHelpCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Dica do Bode Branco para este conteúdo (opcional)',
+                    hintText:
+                        'Orientação exibida no balão de ajuda do mascote durante a leitura.',
+                    isDense: true,
+                  ),
+                )
+              else ...[
+                Text(
+                  'Dicas do Bode Branco por questão (opcional)',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                for (var i = 0; i < _questionTipCtrls.length; i++) ...[
+                  TextField(
+                    controller: _questionTipCtrls[i],
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      labelText: 'Dica da Questão ${i + 1} (opcional)',
+                      helperText: i < _questionPrompts.length &&
+                              _questionPrompts[i].isNotEmpty
+                          ? _questionPrompts[i]
+                          : null,
+                      helperMaxLines: 1,
+                      isDense: true,
+                    ),
+                  ),
+                  if (i < _questionTipCtrls.length - 1)
+                    const SizedBox(height: 10),
+                ],
+              ],
               const SizedBox(height: 12),
               Row(
                 children: [

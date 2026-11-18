@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/audio/system_sound_service.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/ui/motion_kit.dart';
+import '../../../../core/ui/vivid_icon_palette.dart';
 import '../../auth_dependencies.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/user_role.dart';
@@ -180,10 +181,16 @@ class _LoginPageState extends State<LoginPage> {
                   AutofillHints.username,
                   AutofillHints.email,
                 ],
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Email',
                   hintText: 'seu@email.com',
-                  prefixIcon: Icon(Icons.mail_outline_rounded),
+                  prefixIcon: Icon(
+                    Icons.mail_outline_rounded,
+                    color: VividIconPalette.colorFor(
+                      Icons.mail_outline_rounded,
+                      brightness: Theme.of(context).brightness,
+                    ),
+                  ),
                 ),
                 validator: (value) {
                   final email = value?.trim() ?? '';
@@ -204,7 +211,13 @@ class _LoginPageState extends State<LoginPage> {
                 decoration: InputDecoration(
                   labelText: 'Senha',
                   hintText: 'Sua senha',
-                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                  prefixIcon: Icon(
+                    Icons.lock_outline_rounded,
+                    color: VividIconPalette.colorFor(
+                      Icons.lock_outline_rounded,
+                      brightness: Theme.of(context).brightness,
+                    ),
+                  ),
                   suffixIcon: IconButton(
                     tooltip: _obscurePassword
                         ? 'Mostrar senha'

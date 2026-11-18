@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/brand_assets.dart';
 import '../../../../core/theme/admin_geral_theme.dart';
+import '../../../../core/ui/vivid_icon_palette.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/user_profile_type.dart';
 import 'app_user_avatar.dart';
@@ -114,12 +115,26 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
             value: role,
             child: Row(
               children: [
-                Icon(_roleIcon(role), size: 18),
+                Icon(
+                  _roleIcon(role),
+                  size: 18,
+                  color: VividIconPalette.colorFor(
+                    _roleIcon(role),
+                    brightness: isDark ? Brightness.dark : Brightness.light,
+                  ),
+                ),
                 const SizedBox(width: 10),
                 Text('Painel ${label.toLowerCase()}'),
                 if (role == data.profileType) ...[
                   const Spacer(),
-                  const Icon(Icons.check_rounded, size: 18),
+                  Icon(
+                    Icons.check_rounded,
+                    size: 18,
+                    color: VividIconPalette.colorFor(
+                      Icons.check_rounded,
+                      brightness: isDark ? Brightness.dark : Brightness.light,
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -160,7 +175,13 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
         children: [
           if (onMenuPressed != null) ...[
             IconButton(
-              icon: const Icon(Icons.menu_rounded),
+              icon: Icon(
+                Icons.menu_rounded,
+                color: VividIconPalette.colorFor(
+                  Icons.menu_rounded,
+                  brightness: isDark ? Brightness.dark : Brightness.light,
+                ),
+              ),
               tooltip: 'Menu lateral',
               constraints: isCompact
                   ? const BoxConstraints(minWidth: 34, minHeight: 34)
@@ -190,8 +211,12 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
           if (onOpenNotifications != null)
             IconButton(
               tooltip: unreadCount > 0
-                  ? 'Notificações administrativas ($unreadCount não lida(s))'
-                  : 'Notificações administrativas',
+                  ? (isAdminRole
+                        ? 'Notificações administrativas ($unreadCount não lida(s))'
+                        : 'Notificações ($unreadCount não lida(s))')
+                  : (isAdminRole
+                        ? 'Notificações administrativas'
+                        : 'Central de notificações'),
               constraints: isCompact
                   ? const BoxConstraints(minWidth: 34, minHeight: 34)
                   : null,
@@ -214,9 +239,19 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
                       : Icons.notifications_none_rounded,
                   color: unreadCount > 0
                       ? (showAdminGold
-                            ? AdminGeralTheme.goldMetallic
-                            : _roleColor)
-                      : null,
+                            ? AdminGeralTheme.goldBright
+                            : VividIconPalette.colorFor(
+                                Icons.notifications_active_rounded,
+                                brightness: isDark
+                                    ? Brightness.dark
+                                    : Brightness.light,
+                              ))
+                      : VividIconPalette.colorFor(
+                          Icons.notifications_none_rounded,
+                          brightness: isDark
+                              ? Brightness.dark
+                              : Brightness.light,
+                        ),
                 ),
               ),
             ),
@@ -267,7 +302,10 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
                   children: [
                     Icon(
                       Icons.settings_rounded,
-                      color: isDark ? Colors.white : Colors.black87,
+                      color: VividIconPalette.colorFor(
+                        Icons.settings_rounded,
+                        brightness: isDark ? Brightness.dark : Brightness.light,
+                      ),
                       size: 20,
                     ),
                     const SizedBox(width: 10),

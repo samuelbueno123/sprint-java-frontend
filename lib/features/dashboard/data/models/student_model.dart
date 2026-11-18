@@ -11,6 +11,7 @@ class StudentModel {
     this.gender,
     this.institutionId,
     this.institutionName,
+    this.institutionPictureUrl,
   });
 
   factory StudentModel.fromJson(Map<String, dynamic> json) {
@@ -37,6 +38,7 @@ class StudentModel {
       gender: json['gender'] as String?,
       institutionId: (json['institutionId'] as num?)?.toInt(),
       institutionName: json['institutionName'] as String?,
+      institutionPictureUrl: json['institutionPictureUrl']?.toString(),
     );
   }
 
@@ -49,6 +51,7 @@ class StudentModel {
   final String? gender;
   final int? institutionId;
   final String? institutionName;
+  final String? institutionPictureUrl;
 
   StudentProfile toEntity() => StudentProfile(
     id: id,
@@ -60,5 +63,6 @@ class StudentModel {
     gender: gender,
     institutionId: institutionId,
     institutionName: institutionName,
+    institutionPictureUrl: institutionPictureUrl,
   );
 }

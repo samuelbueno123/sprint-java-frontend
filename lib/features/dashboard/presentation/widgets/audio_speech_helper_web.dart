@@ -48,6 +48,28 @@ class AudioSpeechHelper {
     }
   }
 
+  static web.SpeechSynthesisVoice? _pickVoiceForLanguage(
+    web.SpeechSynthesis synth,
+    String bcp47,
+  ) {
+    try {
+      final voices = synth.getVoices().toDart;
+      final normalizedTarget = bcp47.toLowerCase();
+      final langPrefix = normalizedTarget.split('-').first;
+      for (final voice in voices) {
+        if (voice.lang.toLowerCase() == normalizedTarget) {
+          return voice;
+        }
+      }
+      for (final voice in voices) {
+        if (voice.lang.toLowerCase().startsWith(langPrefix)) {
+          return voice;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   static Future<bool> speak(
     String text, {
     String languageName = 'Inglês',
@@ -57,9 +79,17 @@ class AudioSpeechHelper {
     try {
       final synth = web.window.speechSynthesis;
       synth.cancel();
+      try {
+        synth.resume();
+      } catch (_) {}
+      final bcp47 = mapLanguageToBcp47(languageName);
       final utterance = web.SpeechSynthesisUtterance(text.trim());
-      utterance.lang = mapLanguageToBcp47(languageName);
+      utterance.lang = bcp47;
       utterance.rate = rate;
+      final matchedVoice = _pickVoiceForLanguage(synth, bcp47);
+      if (matchedVoice != null) {
+        utterance.voice = matchedVoice;
+      }
       synth.speak(utterance);
       return true;
     } catch (_) {

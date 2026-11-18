@@ -91,7 +91,12 @@ class _InfoStatCardState extends State<InfoStatCard> {
                   padding: EdgeInsets.all(isCompactLayout(context) ? 10 : 12),
                   decoration: BoxDecoration(
                     color: widget.accentColor.withValues(
-                      alpha: isDark ? 0.24 : 0.12,
+                      alpha: isDark ? 0.28 : 0.16,
+                    ),
+                    border: Border.all(
+                      color: widget.accentColor.withValues(
+                        alpha: isDark ? 0.35 : 0.24,
+                      ),
                     ),
                     borderRadius: BorderRadius.circular(14),
                   ),

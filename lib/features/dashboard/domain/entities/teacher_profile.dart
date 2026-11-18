@@ -6,6 +6,7 @@ class TeacherProfile {
     required this.email,
     required this.institution,
     this.institutionId,
+    this.institutionPictureUrl,
     required this.taughtLanguages,
     required this.specializationAreas,
     this.bibliography,
@@ -20,6 +21,7 @@ class TeacherProfile {
   final String email;
   final String institution;
   final int? institutionId;
+  final String? institutionPictureUrl;
   final List<String> taughtLanguages;
   final List<String> specializationAreas;
   final String? bibliography;

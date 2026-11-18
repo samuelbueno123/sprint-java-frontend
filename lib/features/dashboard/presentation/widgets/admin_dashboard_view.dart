@@ -12,6 +12,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/realtime_sync_service.dart';
 import '../../../../core/theme/admin_geral_theme.dart';
 import '../../../../core/ui/language_flag.dart';
+import '../../../../core/ui/vivid_icon_palette.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../../../core/constants/supported_languages.dart';
 import 'admin/admin_audit_logs_view.dart';
@@ -20,6 +21,8 @@ import 'admin/admin_performance_dashboard_view.dart';
 import 'admin/admin_system_health_view.dart';
 import 'admin/admin_teacher_documents_view.dart';
 import 'app_user_avatar.dart';
+import 'class_performance_line_chart_card.dart';
+import 'entity_picture_picker_dialog.dart';
 import 'info_stat_card.dart';
 import 'responsive_layout.dart';
 import 'user_settings_view.dart';
@@ -130,7 +133,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     _loadNotifications();
     _realtimeSubscription = RealtimeSyncService.instance.events.listen((event) {
       if (!mounted) return;
-      if (event.type == 'NOTIFICATION_ADDED') {
+      if (event.type == 'NOTIFICATION_ADDED' ||
+          event.type == 'NOTIFICATION_UPDATED') {
         _loadNotifications();
         widget.onRefresh();
       }
@@ -5212,6 +5216,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               spacing: 12,
               runSpacing: 12,
               children: visibleClasses.map((cls) {
+                final clsId = (cls['id'] as num?)?.toInt();
                 final lang = cls['languageName']?.toString() ?? kDefaultSupportedLanguage;
                 final teacherName = cls['currentTeacherName']?.toString();
                 final count = (cls['activeStudentsCount'] as num?)?.toInt() ?? 0;
@@ -5258,6 +5263,24 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      if (clsId != null) ...[
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _openAssignTeacherDialog(
+                              context,
+                              initialClassId: clsId,
+                              addAdditional: true,
+                            ),
+                            icon: const Icon(
+                              Icons.person_add_alt_1_rounded,
+                              size: 15,
+                            ),
+                            label: const Text('Adicionar Professor'),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 );
@@ -5341,6 +5364,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final phoneCtrl = TextEditingController();
     final cityCtrl = TextEditingController();
     final stateCtrl = TextEditingController(text: 'SP');
+    String? pictureUrl;
 
     final ok = await showDialog<bool>(
       context: context,
@@ -5353,8 +5377,16 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  FormEntityPhotoPicker(
+                    entityName: nameCtrl.text,
+                    pictureUrl: pictureUrl,
+                    label: 'Foto / Brasão da Instituição (opcional)',
+                    onChanged: (v) => setDialogState(() => pictureUrl = v),
+                  ),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: nameCtrl,
+                    onChanged: (_) => setDialogState(() {}),
                     decoration: const InputDecoration(
                       labelText: 'Nome da instituição *',
                       hintText: 'Ex: Universidade Federal ou Colégio Duolinfo',
@@ -5462,6 +5494,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           'state': st.isEmpty ? null : st,
           'country': 'Brasil',
           'active': true,
+          if (pictureUrl != null && pictureUrl!.isNotEmpty)
+            'pictureUrl': pictureUrl,
         },
       );
       _showSnack('Instituição "$name" criada com sucesso!');
@@ -5642,6 +5676,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final gradeCtrl = TextEditingController(text: 'Geral');
     String shift = 'MANHÃ';
     String languageName = kDefaultSupportedLanguage;
+    String? classPictureUrl;
 
     final ok = await showDialog<bool>(
       context: context,
@@ -5663,6 +5698,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    FormEntityPhotoPicker(
+                      entityName: nameCtrl.text,
+                      pictureUrl: classPictureUrl,
+                      label: 'Foto / Ícone da Turma (opcional)',
+                      onChanged: (v) => setDialogState(() => classPictureUrl = v),
+                    ),
+                    const SizedBox(height: 12),
                     if (availableInstitutions.isNotEmpty) ...[
                       DropdownButtonFormField<int>(
                         isExpanded: true,
@@ -5857,6 +5899,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           'gradeLevel': grade.isEmpty ? 'Geral' : grade,
           'languageName': languageName,
           'active': true,
+          if (classPictureUrl != null && classPictureUrl!.isNotEmpty)
+            'pictureUrl': classPictureUrl,
         },
       );
       _showSnack('Turma "$name" criada com sucesso!');
@@ -5970,6 +6014,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       final selected = selectedLanguages.contains(lang);
                       return FilterChip(
                         selected: selected,
+                        avatar: LanguageFlag.forLanguage(lang, width: 18),
                         label: Text('${meta.shortCode} · $lang'),
                         onSelected: (checked) {
                           setDialogState(() {
@@ -6262,7 +6307,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     }
   }
 
-  Future<void> _openAssignTeacherDialog(BuildContext context) async {
+  Future<void> _openAssignTeacherDialog(
+    BuildContext context, {
+    int? initialClassId,
+    bool addAdditional = false,
+  }) async {
     await _loadCatalogAuxData();
     if (!context.mounted) return;
     final myInstId =
@@ -6312,23 +6361,76 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       return;
     }
 
-    int? classId = (availableClasses.first['id'] as num?)?.toInt();
-    final selectedClassInst = classInstId(availableClasses.first);
+    final matchedInitial = initialClassId == null
+        ? null
+        : availableClasses
+              .where((c) => (c['id'] as num?)?.toInt() == initialClassId)
+              .firstOrNull;
+    final startingClass = matchedInitial ?? availableClasses.first;
+    int? classId = (startingClass['id'] as num?)?.toInt();
 
-    List<Map<String, dynamic>> sortedTeachersForClass(int? targetInst) {
+    final activeByClass = <int, List<Map<String, dynamic>>>{};
+    Future<List<Map<String, dynamic>>> fetchActiveTeachers(int cid) async {
+      if (activeByClass.containsKey(cid)) return activeByClass[cid]!;
+      try {
+        final res = await _dio.get<List<dynamic>>(
+          _adminUri('/api/class-teacher-assignments/class/$cid/active')
+              .toString(),
+        );
+        final list = (res.data ?? const [])
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        activeByClass[cid] = list;
+        return list;
+      } catch (_) {
+        activeByClass[cid] = const [];
+        return const [];
+      }
+    }
+
+    if (classId != null) {
+      await fetchActiveTeachers(classId);
+    }
+    if (!context.mounted) return;
+
+    List<Map<String, dynamic>> sortedTeachersForClass(
+      int? targetInst, {
+      Set<int> excludeIds = const {},
+    }) {
       final filtered = availableTeachers.where((t) {
+        final tId = (t['id'] as num?)?.toInt();
+        if (tId != null && excludeIds.contains(tId)) return false;
         if (targetInst == null) return true;
         final tInst = (t['institutionId'] as num?)?.toInt();
         return tInst == targetInst;
       }).toList();
-      return filtered.isNotEmpty
-          ? filtered
-          : List<Map<String, dynamic>>.from(availableTeachers);
+      if (filtered.isNotEmpty) return filtered;
+      if (addAdditional && excludeIds.isNotEmpty) {
+        return availableTeachers.where((t) {
+          final tId = (t['id'] as num?)?.toInt();
+          return tId == null || !excludeIds.contains(tId);
+        }).toList();
+      }
+      return List<Map<String, dynamic>>.from(availableTeachers);
     }
 
-    final initialSorted = sortedTeachersForClass(selectedClassInst);
-    int? teacherId = (initialSorted.first['id'] as num?)?.toInt();
-    final reasonCtrl = TextEditingController(text: 'Professor Titular');
+    final selectedClassInst = classInstId(startingClass);
+    final initialActiveIds = (classId != null ? activeByClass[classId] : null)
+            ?.map((a) => (a['teacherId'] as num?)?.toInt())
+            .whereType<int>()
+            .toSet() ??
+        const <int>{};
+    final initialSorted = sortedTeachersForClass(
+      selectedClassInst,
+      excludeIds: addAdditional ? initialActiveIds : const {},
+    );
+    int? teacherId = initialSorted.isNotEmpty
+        ? (initialSorted.first['id'] as num?)?.toInt()
+        : null;
+    final reasonCtrl = TextEditingController(
+      text: addAdditional ? 'Professor Co-docente' : 'Professor Titular',
+    );
     final startCtrl = TextEditingController(
       text: DateTime.now().toIso8601String().substring(0, 10),
     );
@@ -6342,17 +6444,42 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             orElse: () => availableClasses.first,
           );
           final targetInst = classInstId(currentClass);
-          final teachersSorted = sortedTeachersForClass(targetInst);
-          final selectedTeacher = teachersSorted.firstWhere(
-            (t) => (t['id'] as num?)?.toInt() == teacherId,
-            orElse: () => teachersSorted.first,
+          final activeList =
+              (classId != null ? activeByClass[classId] : null) ?? const [];
+          final activeTeacherIds = activeList
+              .map((a) => (a['teacherId'] as num?)?.toInt())
+              .whereType<int>()
+              .toSet();
+          final teachersSorted = sortedTeachersForClass(
+            targetInst,
+            excludeIds: addAdditional ? activeTeacherIds : const {},
           );
-          final teacherInstId = (selectedTeacher['institutionId'] as num?)?.toInt();
+          if (teachersSorted.isEmpty) {
+            teacherId = null;
+          } else if (!teachersSorted.any(
+            (t) => (t['id'] as num?)?.toInt() == teacherId,
+          )) {
+            teacherId = (teachersSorted.first['id'] as num?)?.toInt();
+          }
+          final selectedTeacher = teachersSorted.isEmpty
+              ? null
+              : teachersSorted.firstWhere(
+                  (t) => (t['id'] as num?)?.toInt() == teacherId,
+                  orElse: () => teachersSorted.first,
+                );
+          final teacherInstId =
+              (selectedTeacher?['institutionId'] as num?)?.toInt();
           final instMatches =
-              targetInst != null && teacherInstId != null && targetInst == teacherInstId;
+              targetInst != null &&
+              teacherInstId != null &&
+              targetInst == teacherInstId;
 
           return AlertDialog(
-            title: const Text('Atribuir Professor à Turma'),
+            title: Text(
+              addAdditional
+                  ? 'Adicionar Mais um Professor à Turma'
+                  : 'Atribuir Professor à Turma',
+            ),
             content: SizedBox(
               width: 460,
               child: SingleChildScrollView(
@@ -6372,10 +6499,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         return DropdownMenuItem<int>(
                           value: (c['id'] as num?)?.toInt(),
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               LanguageFlag.forLanguage(lang, width: 18),
                               const SizedBox(width: 8),
-                              Expanded(
+                              Flexible(
                                 child: Text(
                                   '${c['name'] ?? ''} (${c['schoolName'] ?? lang})',
                                   overflow: TextOverflow.ellipsis,
@@ -6388,83 +6516,127 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       onChanged: (v) {
                         setDialogState(() {
                           classId = v;
-                          final nextClass = availableClasses.firstWhere(
-                            (c) => (c['id'] as num?)?.toInt() == v,
-                            orElse: () => availableClasses.first,
-                          );
-                          final nextInst = classInstId(nextClass);
-                          final nextSorted = sortedTeachersForClass(nextInst);
-                          if (nextSorted.isNotEmpty) {
-                            teacherId = (nextSorted.first['id'] as num?)?.toInt();
-                          }
                         });
+                        if (v != null && !activeByClass.containsKey(v)) {
+                          fetchActiveTeachers(v).then((_) {
+                            if (ctx.mounted) setDialogState(() {});
+                          });
+                        }
                       },
                     ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<int>(
-                      isExpanded: true,
-                      initialValue: teacherId,
-                      decoration: const InputDecoration(labelText: 'Professor *'),
-                      items: teachersSorted.map((t) {
-                        final sameInst =
-                            targetInst != null &&
-                            (t['institutionId'] as num?)?.toInt() == targetInst;
-                        final instLabel = t['institutionName']?.toString() ?? 'Sem instituição';
-                        return DropdownMenuItem<int>(
-                          value: (t['id'] as num?)?.toInt(),
-                          child: Text(
-                            '${sameInst ? '✓' : '⚠'} ${t['name'] ?? ''} • $instLabel (${t['email'] ?? ''})',
-                            overflow: TextOverflow.ellipsis,
+                    if (activeList.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            'Professores ativos:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                            ),
                           ),
-                        );
-                      }).toList(),
-                      onChanged: (v) => setDialogState(() => teacherId = v),
-                    ),
+                          for (final a in activeList)
+                            Chip(
+                              visualDensity: VisualDensity.compact,
+                              avatar: const Icon(Icons.person_rounded, size: 15),
+                              label: Text(
+                                '${a['teacherName'] ?? 'Professor'}',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: (instMatches
-                                ? const Color(0xFF10B981)
-                                : AdminGeralTheme.goldMetallic)
-                            .withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
+                    if (teachersSorted.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AdminGeralTheme.goldMetallic
+                              .withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          'Todos os professores elegíveis desta instituição já estão vinculados a esta turma.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )
+                    else ...[
+                      DropdownButtonFormField<int>(
+                        isExpanded: true,
+                        initialValue: teacherId,
+                        decoration: const InputDecoration(labelText: 'Professor *'),
+                        items: teachersSorted.map((t) {
+                          final sameInst =
+                              targetInst != null &&
+                              (t['institutionId'] as num?)?.toInt() == targetInst;
+                          final instLabel =
+                              t['institutionName']?.toString() ?? 'Sem instituição';
+                          return DropdownMenuItem<int>(
+                            value: (t['id'] as num?)?.toInt(),
+                            child: Text(
+                              '${sameInst ? '✓' : '⚠'} ${t['name'] ?? ''} • $instLabel (${t['email'] ?? ''})',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (v) => setDialogState(() => teacherId = v),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
                           color: (instMatches
                                   ? const Color(0xFF10B981)
                                   : AdminGeralTheme.goldMetallic)
-                              .withValues(alpha: 0.5),
+                              .withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: (instMatches
+                                    ? const Color(0xFF10B981)
+                                    : AdminGeralTheme.goldMetallic)
+                                .withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Text(
+                          instMatches
+                              ? (addAdditional
+                                    ? '✓ Este professor será adicionado mantendo os atuais na turma.'
+                                    : '✓ Professor pertence à mesma instituição da turma.')
+                              : 'Atenção: para atribuir, o professor deve pertencer à mesma instituição desta turma.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: instMatches
+                                ? const Color(0xFF059669)
+                                : AdminGeralTheme.goldDark,
+                          ),
                         ),
                       ),
-                      child: Text(
-                        instMatches
-                            ? '✓ Professor pertence à mesma instituição da turma.'
-                            : 'Atenção: para atribuir, o professor deve pertencer à mesma instituição desta turma.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: instMatches
-                              ? const Color(0xFF059669)
-                              : AdminGeralTheme.goldDark,
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: startCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Data de início (AAAA-MM-DD) *',
+                          hintText: '2026-02-01',
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: startCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Data de início (AAAA-MM-DD) *',
-                        hintText: '2026-02-01',
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: reasonCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Motivo / Cargo da atribuição',
+                          hintText: 'Ex: Professor Titular ou Co-docente',
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: reasonCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Motivo / Cargo da atribuição',
-                        hintText: 'Ex: Professor Titular ou Substituto',
-                      ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -6476,8 +6648,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               ),
               FilledButton(
                 style: AdminGeralTheme.filledButtonStyle(),
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Salvar Atribuição'),
+                onPressed: teacherId == null
+                    ? null
+                    : () => Navigator.pop(ctx, true),
+                child: Text(
+                  addAdditional ? 'Adicionar Professor' : 'Salvar Atribuição',
+                ),
               ),
             ],
           );
@@ -6496,15 +6672,25 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
     try {
       await _dio.post(
-        _adminUri('/api/class-teacher-assignments').toString(),
+        _adminUri(
+          addAdditional
+              ? '/api/class-teacher-assignments/additional'
+              : '/api/class-teacher-assignments',
+        ).toString(),
         data: {
           'schoolClassId': classId,
           'teacherId': teacherId,
           'startDate': start.isNotEmpty ? start : null,
-          'reason': reason.isNotEmpty ? reason : 'Professor Titular',
+          'reason': reason.isNotEmpty
+              ? reason
+              : (addAdditional ? 'Professor Co-docente' : 'Professor Titular'),
         },
       );
-      _showSnack('Professor atribuído à turma com sucesso!');
+      _showSnack(
+        addAdditional
+            ? 'Professor adicionado à turma com sucesso!'
+            : 'Professor atribuído à turma com sucesso!',
+      );
       SystemSoundService.success();
       await _refreshAllAfterMutation();
     } catch (e) {
@@ -7326,16 +7512,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF4338CA).withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.business_rounded,
-                      color: Color(0xFF4338CA),
-                    ),
+                  AppUserAvatar(
+                    name: instName,
+                    pictureUrl: inst?['pictureUrl']?.toString(),
+                    radius: 22,
+                    backgroundColor: const Color(0xFF4338CA),
                   ),
                   const SizedBox(width: 12),
                   Column(
@@ -7361,8 +7542,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   ),
                 ],
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   if (_isSuperAdmin && _institutionsList.isNotEmpty)
                     SizedBox(
@@ -7393,13 +7576,35 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         },
                       ),
                     ),
-                  const SizedBox(width: 8),
+                  if (inst?['id'] != null)
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        final targetInstId = (inst!['id'] as num).toInt();
+                        EntityPicturePickerDialog.show(
+                          context,
+                          title: 'Foto da Instituição',
+                          entityName: instName,
+                          endpointPath: _adminUri(
+                            '/api/institutions/$targetInstId/picture',
+                          ).toString(),
+                          initialPictureUrl: inst['pictureUrl']?.toString(),
+                          dio: _dio,
+                          onSaved: (_) async {
+                            await _loadInstitutionDashboard(
+                              institutionId: targetInstId,
+                            );
+                            await _refreshAllAfterMutation();
+                          },
+                        );
+                      },
+                      icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                      label: const Text('Foto da Instituição'),
+                    ),
                   FilledButton.icon(
                     onPressed: () => _openAssignTeacherDialog(context),
                     icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
                     label: const Text('Atribuir Professor à Turma'),
                   ),
-                  const SizedBox(width: 8),
                   IconButton(
                     tooltip: 'Atualizar',
                     onPressed: () => _loadInstitutionDashboard(
@@ -7556,7 +7761,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               (c) => Card(
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
-                  leading: const CircleAvatar(child: Icon(Icons.class_rounded)),
+                  leading: AppUserAvatar(
+                    name: '${c['name'] ?? 'Turma'}',
+                    pictureUrl: c['pictureUrl']?.toString(),
+                    radius: 20,
+                    backgroundColor: const Color(0xFF4F46E5),
+                  ),
                   title: Text(
                     '${c['name'] ?? 'Turma'}',
                     style: const TextStyle(fontWeight: FontWeight.w700),
@@ -7564,10 +7774,44 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   subtitle: Text(
                     'Ano: ${c['schoolYear'] ?? ''} • Turno: ${c['shift'] ?? ''} • Nível: ${c['gradeLevel'] ?? ''}',
                   ),
-                  trailing: FilledButton.tonalIcon(
-                    onPressed: () => _openAssignTeacherDialog(context),
-                    icon: const Icon(Icons.person_add_alt_rounded, size: 16),
-                    label: const Text('Add Professor'),
+                  trailing: Wrap(
+                    spacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (c['id'] != null)
+                        IconButton(
+                          tooltip: 'Alterar foto da turma',
+                          onPressed: () => EntityPicturePickerDialog.show(
+                            context,
+                            title: 'Foto da Turma',
+                            entityName: '${c['name'] ?? 'Turma'}',
+                            endpointPath: _adminUri(
+                              '/api/classes/${(c['id'] as num).toInt()}/picture',
+                            ).toString(),
+                            initialPictureUrl: c['pictureUrl']?.toString(),
+                            dio: _dio,
+                            onSaved: (_) async {
+                              await _loadInstitutionDashboard(
+                                institutionId: _selectedInstitutionId,
+                              );
+                              await _refreshAllAfterMutation();
+                            },
+                          ),
+                          icon: const Icon(
+                            Icons.add_a_photo_outlined,
+                            size: 20,
+                          ),
+                        ),
+                      FilledButton.tonalIcon(
+                        onPressed: () => _openAssignTeacherDialog(
+                          context,
+                          initialClassId: (c['id'] as num?)?.toInt(),
+                          addAdditional: true,
+                        ),
+                        icon: const Icon(Icons.person_add_alt_rounded, size: 16),
+                        label: const Text('Adicionar Professor'),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -8663,7 +8907,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         .toList();
 
                 return DefaultTabController(
-                  length: 2,
+                  length: 3,
                   child: Column(
                     children: [
                       Container(
@@ -8751,6 +8995,28 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                 ],
                               ),
                             ),
+                            FilledButton.tonalIcon(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                _openAssignTeacherDialog(
+                                  context,
+                                  initialClassId: classId,
+                                  addAdditional: true,
+                                );
+                              },
+                              icon: const Icon(
+                                Icons.person_add_alt_1_rounded,
+                                size: 16,
+                              ),
+                              label: const Text('Adicionar Professor'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.white.withValues(
+                                  alpha: 0.2,
+                                ),
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
                             IconButton(
                               onPressed: () => Navigator.pop(ctx),
                               icon: const Icon(
@@ -8808,18 +9074,28 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                             : Colors.black54,
                         tabs: [
                           Tab(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.people_outline_rounded,
                               size: 18,
+                              color: VividIconPalette.indigo,
                             ),
                             text: 'Alunos Matriculados (${students.length})',
                           ),
                           Tab(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.assignment_outlined,
                               size: 18,
+                              color: VividIconPalette.green,
                             ),
                             text: 'Atividades da Turma (${exercises.length})',
+                          ),
+                          Tab(
+                            icon: Icon(
+                              Icons.show_chart_rounded,
+                              size: 18,
+                              color: VividIconPalette.cyan,
+                            ),
+                            text: 'Desempenho',
                           ),
                         ],
                       ),
@@ -8863,19 +9139,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                           ),
                                         ),
                                         child: ListTile(
-                                          leading: CircleAvatar(
-                                            backgroundColor: const Color(
-                                              0xFF2563EB,
-                                            ).withValues(alpha: 0.15),
-                                            child: Text(
-                                              sName.isNotEmpty
-                                                  ? sName[0].toUpperCase()
-                                                  : 'A',
-                                              style: const TextStyle(
-                                                color: Color(0xFF2563EB),
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
+                                          leading: AppUserAvatar(
+                                            name: sName,
+                                            pictureUrl: s['profilePicture']
+                                                ?.toString(),
+                                            radius: 20,
                                           ),
                                           title: Text(
                                             sName,
@@ -9033,6 +9301,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                       );
                                     },
                                   ),
+                            SingleChildScrollView(
+                              padding: const EdgeInsets.all(16),
+                              child: ClassPerformanceLineChartCard(
+                                dashboard: d,
+                              ),
+                            ),
                           ],
                         ),
                       ),

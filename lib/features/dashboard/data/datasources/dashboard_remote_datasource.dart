@@ -53,16 +53,21 @@ class DashboardRemoteDataSource {
     return null;
   }
 
-  Future<String?> getInstitutionName(int institutionId) async {
+  Future<Map<String, dynamic>?> getInstitutionInfo(int institutionId) async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         AppConfig.institutionEndpoint(institutionId).toString(),
       );
-      return response.data?['name'] as String?;
+      return response.data;
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;
       rethrow;
     }
+  }
+
+  Future<String?> getInstitutionName(int institutionId) async {
+    final info = await getInstitutionInfo(institutionId);
+    return info?['name'] as String?;
   }
 
   Future<List<StudentEnrollmentModel>> getActiveStudentEnrollments(
@@ -179,6 +184,32 @@ class DashboardRemoteDataSource {
         Uri.parse(
           AppConfig.apiBaseUrl,
         ).resolve('/api/admin/notifications/unread-count').toString(),
+      );
+      return (response.data?['unreadCount'] as num?)?.toInt() ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<int> getStudentUnreadNotificationsCount() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        Uri.parse(
+          AppConfig.apiBaseUrl,
+        ).resolve('/api/students/me/notifications/unread-count').toString(),
+      );
+      return (response.data?['unreadCount'] as num?)?.toInt() ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<int> getTeacherUnreadNotificationsCount() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        Uri.parse(
+          AppConfig.apiBaseUrl,
+        ).resolve('/api/teachers/me/notifications/unread-count').toString(),
       );
       return (response.data?['unreadCount'] as num?)?.toInt() ?? 0;
     } catch (_) {

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_feedback_widgets.dart';
 import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/ui/language_flag.dart';
 import 'package:frontend/core/ui/mascot/mascot.dart';
 import '../audio_speech_helper.dart';
 
@@ -79,9 +80,24 @@ class _AddVocabularyWordDialogState extends State<_AddVocabularyWordDialog> {
           children: [
             DropdownButtonFormField<String>(
               initialValue: _language,
+              isExpanded: true,
               decoration: const InputDecoration(labelText: 'Idioma'),
               items: widget.languages
-                  .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+                  .map(
+                    (l) => DropdownMenuItem(
+                      value: l,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          LanguageFlag.forLanguage(l, width: 18),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(l, overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
                   .toList(),
               onChanged: (val) {
                 if (val != null) setState(() => _language = val);
@@ -385,7 +401,25 @@ class _StudentVocabularyViewState extends State<StudentVocabularyView> {
                         ),
                         items: _languages
                             .map(
-                              (l) => DropdownMenuItem(value: l, child: Text(l)),
+                              (l) => DropdownMenuItem(
+                                value: l,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (l == 'Todos')
+                                      const Icon(Icons.public_rounded, size: 16)
+                                    else
+                                      LanguageFlag.forLanguage(l, width: 18),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        l,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             )
                             .toList(),
                         onChanged: (val) {

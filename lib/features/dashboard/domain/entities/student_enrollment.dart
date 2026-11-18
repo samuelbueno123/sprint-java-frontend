@@ -10,6 +10,7 @@ class StudentEnrollment {
     required this.enrollmentDate,
     this.cancellationDate,
     required this.status,
+    this.schoolClassPictureUrl,
   });
 
   final int? id;
@@ -20,6 +21,7 @@ class StudentEnrollment {
   final String enrollmentDate;
   final String? cancellationDate;
   final String status;
+  final String? schoolClassPictureUrl;
 
   String get resolvedLanguage => SupportedLanguages.normalizeOrDefault(
     schoolClassLanguage,

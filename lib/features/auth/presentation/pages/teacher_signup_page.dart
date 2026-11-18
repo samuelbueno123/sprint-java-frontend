@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/network/session_store.dart';
+import '../../../../core/ui/in_app_file_viewer.dart';
 import '../../../../core/ui/language_flag.dart';
 import '../../../../core/ui/motion_kit.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
@@ -601,18 +602,46 @@ class _TeacherSignupPageState extends State<TeacherSignupPage> {
                     color: Color(0xFF73788B),
                   ),
                 ),
-                trailing: IconButton(
-                  tooltip: 'Remover documento',
-                  icon: const Icon(
-                    Icons.close_rounded,
-                    size: 18,
-                    color: Colors.grey,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _attachedDocuments.remove(doc);
-                    });
-                  },
+                onTap: () => InAppFileViewerDialog.showBytes(
+                  context,
+                  fileName: doc.fileName,
+                  bytes: doc.fileBytes,
+                  contentType: doc.contentType,
+                  subtitle: 'Comprovação anexada (${doc.formattedSize})',
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Visualizar documento no app',
+                      icon: const Icon(
+                        Icons.visibility_rounded,
+                        size: 18,
+                        color: Color(0xFF7651C8),
+                      ),
+                      onPressed: () => InAppFileViewerDialog.showBytes(
+                        context,
+                        fileName: doc.fileName,
+                        bytes: doc.fileBytes,
+                        contentType: doc.contentType,
+                        subtitle:
+                            'Comprovação anexada (${doc.formattedSize})',
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Remover documento',
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _attachedDocuments.remove(doc);
+                        });
+                      },
+                    ),
+                  ],
                 ),
               ),
             ),

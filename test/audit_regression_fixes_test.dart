@@ -10,6 +10,7 @@ import 'package:frontend/app.dart';
 import 'package:frontend/core/localization/app_locale_controller.dart';
 import 'package:frontend/core/network/realtime_sync_service.dart';
 import 'package:frontend/core/network/session_store.dart';
+import 'package:frontend/core/ui/language_flag.dart';
 import 'package:frontend/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:frontend/features/auth/domain/entities/auth_session.dart';
 import 'package:frontend/features/auth/domain/entities/authenticated_user.dart';
@@ -33,6 +34,7 @@ import 'package:frontend/features/dashboard/domain/repositories/dashboard_reposi
 import 'package:frontend/features/dashboard/domain/usecases/get_home_data.dart';
 import 'package:frontend/features/dashboard/domain/usecases/logout.dart';
 import 'package:frontend/features/dashboard/presentation/viewmodels/dashboard_view_model.dart';
+import 'package:frontend/features/dashboard/presentation/widgets/learning_features.dart';
 import 'package:frontend/features/dashboard/presentation/widgets/student_dashboard_view.dart';
 import 'package:frontend/features/dashboard/presentation/widgets/teacher_exercises_overview_screen.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -658,6 +660,60 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Nenhuma turma vinculada'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'TeacherClassManagementView create dialog uses LanguageFlag country flags in language dropdown',
+      (tester) async {
+        tester.view.physicalSize = const Size(1280, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        const data = DashboardData(
+          user: DashboardUser(
+            id: '21',
+            googleId: 'g-21',
+            email: 'prof@duolinfo.dev',
+            name: 'Professor Turmas',
+          ),
+          profileType: UserProfileType.teacher,
+          availableProfileTypes: [UserProfileType.teacher],
+          profileCompleted: true,
+          teacherProfile: TeacherProfile(
+            id: 21,
+            googleId: 'g-21',
+            name: 'Professor Turmas',
+            email: 'prof@duolinfo.dev',
+            institution: 'CEFET/RJ - Campus Nova Iguaçu',
+            institutionId: 1,
+            taughtLanguages: ['Inglês'],
+            specializationAreas: ['Conversação'],
+          ),
+        );
+
+        await tester.pumpWidget(
+          ShadApp(
+            home: Scaffold(
+              body: TeacherClassManagementView(data: data, onRefresh: () {}),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Criar turma'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Criar turma na instituição'), findsOneWidget);
+        expect(find.byIcon(Icons.flag_rounded), findsNothing);
+        expect(find.byType(LanguageFlag), findsOneWidget);
+
+        await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+        await tester.pumpAndSettle();
+
+        expect(find.byIcon(Icons.flag_rounded), findsNothing);
+        expect(find.byType(LanguageFlag), findsAtLeastNWidgets(6));
       },
     );
   });

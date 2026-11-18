@@ -9,13 +9,23 @@ import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/ui/language_flag.dart';
 import 'package:frontend/core/ui/mascot/mascot.dart';
-import 'package:frontend/core/xp/xp_animation_controller.dart';
+import 'package:frontend/core/ui/vivid_icon_palette.dart';
+import '../learning_features.dart';
 import '../responsive_layout.dart';
 
 class PersonalizedLearningPathView extends StatefulWidget {
-  const PersonalizedLearningPathView({super.key, required this.onBack});
+  const PersonalizedLearningPathView({
+    super.key,
+    required this.onBack,
+    this.dio,
+    this.initialLanguage = kDefaultSupportedLanguage,
+    this.enrolledLanguages,
+  });
 
   final VoidCallback onBack;
+  final Dio? dio;
+  final String initialLanguage;
+  final List<String>? enrolledLanguages;
 
   @override
   State<PersonalizedLearningPathView> createState() =>
@@ -24,18 +34,52 @@ class PersonalizedLearningPathView extends StatefulWidget {
 
 class _PersonalizedLearningPathViewState
     extends State<PersonalizedLearningPathView> {
-  final Dio _dio = ApiClient().dio;
+  late final Dio _dio = widget.dio ?? ApiClient().dio;
   late Future<void> _loadFuture;
 
   Map<String, dynamic>? _pathData;
   List<Map<String, dynamic>> _modules = [];
-  String _selectedLanguage = kDefaultSupportedLanguage;
+  List<String> _availableLanguages = [];
+  late String _selectedLanguage = SupportedLanguages.normalizeOrDefault(
+    widget.initialLanguage,
+    kDefaultSupportedLanguage,
+  );
+  LearningExerciseSessionData? _activeModuleExercise;
+  int? _activeModuleId;
   bool _submitting = false;
   String? _error;
+
+  List<String> get _visibleLanguages {
+    if (_availableLanguages.isNotEmpty) {
+      return _availableLanguages;
+    }
+    final propLangs = <String>[];
+    for (final raw in widget.enrolledLanguages ?? const <String>[]) {
+      final norm = SupportedLanguages.normalize(raw);
+      if (norm != null && !propLangs.contains(norm)) {
+        propLangs.add(norm);
+      }
+    }
+    if (propLangs.isNotEmpty) {
+      return propLangs;
+    }
+    return [_selectedLanguage];
+  }
 
   @override
   void initState() {
     super.initState();
+    final initialEnrolled = <String>[];
+    for (final raw in widget.enrolledLanguages ?? const <String>[]) {
+      final norm = SupportedLanguages.normalize(raw);
+      if (norm != null && !initialEnrolled.contains(norm)) {
+        initialEnrolled.add(norm);
+      }
+    }
+    if (initialEnrolled.isNotEmpty &&
+        !initialEnrolled.contains(_selectedLanguage)) {
+      _selectedLanguage = initialEnrolled.first;
+    }
     _loadFuture = _loadPath();
   }
 
@@ -49,12 +93,30 @@ class _PersonalizedLearningPathViewState
       );
       if (!mounted) return;
       final data = Map<String, dynamic>.from(res.data as Map);
+      final rawAvailable = (data['availableLanguages'] as List?) ?? const [];
+      final parsedAvailable = <String>[];
+      for (final item in rawAvailable) {
+        final norm = SupportedLanguages.normalize(item?.toString());
+        if (norm != null && !parsedAvailable.contains(norm)) {
+          parsedAvailable.add(norm);
+        }
+      }
       final normalizedLang = SupportedLanguages.normalizeOrDefault(
         data['language']?.toString(),
         targetLang,
       );
+      if (language == null &&
+          parsedAvailable.isNotEmpty &&
+          !parsedAvailable.contains(normalizedLang)) {
+        _availableLanguages = parsedAvailable;
+        await _loadPath(language: parsedAvailable.first);
+        return;
+      }
       setState(() {
         _pathData = data;
+        if (parsedAvailable.isNotEmpty) {
+          _availableLanguages = parsedAvailable;
+        }
         _selectedLanguage = normalizedLang;
         _modules = ((data['modules'] as List?) ?? [])
             .map((e) => Map<String, dynamic>.from(e as Map))
@@ -97,14 +159,21 @@ class _PersonalizedLearningPathViewState
     }
   }
 
-  Future<void> _openModuleQuizDialog(int moduleId, String moduleTitle) async {
+  Future<void> _openModuleSession(Map<String, dynamic> module) async {
+    final moduleId = (module['moduleId'] as num?)?.toInt();
+    if (moduleId == null) return;
+    final moduleTitle = module['title']?.toString() ?? 'Módulo';
+    final moduleLevel = module['cefrLevel']?.toString() ?? 'A1';
+    final moduleCategory = module['category']?.toString() ?? 'Trilha';
+    final moduleDescription = module['description']?.toString();
+
     setState(() => _submitting = true);
-    List<Map<String, dynamic>> questions = [];
+    List<Map<String, dynamic>> rawQuestions = [];
     try {
       final res = await _dio.get<List<dynamic>>(
         '/api/learning-path/modules/$moduleId/quiz',
       );
-      questions = (res.data ?? const [])
+      rawQuestions = (res.data ?? const [])
           .whereType<Map>()
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
@@ -114,223 +183,59 @@ class _PersonalizedLearningPathViewState
           const SnackBar(content: Text('Erro ao carregar prática do módulo.')),
         );
       }
-      setState(() => _submitting = false);
-      return;
-    } finally {
       if (mounted) setState(() => _submitting = false);
+      return;
     }
 
-    if (!mounted || questions.isEmpty) return;
-
-    final activityToken = MascotController.instance.enterActivity(
-      activityId: 'module:$moduleId',
-      title: moduleTitle,
-      mascotHelpMessage:
-          'Prática adaptativa de $_selectedLanguage ($moduleTitle). Responda com atenção para atingir pelo menos 60%!',
-    );
-
-    final selected = <int, int>{};
-    int currentIdx = 0;
-    bool sending = false;
-    Map<String, dynamic>? quizResult;
-
-    try {
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            final dialogColors = Theme.of(ctx).colorScheme;
-
-            if (quizResult != null) {
-              final passed = quizResult!['passed'] == true;
-              final score = (quizResult!['score'] as num?)?.toDouble() ?? 0.0;
-              final xp = (quizResult!['xp'] as num?)?.toInt() ?? 0;
-
-              return AlertDialog(
-                insetPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 20,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                title: Text(
-                  passed ? 'Módulo Concluído!' : 'Resultado da Prática',
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    MascotSprite(
-                      state: passed ? MascotState.celebrate : MascotState.sad,
-                      size: 78,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      passed
-                          ? 'Você atingiu ${score.round()}% (+$xp XP) em $moduleTitle!'
-                          : 'Pontuação: ${score.round()}%. Obtenha pelo menos 60% para concluir o módulo.',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ],
-                ),
-                actions: [
-                  FilledButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text('Continuar'),
-                  ),
-                ],
-              );
-            }
-
-            final q = questions[currentIdx];
-            final prompt = q['prompt']?.toString() ?? '';
-            final options = ((q['options'] as List?) ?? const [])
-                .map((e) => e.toString())
-                .toList();
-
-            return AlertDialog(
-              insetPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 20,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-              title: Text(
-                '$moduleTitle (${currentIdx + 1}/${questions.length})',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      prompt,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    for (var i = 0; i < options.length; i++)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: OutlinedButton(
-                          onPressed: sending
-                              ? null
-                              : () => setDialogState(
-                                  () => selected[currentIdx] = i,
-                                ),
-                          style: OutlinedButton.styleFrom(
-                            alignment: Alignment.centerLeft,
-                            backgroundColor: selected[currentIdx] == i
-                                ? dialogColors.primary.withValues(alpha: 0.14)
-                                : null,
-                            side: BorderSide(
-                              color: selected[currentIdx] == i
-                                  ? dialogColors.primary
-                                  : dialogColors.outlineVariant,
-                              width: selected[currentIdx] == i ? 2 : 1,
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                          ),
-                          child: Text(
-                            options[i],
-                            style: TextStyle(color: dialogColors.onSurface),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: sending ? null : () => Navigator.of(ctx).pop(),
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton(
-                  onPressed: selected[currentIdx] == null || sending
-                      ? null
-                      : () async {
-                          if (currentIdx < questions.length - 1) {
-                            setDialogState(() => currentIdx++);
-                          } else {
-                            setDialogState(() => sending = true);
-                            try {
-                              final ordered = [
-                                for (var i = 0; i < questions.length; i++)
-                                  selected[i] ?? 0,
-                              ];
-                              final res = await _dio.post<Map<String, dynamic>>(
-                                '/api/learning-path/modules/$moduleId/quiz-submit',
-                                data: {'selectedIndices': ordered},
-                              );
-                              final d = res.data ?? const {};
-                              final passed = d['passed'] == true;
-                              final score =
-                                  (d['scorePercent'] as num?)?.toDouble() ??
-                                  0.0;
-                              final xp = (d['xpEarned'] as num?)?.toInt() ?? 0;
-                              if (passed && xp > 0) {
-                                await XpAnimationController.recordXpGain(
-                                  xp,
-                                  source: 'Módulo: $moduleTitle',
-                                );
-                              }
-                              if (passed) {
-                                SystemSoundService.success();
-                                MascotController.instance.markActivityCompleted(
-                                  activityToken,
-                                );
-                              } else {
-                                SystemSoundService.defeat();
-                                MascotController.instance.reactIncorrect();
-                              }
-                              unawaited(_loadPath(language: _selectedLanguage));
-                              if (ctx.mounted) {
-                                setDialogState(() {
-                                  sending = false;
-                                  quizResult = <String, dynamic>{
-                                    'passed': passed,
-                                    'score': score,
-                                    'xp': xp,
-                                  };
-                                });
-                              }
-                            } catch (e) {
-                              if (ctx.mounted) {
-                                setDialogState(() => sending = false);
-                              }
-                            }
-                          }
-                        },
-                  child: Text(
-                    currentIdx < questions.length - 1
-                        ? 'Próxima'
-                        : 'Concluir Prática',
-                  ),
-                ),
-              ],
-            );
-          },
+    if (!mounted) return;
+    if (rawQuestions.isEmpty) {
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Este módulo ainda não possui questões disponíveis.'),
         ),
       );
-    } finally {
-      MascotController.instance.exitActivity(activityToken);
+      return;
     }
+
+    final sessionQuestions = rawQuestions.map((q) {
+      final options = ((q['options'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList();
+      final qCat = q['category']?.toString().trim();
+      final qStyle = (qCat != null && qCat.isNotEmpty)
+          ? '$moduleLevel • $qCat'
+          : '$moduleLevel • $moduleCategory';
+      final rawTip =
+          (q['mascotHelpMessage'] ?? q['mascot_help_message'])
+              ?.toString()
+              .trim();
+      return LearningExerciseQuestionData(
+        q['prompt']?.toString() ?? '',
+        options,
+        style: qStyle,
+        mascotHelpMessage: (rawTip != null && rawTip.isNotEmpty)
+            ? rawTip
+            : 'Prática adaptativa em $_selectedLanguage ($moduleTitle). Leia com atenção!',
+      );
+    }).toList();
+
+    setState(() {
+      _submitting = false;
+      _activeModuleId = moduleId;
+      _activeModuleExercise = LearningExerciseSessionData(
+        id: moduleId,
+        title: moduleTitle,
+        language: _selectedLanguage,
+        level: moduleLevel,
+        className: 'Trilha Personalizada',
+        category: moduleCategory,
+        theme: _selectedLanguage,
+        teacher: 'Trilha CEFR Duolinfo',
+        description: moduleDescription,
+        questions: sessionQuestions,
+      );
+    });
   }
 
   Future<void> _showDiagnosticDialog({String? initialLanguage}) async {
@@ -435,7 +340,9 @@ class _PersonalizedLearningPathViewState
                         isDense: true,
                         border: OutlineInputBorder(),
                       ),
-                      items: kSupportedLanguages
+                      items: (_visibleLanguages.contains(diagLang)
+                              ? _visibleLanguages
+                              : [diagLang, ..._visibleLanguages])
                           .map(
                             (lang) => DropdownMenuItem(
                               value: lang,
@@ -669,6 +576,57 @@ class _PersonalizedLearningPathViewState
 
   @override
   Widget build(BuildContext context) {
+    if (_activeModuleExercise != null && _activeModuleId != null) {
+      final activeModuleId = _activeModuleId!;
+      return LearningExerciseRunPage(
+        exercise: _activeModuleExercise!,
+        dio: _dio,
+        onBack: () => setState(() {
+          _activeModuleExercise = null;
+          _activeModuleId = null;
+        }),
+        onFinished: () {
+          setState(() {
+            _activeModuleExercise = null;
+            _activeModuleId = null;
+            _loadFuture = _loadPath(language: _selectedLanguage);
+          });
+        },
+        onSubmitCustom: (answers, selectedOptionIndices) async {
+          final ordered = [
+            for (var i = 0; i < _activeModuleExercise!.questions.length; i++)
+              selectedOptionIndices[i] ?? 0,
+          ];
+          final res = await _dio.post<Map<String, dynamic>>(
+            '/api/learning-path/modules/$activeModuleId/quiz-submit',
+            data: {'selectedIndices': ordered},
+          );
+          final d = res.data ?? const {};
+          final passed = d['passed'] == true;
+          final totalCount =
+              (d['totalCount'] as num?)?.toInt() ??
+              _activeModuleExercise!.questions.length;
+          final correctCount = (d['correctCount'] as num?)?.toInt() ?? 0;
+          final xpEarned = (d['xpEarned'] as num?)?.toInt() ?? 0;
+          if (passed) {
+            SystemSoundService.success();
+          } else {
+            SystemSoundService.defeat();
+          }
+          unawaited(_loadPath(language: _selectedLanguage));
+          return <String, dynamic>{
+            'passed': passed,
+            'correctCount': correctCount,
+            'questionCount': totalCount,
+            'xpEarned': xpEarned,
+            'feedback': d['feedback']?.toString() ?? '',
+            'reviewStatus': passed ? 'REVIEWED' : 'AUTO_GRADED',
+            'questionFeedback': d['questionFeedback'] ?? const [],
+          };
+        },
+      );
+    }
+
     final colors = Theme.of(context).colorScheme;
 
     return FutureBuilder<void>(
@@ -762,14 +720,18 @@ class _PersonalizedLearningPathViewState
                 spacing: 8,
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
-                children: kSupportedLanguages.map((lang) {
+                children: _visibleLanguages.map((lang) {
                   return ChoiceChip(
                     selected: _selectedLanguage == lang,
                     avatar: LanguageFlag.forLanguage(lang, width: 18),
                     label: Text(lang),
                     onSelected: (selected) {
-                      if (selected) {
-                        _loadPath(language: lang);
+                      if (selected && _selectedLanguage != lang) {
+                        setState(() {
+                          _selectedLanguage = lang;
+                          _modules = [];
+                          _loadFuture = _loadPath(language: lang);
+                        });
                       }
                     },
                   );
@@ -851,9 +813,12 @@ class _PersonalizedLearningPathViewState
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.schedule_rounded,
-                          color: Colors.blueGrey,
+                          color: VividIconPalette.colorFor(
+                            Icons.schedule_rounded,
+                            brightness: Theme.of(context).brightness,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Flexible(
@@ -976,12 +941,26 @@ class _PersonalizedLearningPathViewState
   }
 
   Widget _buildCompetenceGrid(ColorScheme colors) {
-    final gram = (_pathData?['grammarCompetence'] as num?)?.toDouble() ?? 0.0;
-    final voc = (_pathData?['vocabularyCompetence'] as num?)?.toDouble() ?? 0.0;
-    final list = (_pathData?['listeningCompetence'] as num?)?.toDouble() ?? 0.0;
-    final spk = (_pathData?['speakingCompetence'] as num?)?.toDouble() ?? 0.0;
-    final read = (_pathData?['readingCompetence'] as num?)?.toDouble() ?? 0.0;
-    final writ = (_pathData?['writingCompetence'] as num?)?.toDouble() ?? 0.0;
+    final gram = ((_pathData?['grammarCompetence'] as num?)?.toDouble() ?? 0.0)
+        .clamp(0.0, 100.0);
+    final voc =
+        ((_pathData?['vocabularyCompetence'] as num?)?.toDouble() ?? 0.0)
+            .clamp(0.0, 100.0);
+    final list =
+        ((_pathData?['listeningCompetence'] as num?)?.toDouble() ?? 0.0)
+            .clamp(0.0, 100.0);
+    final spk = ((_pathData?['speakingCompetence'] as num?)?.toDouble() ?? 0.0)
+        .clamp(0.0, 100.0);
+    final read = ((_pathData?['readingCompetence'] as num?)?.toDouble() ?? 0.0)
+        .clamp(0.0, 100.0);
+    final writ = ((_pathData?['writingCompetence'] as num?)?.toDouble() ?? 0.0)
+        .clamp(0.0, 100.0);
+    final avgComp = (gram + voc + list + spk + read + writ) / 6.0;
+    final hasAnyProgress = avgComp > 0.5;
+    final rawMetrics = _pathData?['activityMetrics'];
+    final metrics = rawMetrics is Map
+        ? Map<String, dynamic>.from(rawMetrics)
+        : const <String, dynamic>{};
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -994,60 +973,187 @@ class _PersonalizedLearningPathViewState
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: SizedBox(
-              height: 230,
-              child: RadarChart(
-                RadarChartData(
-                  radarShape: RadarShape.polygon,
-                  tickCount: 4,
-                  ticksTextStyle: TextStyle(
-                    color: colors.onSurfaceVariant,
-                    fontSize: 10,
-                  ),
-                  gridBorderData: BorderSide(
-                    color: colors.outlineVariant.withValues(alpha: 0.6),
-                  ),
-                  radarBorderData: BorderSide(color: colors.outlineVariant),
-                  tickBorderData: BorderSide(
-                    color: colors.outlineVariant.withValues(alpha: 0.35),
-                  ),
-                  titlePositionPercentageOffset: 0.18,
-                  titleTextStyle: TextStyle(
-                    color: colors.onSurface,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11.5,
-                  ),
-                  getTitle: (index, angle) {
-                    const titles = [
-                      'Gramática',
-                      'Vocabulário',
-                      'Audição',
-                      'Fala',
-                      'Leitura',
-                      'Escrita',
-                    ];
-                    return RadarChartTitle(text: titles[index % titles.length]);
-                  },
-                  dataSets: [
-                    RadarDataSet(
-                      fillColor: const Color(
-                        0xFF3579E8,
-                      ).withValues(alpha: 0.25),
-                      borderColor: const Color(0xFF3579E8),
-                      borderWidth: 2.2,
-                      entryRadius: 3.5,
-                      dataEntries: [
-                        RadarEntry(value: gram.clamp(5, 100)),
-                        RadarEntry(value: voc.clamp(5, 100)),
-                        RadarEntry(value: list.clamp(5, 100)),
-                        RadarEntry(value: spk.clamp(5, 100)),
-                        RadarEntry(value: read.clamp(5, 100)),
-                        RadarEntry(value: writ.clamp(5, 100)),
-                      ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      'Média em $_selectedLanguage: ${avgComp.toStringAsFixed(0)}%',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13.5,
+                        color: colors.primary,
+                      ),
+                    ),
+                    Text(
+                      'Escala real: 0% a 100%',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: colors.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 255,
+                  child: RadarChart(
+                    RadarChartData(
+                      radarShape: RadarShape.polygon,
+                      tickCount: 4,
+                      radarTouchData: RadarTouchData(enabled: true),
+                      ticksTextStyle: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 10,
+                      ),
+                      gridBorderData: BorderSide(
+                        color: colors.outlineVariant.withValues(alpha: 0.6),
+                      ),
+                      radarBorderData: BorderSide(color: colors.outlineVariant),
+                      tickBorderData: BorderSide(
+                        color: colors.outlineVariant.withValues(alpha: 0.35),
+                      ),
+                      titlePositionPercentageOffset: 0.2,
+                      titleTextStyle: TextStyle(
+                        color: colors.onSurface,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                      ),
+                      getTitle: (index, angle) {
+                        final titles = [
+                          'Gramática\n${gram.toStringAsFixed(0)}%',
+                          'Vocabulário\n${voc.toStringAsFixed(0)}%',
+                          'Audição\n${list.toStringAsFixed(0)}%',
+                          'Fala\n${spk.toStringAsFixed(0)}%',
+                          'Leitura\n${read.toStringAsFixed(0)}%',
+                          'Escrita\n${writ.toStringAsFixed(0)}%',
+                        ];
+                        return RadarChartTitle(
+                          text: titles[index % titles.length],
+                        );
+                      },
+                      dataSets: [
+                        // Invisible 0-to-100 scale anchors so the polygon never auto-stretches small scores to 100%.
+                        RadarDataSet(
+                          fillColor: Colors.transparent,
+                          borderColor: Colors.transparent,
+                          borderWidth: 0,
+                          entryRadius: 0,
+                          dataEntries: const [
+                            RadarEntry(value: 0),
+                            RadarEntry(value: 0),
+                            RadarEntry(value: 0),
+                            RadarEntry(value: 0),
+                            RadarEntry(value: 0),
+                            RadarEntry(value: 0),
+                          ],
+                        ),
+                        RadarDataSet(
+                          fillColor: Colors.transparent,
+                          borderColor: Colors.transparent,
+                          borderWidth: 0,
+                          entryRadius: 0,
+                          dataEntries: const [
+                            RadarEntry(value: 100),
+                            RadarEntry(value: 100),
+                            RadarEntry(value: 100),
+                            RadarEntry(value: 100),
+                            RadarEntry(value: 100),
+                            RadarEntry(value: 100),
+                          ],
+                        ),
+                        RadarDataSet(
+                          fillColor: const Color(
+                            0xFF3579E8,
+                          ).withValues(alpha: 0.28),
+                          borderColor: const Color(0xFF3579E8),
+                          borderWidth: 2.5,
+                          entryRadius: 4,
+                          dataEntries: [
+                            RadarEntry(value: gram),
+                            RadarEntry(value: voc),
+                            RadarEntry(value: list),
+                            RadarEntry(value: spk),
+                            RadarEntry(value: read),
+                            RadarEntry(value: writ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (metrics.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _MetricSourceChip(
+                        icon: Icons.bolt_rounded,
+                        label: '${metrics['languageXp'] ?? 0} XP em $_selectedLanguage',
+                        color: Colors.amber.shade800,
+                      ),
+                      _MetricSourceChip(
+                        icon: Icons.school_rounded,
+                        label:
+                            'Módulos: ${metrics['modulesCompleted'] ?? 0}/${metrics['modulesTotal'] ?? _modules.length}',
+                        color: Colors.blue.shade700,
+                      ),
+                      _MetricSourceChip(
+                        icon: Icons.assignment_turned_in_rounded,
+                        label:
+                            'Atividades: ${metrics['exerciseSubmissions'] ?? 0}',
+                        color: Colors.green.shade700,
+                      ),
+                      _MetricSourceChip(
+                        icon: Icons.style_rounded,
+                        label: 'Revisões SRS: ${metrics['srsReviewed'] ?? 0}',
+                        color: Colors.purple.shade700,
+                      ),
+                      _MetricSourceChip(
+                        icon: Icons.mic_rounded,
+                        label:
+                            'Prática Oral: ${metrics['pronunciationAttempts'] ?? 0}',
+                        color: Colors.orange.shade800,
+                      ),
+                      _MetricSourceChip(
+                        icon: Icons.forum_rounded,
+                        label:
+                            'Turnos IA: ${metrics['aiConversationTurns'] ?? 0}',
+                        color: Colors.indigo.shade700,
+                      ),
+                    ],
+                  ),
+                ],
+                if (!hasAnyProgress) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.primaryContainer.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'Nenhuma prática concluída em $_selectedLanguage ainda. '
+                      'Faça o teste de nivelamento, conclua um módulo abaixo ou pratique exercícios neste idioma para ver seu gráfico crescer.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ),
@@ -1111,46 +1217,55 @@ class _PersonalizedLearningPathViewState
   }
 
   Widget _buildCompetenceBar(String label, double value, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.15)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final targetVal = value.clamp(0.0, 100.0);
+    return TweenAnimationBuilder<double>(
+      key: ValueKey('$_selectedLanguage:$label'),
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeOutCubic,
+      tween: Tween<double>(begin: 0, end: targetVal),
+      builder: (context, animatedValue, _) {
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.15)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                  Text(
+                    '${animatedValue.toStringAsFixed(0)}%',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                '${value.toStringAsFixed(0)}%',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                  fontSize: 13,
-                ),
+              const SizedBox(height: 8),
+              LinearProgressIndicator(
+                value: animatedValue / 100.0,
+                color: color,
+                backgroundColor: color.withValues(alpha: 0.15),
+                minHeight: 7,
+                borderRadius: BorderRadius.circular(4),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: value / 100.0,
-            color: color,
-            backgroundColor: color.withValues(alpha: 0.15),
-            minHeight: 6,
-            borderRadius: BorderRadius.circular(3),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1159,7 +1274,6 @@ class _PersonalizedLearningPathViewState
     Map<String, dynamic> m,
     int index,
   ) {
-    final id = (m['moduleId'] as num).toInt();
     final title = m['title'] ?? '';
     final desc = m['description'] ?? '';
     final level = m['cefrLevel'] ?? 'A1';
@@ -1263,18 +1377,70 @@ class _PersonalizedLearningPathViewState
             ),
             if (isProgress)
               FilledButton.icon(
-                onPressed: _submitting
-                    ? null
-                    : () => _openModuleQuizDialog(id, title),
+                onPressed: _submitting ? null : () => _openModuleSession(m),
                 icon: const Icon(Icons.play_lesson_rounded, size: 16),
                 label: const Text('Praticar & Concluir'),
               )
             else if (isCompleted)
-              const Icon(Icons.verified_rounded, color: Colors.green)
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _submitting ? null : () => _openModuleSession(m),
+                    icon: const Icon(Icons.replay_rounded, size: 16),
+                    label: const Text('Praticar Novamente'),
+                  ),
+                  Icon(
+                    Icons.verified_rounded,
+                    color: VividIconPalette.green,
+                  ),
+                ],
+              )
             else
               Icon(Icons.lock_outline_rounded, color: colors.outline),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MetricSourceChip extends StatelessWidget {
+  const _MetricSourceChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }

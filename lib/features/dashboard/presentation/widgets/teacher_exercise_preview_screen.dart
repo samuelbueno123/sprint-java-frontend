@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/ui/mascot/mascot.dart';
+import 'audio_speech_helper.dart';
 import 'responsive_layout.dart';
 
 /// Screen that renders the exercise preview for teachers matching the visual specification.
@@ -11,6 +12,7 @@ class TeacherExercisePreviewScreen extends StatefulWidget {
     required this.category,
     required this.theme,
     this.level,
+    this.language = 'Inglês',
     required this.questions,
     this.contentBody,
     this.mascotHelpMessage,
@@ -21,6 +23,7 @@ class TeacherExercisePreviewScreen extends StatefulWidget {
   final String category;
   final String theme;
   final String? level;
+  final String language;
   final List<dynamic> questions;
   final String? contentBody;
   final String? mascotHelpMessage;
@@ -631,8 +634,126 @@ class _TeacherExercisePreviewScreenState
             ),
             const SizedBox(height: 12),
 
-            // Options (for multiple choice questions)
-            if (question.options.isNotEmpty)
+            // Audio listening preview (if Áudio style)
+            if (styleBadge.label == 'Áudio (Escuta)') ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFEFF),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFA5F3FC)),
+                ),
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.headphones_rounded,
+                      color: Color(0xFF0E7490),
+                      size: 20,
+                    ),
+                    Text(
+                      question.audioText.trim().isNotEmpty
+                          ? 'Frase falada: "${question.audioText.trim()}"'
+                          : 'Frase falada: "${question.expectedAnswer.trim().isEmpty ? question.prompt.trim() : question.expectedAnswer.trim()}"',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: Color(0xFF155E75),
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        final text = question.audioText.trim().isNotEmpty
+                            ? question.audioText.trim()
+                            : (question.expectedAnswer.trim().isNotEmpty
+                                  ? question.expectedAnswer.trim()
+                                  : question.prompt.trim());
+                        AudioSpeechHelper.speak(
+                          text,
+                          languageName: widget.language,
+                        );
+                      },
+                      icon: const Icon(Icons.volume_up_rounded, size: 16),
+                      label: const Text('Ouvir prévia'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            // Correspondência pairs
+            if (styleBadge.label == 'Correspondência' &&
+                question.options.isNotEmpty)
+              Column(
+                children: [
+                  for (final rawPair in question.options) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? colors.surfaceContainerLow
+                            : const Color(0xFFEEF2FF),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFC7D2FE)),
+                      ),
+                      child: Builder(
+                        builder: (context) {
+                          final parts = rawPair.contains('=>')
+                              ? rawPair.split('=>')
+                              : (rawPair.contains('->')
+                                    ? rawPair.split('->')
+                                    : [rawPair, '']);
+                          final left = parts.first.trim();
+                          final right = parts.length > 1
+                              ? parts.sublist(1).join(' ').trim()
+                              : '';
+                          return Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  left,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 10),
+                                child: Icon(
+                                  Icons.compare_arrows_rounded,
+                                  color: Color(0xFF4F46E5),
+                                  size: 20,
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  right,
+                                  textAlign: TextAlign.end,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                    color: Color(0xFF4338CA),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+              )
+            // Options (for multiple choice & true/false questions)
+            else if (question.options.isNotEmpty)
               LayoutBuilder(
                 builder: (context, constraints) {
                   final isWide = constraints.maxWidth >= 500;
@@ -764,6 +885,59 @@ class _TeacherExercisePreviewScreenState
                 ),
               ),
             ],
+            if (question.mascotHelpMessage.trim().isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF1E293B)
+                      : const Color(0xFFEEF2FF),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF4F46E5).withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const MascotPoseEmblem(
+                      state: MascotState.clickBleat,
+                      size: 32,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Dica do Bode Branco — Questão ${question.index + 1}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF312E81),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            question.mascotHelpMessage.trim(),
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.35,
+                              color: isDark
+                                  ? const Color(0xFFE2E8F0)
+                                  : const Color(0xFF1E1B4B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -789,6 +963,33 @@ class _TeacherExercisePreviewScreenState
 
   _StyleBadgeInfo _resolveStyleBadge(String rawStyle) {
     final s = rawStyle.trim().toUpperCase();
+    if (s.contains('VERDADEIRO') ||
+        s.contains('FALSO') ||
+        s.contains('TRUE_FALSE') ||
+        s.contains('TRUE/FALSE')) {
+      return _StyleBadgeInfo(
+        label: 'Verdadeiro ou Falso',
+        bgColor: const Color(0xFFCCFBF1),
+        textColor: const Color(0xFF0F766E),
+      );
+    }
+    if (s.contains('CORRESPOND') ||
+        s.contains('MATCH') ||
+        s.contains('ASSOCI') ||
+        s.contains('LIGAR')) {
+      return _StyleBadgeInfo(
+        label: 'Correspondência',
+        bgColor: const Color(0xFFE0E7FF),
+        textColor: const Color(0xFF4338CA),
+      );
+    }
+    if (s.contains('AUDIO') || s.contains('ÁUDIO') || s.contains('ESCUTA')) {
+      return _StyleBadgeInfo(
+        label: 'Áudio (Escuta)',
+        bgColor: const Color(0xFFCFFAFE),
+        textColor: const Color(0xFF0E7490),
+      );
+    }
     if (s.contains('MULTIPLE') ||
         s.contains('ESCOLHA') ||
         s.contains('OBJECTIVE')) {
@@ -838,6 +1039,8 @@ class _TeacherExercisePreviewScreenState
       List<String> options = [];
       String expectedAnswer = '';
       String explanation = '';
+      String mascotHelpMessage = '';
+      String audioText = '';
 
       if (q is Map) {
         prompt = '${q['prompt'] ?? q['question'] ?? q['text'] ?? ''}';
@@ -845,6 +1048,9 @@ class _TeacherExercisePreviewScreenState
         expectedAnswer =
             '${q['expectedAnswer'] ?? q['correctAnswer'] ?? q['answer'] ?? ''}';
         explanation = '${q['explanation'] ?? q['rubric'] ?? ''}';
+        mascotHelpMessage =
+            '${q['mascotHelpMessage'] ?? q['mascot_help_message'] ?? ''}';
+        audioText = '${q['audioText'] ?? q['audio_text'] ?? ''}';
         final rawOpts = q['options'];
         if (rawOpts is List) {
           options = rawOpts
@@ -886,6 +1092,15 @@ class _TeacherExercisePreviewScreenState
                   .toString();
         } catch (_) {}
         try {
+          mascotHelpMessage =
+              (q.mascotHelp is TextEditingController
+                      ? q.mascotHelp.text
+                      : (q.mascotHelpMessage is TextEditingController
+                            ? q.mascotHelpMessage.text
+                            : '${q.mascotHelpMessage ?? ''}'))
+                  .toString();
+        } catch (_) {}
+        try {
           final rawOpts = q.options;
           if (rawOpts is List) {
             options = rawOpts
@@ -907,6 +1122,8 @@ class _TeacherExercisePreviewScreenState
           options: options,
           expectedAnswer: expectedAnswer,
           explanation: explanation,
+          mascotHelpMessage: mascotHelpMessage,
+          audioText: audioText,
         ),
       );
     }
@@ -921,6 +1138,8 @@ class _PreviewQuestion {
   final List<String> options;
   final String expectedAnswer;
   final String explanation;
+  final String mascotHelpMessage;
+  final String audioText;
 
   _PreviewQuestion({
     required this.index,
@@ -929,6 +1148,8 @@ class _PreviewQuestion {
     required this.options,
     required this.expectedAnswer,
     required this.explanation,
+    this.mascotHelpMessage = '',
+    this.audioText = '',
   });
 }
 

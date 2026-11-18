@@ -10,16 +10,21 @@ import '../../../../core/constants/supported_languages.dart';
 import 'dart:async';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/realtime_sync_service.dart';
+import '../../../../core/theme/admin_geral_theme.dart';
 import '../../../../core/ui/language_flag.dart';
 import '../../../../core/ui/mascot/mascot.dart';
 import '../../../../core/ui/motion_kit.dart';
+import '../../../../core/ui/vivid_icon_palette.dart';
 import '../../../../core/xp/xp_animation_controller.dart';
+import '../../data/models/student_enrollment_model.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../../domain/entities/student_enrollment.dart';
 import '../../domain/entities/student_profile.dart';
 import 'dart:math' as math;
 import 'app_user_avatar.dart';
+import 'class_performance_line_chart_card.dart';
 import 'audio_speech_helper.dart';
+import 'entity_picture_picker_dialog.dart';
 import 'info_stat_card.dart';
 import 'responsive_layout.dart';
 import 'teacher_create_exercise_screen.dart';
@@ -62,10 +67,14 @@ class LearningFeaturePage extends StatefulWidget {
     super.key,
     required this.section,
     required this.onBackToProfile,
+    this.dio,
+    this.data,
   });
 
   final String section;
   final VoidCallback onBackToProfile;
+  final Dio? dio;
+  final DashboardData? data;
 
   @override
   State<LearningFeaturePage> createState() => _LearningFeaturePageState();
@@ -77,22 +86,25 @@ class TeacherLearningPage extends StatefulWidget {
     required this.data,
     required this.section,
     this.onSectionSelected,
+    this.dio,
   });
   final DashboardData data;
   final String section;
   final ValueChanged<String>? onSectionSelected;
+  final Dio? dio;
 
   @override
   State<TeacherLearningPage> createState() => _TeacherLearningPageState();
 }
 
 class _TeacherLearningPageState extends State<TeacherLearningPage> {
-  final Dio _dio = ApiClient().dio;
+  late final Dio _dio = widget.dio ?? ApiClient().dio;
   late Future<void> _load;
   List<Map<String, dynamic>> _exercises = [];
   List<Map<String, dynamic>> _submissions = [];
   List<String> _levels = [];
   String _reviewClassKey = 'all';
+  String _performanceClassKey = 'all';
   String? _dataLoadError;
   int? _selectedSubmissionId;
   final TextEditingController _packageFeedbackCtrl = TextEditingController();
@@ -1844,183 +1856,369 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
     return null;
   }
 
+  String _shortTelemetryLabel(Map<String, dynamic> row, int index) {
+    final submittedAt = DateTime.tryParse(row['submittedAt']?.toString() ?? '')
+        ?.toLocal();
+    if (submittedAt != null) {
+      final dd = submittedAt.day.toString().padLeft(2, '0');
+      final mm = submittedAt.month.toString().padLeft(2, '0');
+      final hh = submittedAt.hour.toString().padLeft(2, '0');
+      final min = submittedAt.minute.toString().padLeft(2, '0');
+      return '$dd/$mm $hh:$min';
+    }
+    return '#${index + 1}';
+  }
+
   Widget _performance() {
-    final totalXp = _submissions.fold<int>(
+    final classes = _reviewClasses;
+    if (_performanceClassKey != 'all' &&
+        !classes.any((item) => '${item.id}' == _performanceClassKey)) {
+      _performanceClassKey = 'all';
+    }
+    final selectedClassId = int.tryParse(_performanceClassKey);
+    final filteredExercises = selectedClassId == null
+        ? _exercises
+        : _exercises
+              .where(
+                (ex) => (ex['schoolClassId'] as num?)?.toInt() == selectedClassId,
+              )
+              .toList();
+    final filteredSubmissions = selectedClassId == null
+        ? List<Map<String, dynamic>>.from(_submissions)
+        : _submissions
+              .where((item) => _submissionClassId(item) == selectedClassId)
+              .toList();
+
+    filteredSubmissions.sort((a, b) {
+      final da = DateTime.tryParse(a['submittedAt']?.toString() ?? '');
+      final db = DateTime.tryParse(b['submittedAt']?.toString() ?? '');
+      if (da != null && db != null) return da.compareTo(db);
+      final ida = (a['id'] as num?)?.toInt() ?? 0;
+      final idb = (b['id'] as num?)?.toInt() ?? 0;
+      return ida.compareTo(idb);
+    });
+
+    final totalXp = filteredSubmissions.fold<int>(
       0,
       (sum, row) => sum + ((row['xpEarned'] as num?)?.toInt() ?? 0),
     );
-    final studentTotals = <String, int>{};
-    for (final row in _submissions) {
-      final name = '${row['studentName'] ?? 'Estudante'}';
-      studentTotals[name] =
-          (studentTotals[name] ?? 0) +
-          ((row['xpEarned'] as num?)?.toInt() ?? 0);
-    }
-    final ranking = studentTotals.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final chartEntries = ranking.take(6).toList();
-    final maxChartXp = chartEntries.fold<double>(
-      10,
-      (m, e) => e.value > m ? e.value.toDouble() : m,
+    final totalCorrect = filteredSubmissions.fold<int>(
+      0,
+      (sum, row) => sum + ((row['correctCount'] as num?)?.toInt() ?? 0),
     );
+    final totalQuestions = filteredSubmissions.fold<int>(
+      0,
+      (sum, row) => sum + ((row['questionCount'] as num?)?.toInt() ?? 0),
+    );
+    final pendingCount = filteredSubmissions.where((row) {
+      return '${row['reviewStatus'] ?? ''}'.toUpperCase() == 'PENDING_REVIEW';
+    }).length;
+    final gradedCount = filteredSubmissions.length - pendingCount;
+    final avgAccuracy = totalQuestions > 0
+        ? (totalCorrect * 100.0) / totalQuestions
+        : 0.0;
+    final gradedRatio = filteredSubmissions.isEmpty
+        ? 0.0
+        : gradedCount / filteredSubmissions.length;
+    final avgXpPerSub = filteredSubmissions.isEmpty
+        ? 0.0
+        : totalXp / filteredSubmissions.length;
+    final targetMaxXp = math.max(20, totalQuestions * 10);
+    final xpAttainmentRatio = (totalXp / targetMaxXp).clamp(0.0, 1.0);
+
+    final studentMap = <String, _PerfStudentSummary>{};
+    for (final row in filteredSubmissions) {
+      final name = (row['studentName']?.toString().trim().isNotEmpty ?? false)
+          ? row['studentName'].toString().trim()
+          : 'Estudante';
+      final pic = row['studentProfilePicture']?.toString().trim();
+      final xp = (row['xpEarned'] as num?)?.toInt() ?? 0;
+      final correct = (row['correctCount'] as num?)?.toInt() ?? 0;
+      final qCount = (row['questionCount'] as num?)?.toInt() ?? 0;
+      final prev = studentMap[name];
+      if (prev == null) {
+        studentMap[name] = _PerfStudentSummary(
+          name: name,
+          profilePicture: (pic != null && pic.isNotEmpty) ? pic : null,
+          xp: xp,
+          correct: correct,
+          questions: qCount,
+          submissions: 1,
+        );
+      } else {
+        prev.xp += xp;
+        prev.correct += correct;
+        prev.questions += qCount;
+        prev.submissions += 1;
+        if (prev.profilePicture == null && pic != null && pic.isNotEmpty) {
+          prev.profilePicture = pic;
+        }
+      }
+    }
+
+    final ranking = studentMap.values.toList()
+      ..sort((a, b) {
+        final xpCmp = b.xp.compareTo(a.xp);
+        if (xpCmp != 0) return xpCmp;
+        return b.accuracyPercent.compareTo(a.accuracyPercent);
+      });
+
+    final windowSubmissions = filteredSubmissions.length > 24
+        ? filteredSubmissions.sublist(filteredSubmissions.length - 24)
+        : filteredSubmissions;
+    final telemetryPoints = <_PerfTelemetryPoint>[];
+    final chartSeriesPayload = <Map<String, dynamic>>[];
+
+    if (windowSubmissions.length == 1) {
+      telemetryPoints.add(
+        const _PerfTelemetryPoint(
+          label: 'Início',
+          studentName: '',
+          exerciseTitle: '',
+          accuracyPercent: 0,
+          cumulativeXpPercent: 0,
+          xpEarned: 0,
+          cumulativeXp: 0,
+        ),
+      );
+      chartSeriesPayload.add({
+        'label': 'Início',
+        'accuracyPercent': 0.0,
+        'participationPercent': 0.0,
+        'xpProgressPercent': 0.0,
+        'overallScorePercent': 0.0,
+        'submissionsCount': 0,
+        'cumulativeXp': 0,
+      });
+    }
+
+    var runningXp = 0;
+    final windowMaxXp = windowSubmissions.fold<int>(
+      0,
+      (sum, r) => sum + ((r['xpEarned'] as num?)?.toInt() ?? 0),
+    );
+    for (var i = 0; i < windowSubmissions.length; i++) {
+      final row = windowSubmissions[i];
+      final xp = (row['xpEarned'] as num?)?.toInt() ?? 0;
+      final correct = (row['correctCount'] as num?)?.toInt() ?? 0;
+      final qCount = (row['questionCount'] as num?)?.toInt() ?? 0;
+      runningXp += xp;
+      final acc = qCount > 0 ? ((correct * 100.0) / qCount).clamp(0.0, 100.0) : 0.0;
+      final part = ((i + 1) * 100.0) / math.max(1, windowSubmissions.length);
+      final xpPct = windowMaxXp > 0
+          ? ((runningXp * 100.0) / windowMaxXp).clamp(0.0, 100.0)
+          : 0.0;
+      final overall = (acc * 0.45 + part * 0.30 + xpPct * 0.25).clamp(0.0, 100.0);
+      final label = _shortTelemetryLabel(row, i);
+      telemetryPoints.add(
+        _PerfTelemetryPoint(
+          label: label,
+          studentName: row['studentName']?.toString() ?? 'Estudante',
+          exerciseTitle: row['exerciseTitle']?.toString() ?? 'Atividade',
+          accuracyPercent: acc,
+          cumulativeXpPercent: xpPct,
+          xpEarned: xp,
+          cumulativeXp: runningXp,
+        ),
+      );
+      chartSeriesPayload.add({
+        'label': label,
+        'accuracyPercent': acc,
+        'participationPercent': part,
+        'xpProgressPercent': xpPct,
+        'overallScorePercent': overall,
+        'submissionsCount': i + 1,
+        'cumulativeXp': runningXp,
+      });
+    }
+
+    final telemetryDashboard = <String, dynamic>{
+      'performanceSeries': chartSeriesPayload,
+      'totalStudents': math.max(1, ranking.length),
+      'totalSubmissions': filteredSubmissions.length,
+      'totalXpEarned': totalXp,
+      'averageAccuracyPercent': avgAccuracy,
+    };
+
     final colors = Theme.of(context).colorScheme;
+    final totalWrong = math.max(0, totalQuestions - totalCorrect);
 
     return ListView(
       padding: responsivePagePadding(context),
       children: [
-        Text(
-          _title,
-          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 16),
         Wrap(
           spacing: 12,
-          runSpacing: 12,
+          runSpacing: 8,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _AchievementCard(
-              icon: Icons.assignment_turned_in_outlined,
-              title: 'Entregas recebidas',
-              detail: '${_submissions.length} respostas registradas.',
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _title,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Telemetria em tempo real de acertos, entregas, XP concedido e evolução dos estudantes.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
-            _AchievementCard(
-              icon: Icons.bolt_rounded,
-              title: 'XP concedido',
-              detail: '$totalXp XP somados nas entregas.',
-            ),
-            _AchievementCard(
-              icon: Icons.groups_outlined,
-              title: 'Estudantes participantes',
-              detail: '${studentTotals.length} estudantes com entrega.',
+            IconButton.filledTonal(
+              tooltip: 'Atualizar telemetria',
+              onPressed: _refresh,
+              icon: const Icon(Icons.refresh_rounded),
             ),
           ],
         ),
+        if (classes.length > 1) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('Todas as turmas'),
+                selected: _performanceClassKey == 'all',
+                onSelected: (_) =>
+                    setState(() => _performanceClassKey = 'all'),
+              ),
+              for (final item in classes)
+                ChoiceChip(
+                  label: Text(item.name),
+                  selected: _performanceClassKey == '${item.id}',
+                  onSelected: (_) =>
+                      setState(() => _performanceClassKey = '${item.id}'),
+                ),
+            ],
+          ),
+        ],
         const SizedBox(height: 16),
-        if (chartEntries.isNotEmpty) ...[
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: BorderSide(color: colors.outlineVariant),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cols = constraints.maxWidth >= 1060
+                ? 4
+                : constraints.maxWidth >= 620
+                ? 2
+                : 1;
+            const spacing = 14.0;
+            final cardWidth = (constraints.maxWidth - (spacing * (cols - 1))) / cols;
+            final gaugeCards = [
+              _PerformanceTelemetryGaugeCard(
+                title: 'Entregas Recebidas',
+                metricValue: filteredSubmissions.length,
+                metricSuffix: ' entregas',
+                subtitle:
+                    '$gradedCount avaliada(s) • $pendingCount pendente(s)',
+                percent: gradedRatio,
+                centerText: '${(gradedRatio * 100).round()}%',
+                centerSub: 'Avaliadas',
+                color: const Color(0xFF2563EB),
+                icon: Icons.assignment_turned_in_rounded,
+              ),
+              _PerformanceTelemetryGaugeCard(
+                title: 'Taxa Média de Acertos',
+                metricValue: avgAccuracy,
+                metricDecimals: 1,
+                metricSuffix: '%',
+                subtitle:
+                    '$totalCorrect / $totalQuestions questões corretas',
+                percent: (avgAccuracy / 100.0).clamp(0.0, 1.0),
+                centerText: '${avgAccuracy.toStringAsFixed(0)}%',
+                centerSub: 'Acurácia',
+                color: const Color(0xFF059669),
+                icon: Icons.gps_fixed_rounded,
+              ),
+              _PerformanceTelemetryGaugeCard(
+                title: 'XP Concedido',
+                metricValue: totalXp,
+                metricSuffix: ' XP',
+                subtitle:
+                    'Média ${avgXpPerSub.toStringAsFixed(1)} XP por entrega',
+                percent: xpAttainmentRatio,
+                centerText: '${(xpAttainmentRatio * 100).round()}%',
+                centerSub: 'Aproveit.',
+                color: const Color(0xFF7C3AED),
+                icon: Icons.bolt_rounded,
+              ),
+              _PerformanceTelemetryGaugeCard(
+                title: 'Participantes & Atividades',
+                metricValue: ranking.length,
+                metricSuffix: ranking.length == 1 ? ' aluno' : ' alunos',
+                subtitle:
+                    'Em ${filteredExercises.length} atividade(s) publicada(s)',
+                percent: filteredExercises.isEmpty
+                    ? 0.0
+                    : (filteredSubmissions.length /
+                              math.max(1, filteredExercises.length * math.max(1, ranking.length)))
+                          .clamp(0.0, 1.0),
+                centerText: '${filteredExercises.length}',
+                centerSub: 'Ativ.',
+                color: AdminGeralTheme.goldMetallic,
+                icon: Icons.groups_rounded,
+              ),
+            ];
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: List.generate(
+                gaugeCards.length,
+                (i) => SizedBox(
+                  width: cardWidth,
+                  child: StaggeredReveal(index: i + 1, child: gaugeCards[i]),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 18),
+        if (filteredSubmissions.isNotEmpty) ...[
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 980;
+              final multiMetricChart = ClassPerformanceLineChartCard(
+                dashboard: telemetryDashboard,
+                title: 'Curva de Desempenho das Atividades',
+              );
+              final breakdownPie = _buildSubmissionBreakdownPieCard(
+                context,
+                totalCorrect: totalCorrect,
+                totalWrong: totalWrong,
+                pendingCount: pendingCount,
+                gradedCount: gradedCount,
+              );
+              if (!isWide) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    multiMetricChart,
+                    const SizedBox(height: 16),
+                    breakdownPie,
+                  ],
+                );
+              }
+              return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.bar_chart_rounded,
-                        color: Color(0xFF7651C8),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Gráfico de XP por Estudante',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: colors.onSurface,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 210,
-                    child: BarChart(
-                      BarChartData(
-                        maxY: (maxChartXp * 1.2).ceilToDouble(),
-                        gridData: FlGridData(
-                          show: true,
-                          drawVerticalLine: false,
-                          getDrawingHorizontalLine: (value) => FlLine(
-                            color: colors.outlineVariant.withValues(alpha: 0.4),
-                            strokeWidth: 1,
-                          ),
-                        ),
-                        borderData: FlBorderData(show: false),
-                        titlesData: FlTitlesData(
-                          topTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          rightTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 40,
-                              getTitlesWidget: (val, meta) => Text(
-                                '${val.toInt()}',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: colors.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          ),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 32,
-                              getTitlesWidget: (val, meta) {
-                                final idx = val.toInt();
-                                if (idx < 0 || idx >= chartEntries.length) {
-                                  return const SizedBox.shrink();
-                                }
-                                final short = chartEntries[idx].key
-                                    .split(' ')
-                                    .first;
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Text(
-                                    short.length > 8
-                                        ? '${short.substring(0, 7)}.'
-                                        : short,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: colors.onSurfaceVariant,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                        barGroups: [
-                          for (var i = 0; i < chartEntries.length; i++)
-                            BarChartGroupData(
-                              x: i,
-                              barRods: [
-                                BarChartRodData(
-                                  toY: chartEntries[i].value.toDouble(),
-                                  width: 22,
-                                  borderRadius: const BorderRadius.vertical(
-                                    top: Radius.circular(8),
-                                  ),
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFF7651C8),
-                                      Color(0xFF3B82F6),
-                                    ],
-                                    begin: Alignment.bottomCenter,
-                                    end: Alignment.topCenter,
-                                  ),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  Expanded(flex: 3, child: multiMetricChart),
+                  const SizedBox(width: 16),
+                  Expanded(flex: 2, child: breakdownPie),
                 ],
-              ),
-            ),
+              );
+            },
           ),
           const SizedBox(height: 16),
-        ],
-        if (_dataLoadError != null || _submissions.isEmpty)
+          _buildCpuStyleAccuracyXpChartCard(context, telemetryPoints),
+          const SizedBox(height: 20),
+        ] else ...[
           _DatabaseNotice(
             title: _dataLoadError == null
                 ? 'Sem dados de desempenho'
@@ -2030,15 +2228,376 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
                 'Não há respostas registradas no banco de dados. Atualize para consultar novamente.',
             onRefresh: _refresh,
           ),
-        for (var i = 0; i < ranking.length; i++)
-          Card(
-            child: ListTile(
-              leading: CircleAvatar(child: Text('${i + 1}')),
-              title: Text(ranking[i].key),
-              trailing: Text('${ranking[i].value} XP'),
+          const SizedBox(height: 16),
+        ],
+        if (ranking.isNotEmpty) ...[
+          Text(
+            'Desempenho por Estudante (${ranking.length})',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
+          for (var i = 0; i < ranking.length; i++)
+            Card(
+              elevation: 0,
+              margin: const EdgeInsets.only(bottom: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(
+                  color: colors.outlineVariant.withValues(alpha: 0.7),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    AppUserAvatar(
+                      name: ranking[i].name,
+                      pictureUrl: ranking[i].profilePicture,
+                      radius: 18,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  ranking[i].name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _ClassRankMedalBadge(rank: i + 1),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${ranking[i].submissions} entrega(s) · ${ranking[i].correct}/${ranking[i].questions} corretas (${ranking[i].accuracyPercent.toStringAsFixed(0)}%)',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '${ranking[i].xp} XP',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: Color(0xFF7C3AED),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCpuStyleAccuracyXpChartCard(
+    BuildContext context,
+    List<_PerfTelemetryPoint> points,
+  ) {
+    final accSpots = <FlSpot>[];
+    final xpSpots = <FlSpot>[];
+    for (var i = 0; i < points.length; i++) {
+      accSpots.add(FlSpot(i.toDouble(), points[i].accuracyPercent));
+      xpSpots.add(FlSpot(i.toDouble(), points[i].cumulativeXpPercent));
+    }
+
+    return InteractiveMotionCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.show_chart_rounded, color: Color(0xFF7C3AED)),
+                  SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Curva Acurácia (%) vs Evolução XP (%)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Wrap(
+                spacing: 12,
+                runSpacing: 6,
+                children: [
+                  _ActivityChartLegendDot(
+                    color: Color(0xFF7C3AED),
+                    label: 'Acurácia %',
+                  ),
+                  _ActivityChartLegendDot(
+                    color: AdminGeralTheme.goldMetallic,
+                    label: 'XP Acumulado %',
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Janela móvel cronológica das últimas ${points.length} amostras de entrega.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-      ],
+          const SizedBox(height: 18),
+          SizedBox(
+            height: 230,
+            child: accSpots.isEmpty
+                ? const Center(child: Text('Aguardando primeira entrega...'))
+                : LineChart(
+                    LineChartData(
+                      minY: 0,
+                      maxY: 100,
+                      gridData: FlGridData(
+                        show: true,
+                        horizontalInterval: 25,
+                        getDrawingHorizontalLine: (v) => FlLine(
+                          color: Theme.of(
+                            context,
+                          ).dividerColor.withValues(alpha: 0.4),
+                          strokeWidth: 1,
+                        ),
+                        drawVerticalLine: false,
+                      ),
+                      borderData: FlBorderData(show: false),
+                      titlesData: FlTitlesData(
+                        topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 38,
+                            interval: 25,
+                            getTitlesWidget: (v, _) => Text(
+                              '${v.toInt()}%',
+                              style: const TextStyle(fontSize: 10),
+                            ),
+                          ),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 26,
+                            interval: (points.length / 4)
+                                .clamp(1, 10)
+                                .toDouble(),
+                            getTitlesWidget: (val, _) {
+                              final idx = val.round();
+                              if (idx < 0 || idx >= points.length) {
+                                return const SizedBox.shrink();
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  points[idx].label,
+                                  style: const TextStyle(fontSize: 10),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      lineTouchData: LineTouchData(
+                        touchTooltipData: LineTouchTooltipData(
+                          getTooltipItems: (spots) => spots.map((s) {
+                            final idx = s.x.round();
+                            final pt = (idx >= 0 && idx < points.length)
+                                ? points[idx]
+                                : null;
+                            final timeLabel = pt?.label ?? '';
+                            final metricLabel = s.barIndex == 0
+                                ? 'Acurácia: ${s.y.toStringAsFixed(1)}%'
+                                : 'XP Acumulado: ${pt?.cumulativeXp ?? 0} XP (${s.y.toStringAsFixed(0)}%)';
+                            return LineTooltipItem(
+                              '$timeLabel • $metricLabel',
+                              const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: accSpots,
+                          isCurved: accSpots.length > 2,
+                          color: const Color(0xFF7C3AED),
+                          barWidth: 3,
+                          dotData: FlDotData(show: accSpots.length <= 8),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFF7C3AED).withValues(alpha: 0.28),
+                                const Color(0xFF7C3AED).withValues(alpha: 0.02),
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                          ),
+                        ),
+                        LineChartBarData(
+                          spots: xpSpots,
+                          isCurved: xpSpots.length > 2,
+                          color: AdminGeralTheme.goldMetallic,
+                          barWidth: 3,
+                          dotData: FlDotData(show: xpSpots.length <= 8),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            color: AdminGeralTheme.goldMetallic.withValues(
+                              alpha: 0.10,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    duration: const Duration(milliseconds: 350),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubmissionBreakdownPieCard(
+    BuildContext context, {
+    required int totalCorrect,
+    required int totalWrong,
+    required int pendingCount,
+    required int gradedCount,
+  }) {
+    final hasQuestions = (totalCorrect + totalWrong) > 0;
+    final slices = hasQuestions
+        ? [
+            (
+              label: 'Acertos',
+              value: totalCorrect.toDouble(),
+              color: const Color(0xFF059669),
+            ),
+            (
+              label: 'Erros / Revisar',
+              value: totalWrong.toDouble(),
+              color: const Color(0xFFDC2626),
+            ),
+            if (pendingCount > 0)
+              (
+                label: 'Aguardando revisão',
+                value: pendingCount.toDouble(),
+                color: AdminGeralTheme.goldMetallic,
+              ),
+          ]
+        : [
+            (
+              label: 'Avaliadas',
+              value: gradedCount.toDouble(),
+              color: const Color(0xFF2563EB),
+            ),
+            (
+              label: 'Pendentes',
+              value: pendingCount.toDouble(),
+              color: AdminGeralTheme.goldMetallic,
+            ),
+          ];
+
+    final nonZero = slices.where((s) => s.value > 0).toList();
+    final total = nonZero.fold<double>(0, (sum, s) => sum + s.value);
+
+    return InteractiveMotionCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.pie_chart_rounded, color: Color(0xFF059669)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Distribuição de Acertos & Revisão',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 185,
+            child: total <= 0
+                ? const Center(child: Text('Sem dados suficientes'))
+                : PieChart(
+                    PieChartData(
+                      sectionsSpace: 2,
+                      centerSpaceRadius: 42,
+                      sections: nonZero.map((s) {
+                        final pct = ((s.value / total) * 100).toStringAsFixed(
+                          0,
+                        );
+                        return PieChartSectionData(
+                          color: s.color,
+                          value: s.value,
+                          title: '$pct%',
+                          radius: 44,
+                          titleStyle: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              for (final s in nonZero)
+                _ActivityChartLegendDot(
+                  color: s.color,
+                  label: '${s.label}: ${s.value.toInt()}',
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -2132,7 +2691,7 @@ class _TeacherLearningPageState extends State<TeacherLearningPage> {
 }
 
 class _LearningFeaturePageState extends State<LearningFeaturePage> {
-  final Dio _dio = ApiClient().dio;
+  late final Dio _dio = widget.dio ?? ApiClient().dio;
   late Future<void> _load;
   List<_Exercise> _exercises = [];
   List<_Submission> _submissions = [];
@@ -2140,12 +2699,63 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
   List<Map<String, dynamic>> _ranking = [];
   String? _dataLoadError;
   String _period = 'week';
+  late String _rankingScope = _defaultRankingScopeForSection(widget.section);
+  int? _selectedRankingClassId;
   String _lessonFilter = 'all';
   final Set<String> _collapsedLessonGroups = {};
   _Exercise? _selected;
   _Exercise? _selectedContent;
   final bool _loading = false;
   StreamSubscription<RealtimeSyncEvent>? _realtimeSub;
+
+  static String _defaultRankingScopeForSection(String section) => switch (section) {
+    'groupRanking' => 'app_classes',
+    'rankings' => 'app_teachers',
+    _ => 'app_students',
+  };
+
+  bool get _isRankingSection =>
+      widget.section == 'ranking' ||
+      widget.section == 'groupRanking' ||
+      widget.section == 'rankings';
+
+  List<({int id, String label})> get _availableRankingClasses {
+    final seen = <int>{};
+    final result = <({int id, String label})>[];
+    void addClass(int? id, String label) {
+      if (id == null || !seen.add(id)) return;
+      result.add((id: id, label: label));
+    }
+
+    for (final a in widget.data?.teacherAssignments ?? const []) {
+      if (a.isActive) addClass(a.schoolClassId, a.schoolClassName);
+    }
+    for (final e in widget.data?.studentEnrollments ?? const []) {
+      if (e.isActive) addClass(e.schoolClassId, e.schoolClassName);
+    }
+    if (result.isEmpty) {
+      for (final e in widget.data?.studentEnrollments ?? const []) {
+        addClass(e.schoolClassId, e.schoolClassName);
+      }
+    }
+    return result;
+  }
+
+  int? get _institutionIdForRanking =>
+      widget.data?.teacherProfile?.institutionId ??
+      widget.data?.studentProfile?.institutionId;
+
+  void _initDefaultRankingClassId() {
+    final options = _availableRankingClasses;
+    if (options.isEmpty) {
+      _selectedRankingClassId = null;
+      return;
+    }
+    if (_selectedRankingClassId == null ||
+        !options.any((item) => item.id == _selectedRankingClassId)) {
+      _selectedRankingClassId = options.first.id;
+    }
+  }
 
   @override
   void dispose() {
@@ -2156,6 +2766,7 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
   @override
   void initState() {
     super.initState();
+    _initDefaultRankingClassId();
     _load = _loadData();
     _realtimeSub = RealtimeSyncService.instance.events.listen((event) {
       if (!mounted) return;
@@ -2170,10 +2781,15 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
   @override
   void didUpdateWidget(covariant LearningFeaturePage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data && _selectedRankingClassId == null) {
+      _initDefaultRankingClassId();
+    }
     if (oldWidget.section != widget.section) {
       _selected = null;
       _selectedContent = null;
       _lessonFilter = 'all';
+      _rankingScope = _defaultRankingScopeForSection(widget.section);
+      _initDefaultRankingClassId();
       _load = _loadData();
     }
   }
@@ -2185,15 +2801,41 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
     _dbAchievements = [];
     _ranking = [];
     try {
-      if (widget.section == 'ranking' || widget.section == 'groupRanking') {
-        final type = widget.section == 'groupRanking' ? 'groups' : 'individual';
-        final response = await _dio.get(
-          '/api/exercises/rankings/$type',
-          queryParameters: {'period': _period},
-        );
-        _ranking = (response.data as List)
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList();
+      if (_isRankingSection) {
+        if (_rankingScope == 'app_students' || _rankingScope == 'app_classes') {
+          final type =
+              _rankingScope == 'app_classes' ? 'groups' : 'individual';
+          final response = await _dio.get(
+            '/api/exercises/rankings/$type',
+            queryParameters: {'period': _period},
+          );
+          _ranking = (response.data as List)
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList();
+        } else {
+          final params = <String, dynamic>{
+            'scope': _rankingScope,
+            'period': _period,
+          };
+          if ((_rankingScope == 'class_students' ||
+                  _rankingScope == 'class_teachers') &&
+              _selectedRankingClassId != null) {
+            params['schoolClassId'] = _selectedRankingClassId;
+          }
+          if ((_rankingScope == 'school_students' ||
+                  _rankingScope == 'school_classes' ||
+                  _rankingScope == 'school_teachers') &&
+              _institutionIdForRanking != null) {
+            params['institutionId'] = _institutionIdForRanking;
+          }
+          final response = await _dio.get(
+            '/api/exercises/rankings',
+            queryParameters: params,
+          );
+          _ranking = (response.data as List)
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList();
+        }
       } else if (widget.section == 'achievements') {
         final responses = await Future.wait([
           _dio.get('/api/exercises/submissions'),
@@ -2249,13 +2891,19 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
     await _load;
   }
 
-  String get _title => switch (widget.section) {
-    'history' => 'Meu histórico',
-    'achievements' => 'Conquistas',
-    'ranking' => 'Ranking individual',
-    'groupRanking' => 'Ranking de grupos',
-    _ => 'Atividades e lições',
-  };
+  _RankingScopeDef get _currentRankingDef => _rankingScopes.firstWhere(
+    (item) => item.id == _rankingScope,
+    orElse: () => _rankingScopes[2],
+  );
+
+  String get _title {
+    if (_isRankingSection) return _currentRankingDef.title;
+    return switch (widget.section) {
+      'history' => 'Meu histórico',
+      'achievements' => 'Conquistas',
+      _ => 'Atividades e lições',
+    };
+  }
 
   @override
   Widget build(BuildContext context) => FutureBuilder<void>(
@@ -2296,8 +2944,7 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
       }
       if (widget.section == 'history' ||
           widget.section == 'achievements' ||
-          widget.section == 'ranking' ||
-          widget.section == 'groupRanking') {
+          _isRankingSection) {
         return _submissionsView();
       }
       if (widget.section == 'lesson') return _lessonsView();
@@ -2351,11 +2998,8 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
   );
 
   Widget _submissionsView() {
-    if (widget.section == 'ranking' || widget.section == 'groupRanking') {
-      return _rankingView(
-        grouped: widget.section == 'groupRanking',
-        dataLoadError: _dataLoadError,
-      );
+    if (_isRankingSection) {
+      return _rankingView(dataLoadError: _dataLoadError);
     }
     if (widget.section == 'achievements') {
       return _achievementsView(dataLoadError: _dataLoadError);
@@ -3512,9 +4156,211 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
     );
   }
 
-  Widget _rankingView({required bool grouped, String? dataLoadError}) {
+  static const List<_RankingScopeDef> _rankingScopes = [
+    _RankingScopeDef(
+      id: 'class_students',
+      label: 'Aluno na Turma',
+      title: 'Ranking Individual da Turma',
+      bannerTitle: 'Destaques da sua turma',
+      bannerMessage:
+          'Classificação dos alunos pelo desempenho dentro da turma selecionada.',
+      podiumTitle: 'Pódio da Turma',
+      icon: Icons.person_rounded,
+      isClassScoped: true,
+    ),
+    _RankingScopeDef(
+      id: 'school_students',
+      label: 'Aluno na Escola',
+      title: 'Ranking Individual da Escola',
+      bannerTitle: 'Destaques da escola',
+      bannerMessage:
+          'Classificação geral dos alunos dentro da sua escola/instituição.',
+      podiumTitle: 'Pódio da Escola',
+      icon: Icons.school_rounded,
+    ),
+    _RankingScopeDef(
+      id: 'app_students',
+      label: 'Aluno no App',
+      title: 'Ranking individual',
+      bannerTitle: 'Ranking de XP',
+      bannerMessage:
+          'Complete atividades no prazo e mantenha sua ofensiva acesa para subir no pódio!',
+      podiumTitle: 'Pódio de Liderança',
+      icon: Icons.public_rounded,
+    ),
+    _RankingScopeDef(
+      id: 'school_classes',
+      label: 'Turma na Escola',
+      title: 'Ranking de Turmas na Escola',
+      bannerTitle: 'Disputa entre turmas da escola',
+      bannerMessage:
+          'Compare o XP e acertos acumulados das turmas da sua instituição.',
+      podiumTitle: 'Pódio das Turmas (Escola)',
+      icon: Icons.groups_rounded,
+      isGrouped: true,
+    ),
+    _RankingScopeDef(
+      id: 'app_classes',
+      label: 'Turma no App',
+      title: 'Ranking de grupos',
+      bannerTitle: 'Disputa entre grupos',
+      bannerMessage:
+          'Compare o desempenho das turmas em todo o aplicativo.',
+      podiumTitle: 'Pódio das Turmas',
+      icon: Icons.leaderboard_rounded,
+      isGrouped: true,
+    ),
+    _RankingScopeDef(
+      id: 'schools',
+      label: 'Escolas',
+      title: 'Ranking de Escolas',
+      bannerTitle: 'Escolas e instituições no topo',
+      bannerMessage:
+          'Classificação geral das instituições pelo desempenho de seus alunos.',
+      podiumTitle: 'Pódio das Escolas',
+      icon: Icons.account_balance_rounded,
+      isSchool: true,
+    ),
+    _RankingScopeDef(
+      id: 'class_teachers',
+      label: 'Prof. na Turma',
+      title: 'Melhor Professor na Turma',
+      bannerTitle: 'Desempenho do professor na turma',
+      bannerMessage:
+          'Professores ranqueados pelos acertos e XP dos alunos na turma selecionada.',
+      podiumTitle: 'Pódio de Professores da Turma',
+      icon: Icons.workspace_premium_rounded,
+      isTeacher: true,
+      isClassScoped: true,
+    ),
+    _RankingScopeDef(
+      id: 'school_teachers',
+      label: 'Prof. na Escola',
+      title: 'Melhor Professor na Escola',
+      bannerTitle: 'Melhores professores da escola',
+      bannerMessage:
+          'Professores da sua escola ranqueados pelo rendimento e XP de suas turmas.',
+      podiumTitle: 'Pódio de Professores (Escola)',
+      icon: Icons.menu_book_rounded,
+      isTeacher: true,
+    ),
+    _RankingScopeDef(
+      id: 'app_teachers',
+      label: 'Prof. no App',
+      title: 'Melhor Professor do App',
+      bannerTitle: 'Ranking geral de professores',
+      bannerMessage:
+          'Melhores professores do aplicativo segundo o desempenho médio de suas turmas.',
+      podiumTitle: 'Pódio Geral de Professores',
+      icon: Icons.military_tech_rounded,
+      isTeacher: true,
+    ),
+  ];
+
+  String _entryDisplayName(
+    Map<String, dynamic> row,
+    _RankingScopeDef def, {
+    String fallback = 'Participante',
+  }) {
+    if (def.isGrouped) {
+      return row['className']?.toString().trim().isNotEmpty == true
+          ? row['className'].toString().trim()
+          : fallback;
+    }
+    if (def.isSchool) {
+      final candidate =
+          row['studentName']?.toString().trim().isNotEmpty == true
+          ? row['studentName'].toString().trim()
+          : row['schoolName']?.toString().trim();
+      return (candidate != null && candidate.isNotEmpty) ? candidate : 'Escola';
+    }
+    final name = row['studentName']?.toString().trim();
+    if (name != null && name.isNotEmpty) return name;
+    return def.isTeacher ? 'Professor(a)' : fallback;
+  }
+
+  int _entryAccuracyPercent(Map<String, dynamic> row) {
+    final raw = (row['accuracyPercent'] as num?)?.toDouble();
+    if (raw != null) return raw.round();
+    final correct = (row['correctAnswers'] as num?)?.toInt() ?? 0;
+    final questions = (row['questionCount'] as num?)?.toInt() ?? 0;
+    return questions > 0 ? ((correct * 100) / questions).round() : 0;
+  }
+
+  Widget _buildScopeChip(
+    ColorScheme colors,
+    Brightness brightness,
+    _RankingScopeDef scope,
+  ) {
+    final selected = _rankingScope == scope.id;
+    final vivid = VividIconPalette.colorFor(
+      scope.icon,
+      brightness: brightness,
+    );
+    return ChoiceChip(
+      avatar: Icon(
+        scope.icon,
+        size: 17,
+        color: selected ? colors.onPrimaryContainer : vivid,
+      ),
+      label: Text(
+        scope.label,
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+        ),
+      ),
+      selected: selected,
+      showCheckmark: false,
+      onSelected: (isSelected) {
+        if (!isSelected || _rankingScope == scope.id) return;
+        setState(() {
+          _rankingScope = scope.id;
+          _initDefaultRankingClassId();
+          _load = _loadData();
+        });
+      },
+    );
+  }
+
+  Widget _rankingView({String? dataLoadError}) {
     final colors = Theme.of(context).colorScheme;
+    final brightness = Theme.of(context).brightness;
+    final def = _currentRankingDef;
+    final classOptions = _availableRankingClasses;
+    final studentAndGroupScopes = _rankingScopes
+        .where((s) => !s.isTeacher)
+        .toList();
+    final teacherScopes = _rankingScopes.where((s) => s.isTeacher).toList();
     final topThree = _ranking.take(3).toList();
+    final remainingRows = _ranking.skip(topThree.length).toList();
+
+    Widget podiumFor(int index, double height, Color color) {
+      final row = topThree[index];
+      final name = _entryDisplayName(
+        row,
+        def,
+        fallback: def.isGrouped ? 'Turma' : '${index + 1}º Lugar',
+      );
+      final xp = (row['xpEarned'] as num?)?.toInt() ?? 0;
+      final accPct = _entryAccuracyPercent(row);
+      return Expanded(
+        child: _PodiumColumn(
+          place: index + 1,
+          name: name,
+          profilePicture: (def.isGrouped || def.isSchool)
+              ? null
+              : row['profilePicture']?.toString(),
+          xp: xp,
+          accuracyPercent: accPct,
+          showAccuracyMetric: def.isTeacher,
+          preserveFullName: def.isGrouped || def.isSchool,
+          height: height,
+          color: color,
+        ),
+      );
+    }
+
     return ListView(
       padding: responsivePagePadding(context),
       children: [
@@ -3524,27 +4370,106 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
         ),
         const SizedBox(height: 12),
         AppInfoBanner(
-          title: grouped ? 'Disputa entre grupos' : 'Ranking de XP',
-          message:
-              'Complete atividades no prazo e mantenha sua ofensiva acesa para subir no pódio!',
-          icon: Icons.emoji_events_rounded,
-          accentColor: const Color(0xFFF59E0B),
+          title: def.bannerTitle,
+          message: def.bannerMessage,
+          icon: def.icon,
+          accentColor: def.isTeacher
+              ? const Color(0xFF7C3AED)
+              : const Color(0xFFF59E0B),
         ),
         const SizedBox(height: 12),
-        DropdownButton<String>(
-          value: _period,
-          items: const [
-            DropdownMenuItem(value: 'week', child: Text('Esta semana')),
-            DropdownMenuItem(value: 'month', child: Text('Este mês')),
-            DropdownMenuItem(value: 'year', child: Text('Este ano')),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: colors.outlineVariant.withValues(alpha: 0.7),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Alunos, Turmas & Escolas',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final s in studentAndGroupScopes)
+                    _buildScopeChip(colors, brightness, s),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Melhor Professor (Desempenho das Turmas)',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final s in teacherScopes)
+                    _buildScopeChip(colors, brightness, s),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            DropdownButton<String>(
+              value: _period,
+              items: const [
+                DropdownMenuItem(value: 'week', child: Text('Esta semana')),
+                DropdownMenuItem(value: 'month', child: Text('Este mês')),
+                DropdownMenuItem(value: 'year', child: Text('Este ano')),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _period = value;
+                  _load = _loadData();
+                });
+              },
+            ),
+            if (def.isClassScoped && classOptions.isNotEmpty)
+              DropdownButton<int>(
+                value: classOptions.any((c) => c.id == _selectedRankingClassId)
+                    ? _selectedRankingClassId
+                    : classOptions.first.id,
+                items: [
+                  for (final c in classOptions)
+                    DropdownMenuItem<int>(
+                      value: c.id,
+                      child: Text('Turma: ${c.label}'),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _selectedRankingClassId = value;
+                    _load = _loadData();
+                  });
+                },
+              ),
           ],
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() {
-              _period = value;
-              _load = _loadData();
-            });
-          },
         ),
         const SizedBox(height: 14),
         if (topThree.isNotEmpty) ...[
@@ -3566,12 +4491,14 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                         color: Color(0xFFF59E0B),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        grouped ? 'Pódio das Turmas' : 'Pódio de Liderança',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: colors.onSurface,
+                      Expanded(
+                        child: Text(
+                          def.podiumTitle,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: colors.onSurface,
+                          ),
                         ),
                       ),
                     ],
@@ -3581,44 +4508,14 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       if (topThree.length >= 2)
-                        Expanded(
-                          child: _PodiumColumn(
-                            place: 2,
-                            name:
-                                '${grouped ? topThree[1]['className'] ?? 'Turma' : topThree[1]['studentName'] ?? '2º Lugar'}',
-                            xp: (topThree[1]['xpEarned'] as num?)?.toInt() ?? 0,
-                            height: 92,
-                            color: const Color(0xFF94A3B8),
-                            medal: '🥈',
-                          ),
-                        )
+                        podiumFor(1, 92, const Color(0xFF94A3B8))
                       else
                         const Spacer(),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: _PodiumColumn(
-                          place: 1,
-                          name:
-                              '${grouped ? topThree[0]['className'] ?? 'Turma' : topThree[0]['studentName'] ?? '1º Lugar'}',
-                          xp: (topThree[0]['xpEarned'] as num?)?.toInt() ?? 0,
-                          height: 126,
-                          color: const Color(0xFFF59E0B),
-                          medal: '🏆',
-                        ),
-                      ),
+                      podiumFor(0, 126, const Color(0xFFF59E0B)),
                       const SizedBox(width: 8),
                       if (topThree.length >= 3)
-                        Expanded(
-                          child: _PodiumColumn(
-                            place: 3,
-                            name:
-                                '${grouped ? topThree[2]['className'] ?? 'Turma' : topThree[2]['studentName'] ?? '3º Lugar'}',
-                            xp: (topThree[2]['xpEarned'] as num?)?.toInt() ?? 0,
-                            height: 74,
-                            color: const Color(0xFFD97706),
-                            medal: '🥉',
-                          ),
-                        )
+                        podiumFor(2, 74, const Color(0xFFD97706))
                       else
                         const Spacer(),
                     ],
@@ -3636,25 +4533,201 @@ class _LearningFeaturePageState extends State<LearningFeaturePage> {
                 : 'Ranking indisponível',
             message:
                 dataLoadError ??
-                'Não há resultados registrados no banco de dados para este período. Atualize para consultar novamente.',
+                'Não há resultados registrados no banco de dados para este filtro. Atualize para consultar novamente.',
             onRefresh: _refresh,
           ),
-        for (final row in _ranking)
-          Card(
-            child: ListTile(
-              leading: CircleAvatar(child: Text('${row['rank'] ?? ''}')),
-              title: Text(
-                '${grouped ? row['className'] ?? 'Turma' : row['studentName'] ?? 'Estudante'}',
-              ),
-              subtitle: Text(
-                '${row['activitiesCompleted'] ?? 0} atividades · ${row['correctAnswers'] ?? 0}/${row['questionCount'] ?? 0} corretas',
-              ),
-              trailing: Text('${row['xpEarned'] ?? 0} XP'),
-            ),
-          ),
+        for (final row in remainingRows)
+          _buildRankingListTile(colors, row, def: def),
       ],
     );
   }
+
+  Widget _buildRankingListTile(
+    ColorScheme colors,
+    Map<String, dynamic> row, {
+    required _RankingScopeDef def,
+  }) {
+    final rankNum = (row['rank'] as num?)?.toInt() ?? 0;
+    final name = _entryDisplayName(
+      row,
+      def,
+      fallback: def.isGrouped ? 'Turma' : 'Estudante',
+    );
+    final pictureUrl = (def.isGrouped || def.isSchool)
+        ? null
+        : row['profilePicture']?.toString();
+    final className = row['className']?.toString().trim();
+    final schoolName = row['schoolName']?.toString().trim();
+    final activities = (row['activitiesCompleted'] as num?)?.toInt() ?? 0;
+    final correct = (row['correctAnswers'] as num?)?.toInt() ?? 0;
+    final questions = (row['questionCount'] as num?)?.toInt() ?? 0;
+    final xp = (row['xpEarned'] as num?)?.toInt() ?? 0;
+    final accPct = _entryAccuracyPercent(row);
+
+    final contextParts = <String>[];
+    if (def.isTeacher) {
+      if (className != null && className.isNotEmpty) {
+        contextParts.add('Turmas: $className');
+      }
+      if (schoolName != null &&
+          schoolName.isNotEmpty &&
+          def.id != 'school_teachers') {
+        contextParts.add(schoolName);
+      }
+    } else if (def.isGrouped) {
+      if (schoolName != null &&
+          schoolName.isNotEmpty &&
+          def.id != 'school_classes') {
+        contextParts.add(schoolName);
+      }
+    } else if (def.isSchool) {
+      if (className != null && className.isNotEmpty) {
+        contextParts.add(className);
+      }
+    } else {
+      if (className != null && className.isNotEmpty) {
+        contextParts.add(className);
+      }
+      if (schoolName != null &&
+          schoolName.isNotEmpty &&
+          def.id == 'app_students') {
+        contextParts.add(schoolName);
+      }
+    }
+    final statsLine = '$activities atividades · $correct/$questions corretas';
+    final subtitleText = contextParts.isEmpty
+        ? statsLine
+        : '${contextParts.join(' · ')}\n$statsLine';
+    final accColor = accPct >= 70
+        ? const Color(0xFF15803D)
+        : (accPct >= 50
+              ? const Color(0xFFD97706)
+              : const Color(0xFFDC2626));
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: colors.outlineVariant.withValues(alpha: 0.7),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            AppUserAvatar(
+              name: name,
+              pictureUrl: pictureUrl,
+              radius: 18,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _ClassRankMedalBadge(rank: rankNum),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitleText,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: def.isTeacher
+                  ? [
+                      Text(
+                        'Acertos: $accPct%',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13.5,
+                          color: accColor,
+                        ),
+                      ),
+                      Text(
+                        '$xp XP',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFD97706),
+                        ),
+                      ),
+                    ]
+                  : [
+                      Text(
+                        '$xp XP',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: Color(0xFFD97706),
+                        ),
+                      ),
+                      Text(
+                        'Acertos: $accPct%',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: accColor,
+                        ),
+                      ),
+                    ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RankingScopeDef {
+  const _RankingScopeDef({
+    required this.id,
+    required this.label,
+    required this.title,
+    required this.bannerTitle,
+    required this.bannerMessage,
+    required this.podiumTitle,
+    required this.icon,
+    this.isGrouped = false,
+    this.isSchool = false,
+    this.isTeacher = false,
+    this.isClassScoped = false,
+  });
+
+  final String id;
+  final String label;
+  final String title;
+  final String bannerTitle;
+  final String bannerMessage;
+  final String podiumTitle;
+  final IconData icon;
+  final bool isGrouped;
+  final bool isSchool;
+  final bool isTeacher;
+  final bool isClassScoped;
 }
 
 class _PodiumColumn extends StatelessWidget {
@@ -3664,38 +4737,77 @@ class _PodiumColumn extends StatelessWidget {
     required this.xp,
     required this.height,
     required this.color,
-    required this.medal,
+    this.accuracyPercent = 0,
+    this.showAccuracyMetric = false,
+    this.preserveFullName = false,
+    this.profilePicture,
   });
 
   final int place;
   final String name;
   final int xp;
+  final int accuracyPercent;
+  final bool showAccuracyMetric;
+  final bool preserveFullName;
   final double height;
   final Color color;
-  final String medal;
+  final String? profilePicture;
 
   @override
   Widget build(BuildContext context) {
-    final firstName = name.trim().split(' ').first;
+    final trimmed = name.trim();
+    final firstToken = trimmed.split(' ').first;
+    final displayName =
+        preserveFullName || firstToken.length <= 2 ? trimmed : firstToken;
     final colors = Theme.of(context).colorScheme;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(medal, style: const TextStyle(fontSize: 22)),
-        const SizedBox(height: 4),
-        Text(
-          firstName,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w800,
-            color: colors.onSurface,
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(width: 2.5, color: color),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.25),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: AppUserAvatar(
+            name: name,
+            pictureUrl: profilePicture,
+            radius: place == 1 ? 26 : 21,
+            backgroundColor: color.withValues(alpha: 0.18),
           ),
         ),
+        const SizedBox(height: 8),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 5,
+          runSpacing: 4,
+          children: [
+            Text(
+              displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: colors.onSurface,
+              ),
+            ),
+            _ClassRankMedalBadge(rank: place),
+          ],
+        ),
+        const SizedBox(height: 3),
         Text(
-          '$xp XP',
+          showAccuracyMetric ? '$accuracyPercent% acertos · $xp XP' : '$xp XP',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
@@ -3729,26 +4841,42 @@ class _PodiumColumn extends StatelessWidget {
   }
 }
 
-class _ExerciseRunPage extends StatefulWidget {
-  const _ExerciseRunPage({
+typedef _Exercise = LearningExerciseSessionData;
+typedef _ExerciseQuestion = LearningExerciseQuestionData;
+typedef _ExerciseRunPage = LearningExerciseRunPage;
+
+class LearningExerciseRunPage extends StatefulWidget {
+  const LearningExerciseRunPage({
+    super.key,
     required this.exercise,
     required this.dio,
     required this.onFinished,
     required this.onBack,
+    this.onSubmitCustom,
   });
-  final _Exercise exercise;
+  final LearningExerciseSessionData exercise;
   final Dio dio;
   final VoidCallback onBack;
   final VoidCallback onFinished;
+  final Future<Map<String, dynamic>> Function(
+    List<String> answers,
+    List<int?> selectedOptionIndices,
+  )?
+  onSubmitCustom;
 
   @override
-  State<_ExerciseRunPage> createState() => _ExerciseRunPageState();
+  State<LearningExerciseRunPage> createState() =>
+      _LearningExerciseRunPageState();
 }
 
-class _ExerciseRunPageState extends State<_ExerciseRunPage> {
+class _LearningExerciseRunPageState extends State<LearningExerciseRunPage> {
   final _text = TextEditingController();
   final List<String> _answers = [];
   final List<String?> _selected = [];
+  final List<int?> _selectedOptionIndices = [];
+  final List<Map<String, String>> _matchingPairs = [];
+  String? _activeMatchingLeft;
+  String? _activeMatchingRight;
   Map<String, dynamic>? _recapResult;
   bool _saving = false;
   bool _listening = false;
@@ -3765,12 +4893,21 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
     _selected.addAll(
       List<String?>.filled(widget.exercise.questions.length, null),
     );
+    _selectedOptionIndices.addAll(
+      List<int?>.filled(widget.exercise.questions.length, null),
+    );
+    _matchingPairs.addAll(
+      List.generate(
+        widget.exercise.questions.length,
+        (_) => <String, String>{},
+      ),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _disposed) return;
       _mascotToken = MascotController.instance.enterActivity(
         activityId: 'exercise:${widget.exercise.id}',
         title: widget.exercise.title,
-        mascotHelpMessage: widget.exercise.mascotHelpMessage,
+        mascotHelpMessage: _currentMascotHelpMessage(),
       );
       if (widget.exercise.language.trim().isNotEmpty) {
         MascotController.instance.updateNavigationContext(
@@ -3778,6 +4915,28 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
         );
       }
     });
+  }
+
+  String? _currentMascotHelpMessage() {
+    if (_index >= 0 && _index < widget.exercise.questions.length) {
+      final qTip = widget.exercise.questions[_index].mascotHelpMessage?.trim();
+      if (qTip != null && qTip.isNotEmpty) {
+        return qTip;
+      }
+    }
+    final fallback = widget.exercise.mascotHelpMessage?.trim();
+    return (fallback != null && fallback.isNotEmpty) ? fallback : null;
+  }
+
+  void _syncMascotQuestionContext() {
+    final token = _mascotToken;
+    if (token == null || _disposed) return;
+    final tip = _currentMascotHelpMessage();
+    MascotController.instance.updateActivityContext(
+      token,
+      mascotHelpMessage: tip,
+      clearMascotHelpMessage: tip == null || tip.isEmpty,
+    );
   }
 
   @override
@@ -3797,19 +4956,24 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
 
   Future<void> _speakCurrentPrompt({double rate = 1.0}) async {
     final q = widget.exercise.questions[_index];
-    final targetText = q.spokenReference.isNotEmpty
-        ? q.spokenReference
-        : q.prompt;
+    final targetText = q.spokenReference;
     final ok = await AudioSpeechHelper.speak(
       targetText,
       languageName: widget.exercise.language,
       rate: rate,
     );
-    if (!ok && mounted) {
+    if (!mounted) return;
+    if (!ok) {
       setState(() {
         _audioFallbackMode = true;
         _speechStatus =
             'Síntese de áudio indisponível neste dispositivo. Modo acessível ativado automaticamente.';
+      });
+    } else {
+      setState(() {
+        _speechStatus = rate < 0.8
+            ? 'Reproduzindo áudio em velocidade lenta (0.65x)...'
+            : 'Reproduzindo áudio em ${widget.exercise.language}...';
       });
     }
   }
@@ -3854,9 +5018,31 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
   void _next() {
     if (widget.exercise.questions.isEmpty) return;
     final q = widget.exercise.questions[_index];
-    final answer = q.options.isEmpty
-        ? _text.text.trim()
-        : (_selected[_index] ?? _text.text.trim());
+    final String answer;
+    if (q.isMatching) {
+      final cols = q.matchingColumns;
+      final pairsMap = _matchingPairs[_index];
+      if (cols.lefts.isEmpty || pairsMap.length < cols.lefts.length) {
+        SystemSoundService.defeat();
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                'Associe todos os ${cols.lefts.length} pares antes de continuar.',
+              ),
+            ),
+          );
+        return;
+      }
+      answer = cols.lefts.map((l) => '$l => ${pairsMap[l]}').join(' | ');
+    } else if (q.isTrueFalse) {
+      answer = (_selected[_index] ?? '').trim();
+    } else {
+      answer = q.options.isEmpty
+          ? _text.text.trim()
+          : (_selected[_index] ?? _text.text.trim());
+    }
     if (answer.isEmpty) {
       SystemSoundService.defeat();
       ScaffoldMessenger.of(context)
@@ -3886,8 +5072,12 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
       setState(() {
         _index++;
         _speechStatus = null;
+        _audioFallbackMode = false;
+        _activeMatchingLeft = null;
+        _activeMatchingRight = null;
         _text.clear();
       });
+      _syncMascotQuestionContext();
     } else {
       SystemSoundService.click();
       _submit();
@@ -3897,12 +5087,20 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
   Future<void> _submit() async {
     setState(() => _saving = true);
     try {
-      final response = await widget.dio.post(
-        '/api/exercises/${widget.exercise.id}/submissions',
-        data: {'answers': _answers},
-      );
+      final Map<String, dynamic> result;
+      if (widget.onSubmitCustom != null) {
+        result = await widget.onSubmitCustom!(
+          _answers,
+          _selectedOptionIndices,
+        );
+      } else {
+        final response = await widget.dio.post(
+          '/api/exercises/${widget.exercise.id}/submissions',
+          data: {'answers': _answers},
+        );
+        result = Map<String, dynamic>.from(response.data as Map);
+      }
       if (!mounted) return;
-      final result = Map<String, dynamic>.from(response.data as Map);
       final int correct = (result['correctCount'] as num?)?.toInt() ?? 0;
       final int total =
           (result['questionCount'] as num?)?.toInt() ??
@@ -3945,7 +5143,6 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
 
   Widget _buildRecapScreen(BuildContext context, Map<String, dynamic> result) {
     final colors = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final int correct = (result['correctCount'] as num?)?.toInt() ?? 0;
     final int total =
         (result['questionCount'] as num?)?.toInt() ??
@@ -4009,9 +5206,11 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Parabéns!',
-                      style: TextStyle(
+                    Text(
+                      result['passed'] == false
+                          ? 'Continue Praticando!'
+                          : 'Parabéns!',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
@@ -4019,7 +5218,10 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Você completou o exercício',
+                      (result['feedback']?.toString().trim().isNotEmpty == true)
+                          ? result['feedback'].toString().trim()
+                          : 'Você completou o exercício',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 14,
@@ -4101,30 +5303,40 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                             _buildRecapStatTile(
                               context: context,
                               icon: Icons.bolt_rounded,
-                              iconColor: const Color(0xFF16A34A),
+                              iconColor: VividIconPalette.colorFor(
+                                Icons.bolt_rounded,
+                                brightness: Theme.of(context).brightness,
+                              ),
                               label: 'XP Ganho',
                               value: '+$xpEarned XP',
                             ),
                             _buildRecapStatTile(
                               context: context,
                               icon: Icons.trending_up_rounded,
-                              iconColor: const Color(0xFFEA580C),
+                              iconColor: VividIconPalette.colorFor(
+                                Icons.local_fire_department_rounded,
+                                brightness: Theme.of(context).brightness,
+                              ),
                               label: 'Sequência',
                               value: 'Mantida!',
                             ),
                             _buildRecapStatTile(
                               context: context,
                               icon: Icons.military_tech_rounded,
-                              iconColor: isDark
-                                  ? const Color(0xFFC084FC)
-                                  : const Color(0xFF7E22CE),
+                              iconColor: VividIconPalette.colorFor(
+                                Icons.military_tech_rounded,
+                                brightness: Theme.of(context).brightness,
+                              ),
                               label: 'Conquista',
                               value: '$percent% de Acerto!',
                             ),
                             _buildRecapStatTile(
                               context: context,
                               icon: Icons.verified_rounded,
-                              iconColor: const Color(0xFF2563EB),
+                              iconColor: VividIconPalette.colorFor(
+                                Icons.verified_rounded,
+                                brightness: Theme.of(context).brightness,
+                              ),
                               label: 'Desempenho',
                               value: '$correct/$safeTotal certas',
                             ),
@@ -4435,10 +5647,13 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                     ],
                   ),
                 ),
-                if (!isCorrect && question.answer.trim().isNotEmpty) ...[
+                if (!isCorrect &&
+                    ((qf['correctAnswer']?.toString().trim().isNotEmpty ??
+                            false) ||
+                        question.answer.trim().isNotEmpty)) ...[
                   const SizedBox(height: 3),
                   Text(
-                    'Resposta correta: ${question.answer.trim()}',
+                    'Resposta correta: ${(qf['correctAnswer']?.toString().trim().isNotEmpty ?? false) ? qf['correctAnswer'].toString().trim() : question.answer.trim()}',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -4524,6 +5739,34 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                 minHeight: 8,
                 borderRadius: BorderRadius.circular(8),
               ),
+              if ((q.mascotHelpMessage?.trim().isNotEmpty ?? false)) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ActionChip(
+                    avatar: const Icon(
+                      Icons.tips_and_updates_rounded,
+                      size: 16,
+                      color: Color(0xFF4F46E5),
+                    ),
+                    label: Text(
+                      'Dica da Questão ${_index + 1} (Bode Branco)',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF4F46E5),
+                      ),
+                    ),
+                    backgroundColor: const Color(
+                      0xFF4F46E5,
+                    ).withValues(alpha: 0.1),
+                    side: BorderSide(
+                      color: const Color(0xFF4F46E5).withValues(alpha: 0.35),
+                    ),
+                    onPressed: MascotController.instance.toggleChat,
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -4537,12 +5780,14 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton.filledTonal(
-                    tooltip: 'Ouvir enunciado em ${widget.exercise.language}',
-                    onPressed: () => _speakCurrentPrompt(rate: 1.0),
-                    icon: const Icon(Icons.volume_up_rounded),
-                  ),
+                  if (!q.isListeningStyle) ...[
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
+                      tooltip: 'Ouvir enunciado em ${widget.exercise.language}',
+                      onPressed: () => _speakCurrentPrompt(rate: 1.0),
+                      icon: const Icon(Icons.volume_up_rounded),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 16),
@@ -4566,7 +5811,9 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Exercício com Áudio e Pronúncia (${widget.exercise.language})',
+                              q.isListeningStyle
+                                  ? 'Mecânica de Escuta — Ouça com atenção (${widget.exercise.language})'
+                                  : 'Exercício com Áudio e Pronúncia (${widget.exercise.language})',
                               style: TextStyle(
                                 fontWeight: FontWeight.w800,
                                 color: colors.onSurface,
@@ -4583,7 +5830,11 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                           FilledButton.icon(
                             onPressed: () => _speakCurrentPrompt(rate: 1.0),
                             icon: const Icon(Icons.volume_up_rounded, size: 18),
-                            label: const Text('Ouvir frase'),
+                            label: Text(
+                              q.isListeningStyle
+                                  ? 'Ouvir áudio'
+                                  : 'Ouvir frase',
+                            ),
                           ),
                           OutlinedButton.icon(
                             onPressed: () => _speakCurrentPrompt(rate: 0.65),
@@ -4593,20 +5844,22 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                             ),
                             label: const Text('Ouvir devagar'),
                           ),
-                          FilledButton.tonalIcon(
-                            onPressed: _listening ? null : _listenMicrophone,
-                            icon: Icon(
-                              _listening
-                                  ? Icons.mic_rounded
-                                  : Icons.mic_none_rounded,
-                              size: 18,
+                          if (!q.isListeningStyle ||
+                              AudioSpeechHelper.isSttSupported)
+                            FilledButton.tonalIcon(
+                              onPressed: _listening ? null : _listenMicrophone,
+                              icon: Icon(
+                                _listening
+                                    ? Icons.mic_rounded
+                                    : Icons.mic_none_rounded,
+                                size: 18,
+                              ),
+                              label: Text(
+                                _listening
+                                    ? 'Ouvindo microfone...'
+                                    : 'Falar / Transcrever',
+                              ),
                             ),
-                            label: Text(
-                              _listening
-                                  ? 'Ouvindo microfone...'
-                                  : 'Falar / Transcrever',
-                            ),
-                          ),
                         ],
                       ),
                       if (_speechStatus != null) ...[
@@ -4635,8 +5888,8 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                           ),
                           label: Text(
                             _audioFallbackMode
-                                ? 'Modo acessível por texto ativo (ocultar transcrição)'
-                                : 'Não posso ouvir ou falar agora (usar alternativa acessível)',
+                                ? 'Ocultar transcrição acessível'
+                                : 'Não consigo ouvir agora (mostrar transcrição acessível)',
                             style: const TextStyle(fontSize: 12),
                           ),
                         ),
@@ -4662,60 +5915,77 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
                   ),
                 ),
               ],
-              if (isOpenEnded)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Text(
-                    'Questão aberta/discursiva: escreva sua resposta com suas próprias palavras. Ela será avaliada por critérios/rubrica e ficará disponível para revisão do professor.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colors.onSurfaceVariant,
+              if (q.isMatching)
+                _buildMatchingBoard(context, q)
+              else if (q.isTrueFalse)
+                _buildTrueFalseSelector(context, q)
+              else ...[
+                if (isOpenEnded)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text(
+                      'Questão aberta/discursiva: escreva sua resposta com suas próprias palavras. Ela será avaliada por critérios/rubrica e ficará disponível para revisão do professor.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colors.onSurfaceVariant,
+                      ),
                     ),
                   ),
-                ),
-              if (q.options.isEmpty || _audioFallbackMode || isAudio)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: TextField(
-                    controller: _text,
-                    autofocus: q.options.isEmpty,
-                    maxLines: isOpenEnded ? 4 : 2,
-                    minLines: isOpenEnded ? 3 : 1,
-                    onChanged: (_) {
-                      if (q.options.isNotEmpty && _selected[_index] != null) {
-                        setState(() => _selected[_index] = null);
-                      }
-                    },
-                    decoration: InputDecoration(
-                      labelText: isAudio
-                          ? 'Transcrição da sua fala ou resposta escrita'
-                          : (isOpenEnded
-                                ? 'Sua resposta discursiva'
-                                : 'Sua resposta'),
-                      border: const OutlineInputBorder(),
+                if (q.options.isEmpty ||
+                    (_audioFallbackMode && q.options.isEmpty) ||
+                    (isAudio && q.options.isEmpty))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: TextField(
+                      controller: _text,
+                      autofocus: q.options.isEmpty,
+                      maxLines: isOpenEnded ? 4 : 2,
+                      minLines: isOpenEnded ? 3 : 1,
+                      onChanged: (_) {
+                        if (q.options.isNotEmpty && _selected[_index] != null) {
+                          setState(() {
+                            _selected[_index] = null;
+                            _selectedOptionIndices[_index] = null;
+                          });
+                        }
+                      },
+                      decoration: InputDecoration(
+                        labelText: q.isListeningStyle
+                            ? 'Digite exatamente o que você ouviu'
+                            : (isAudio
+                                  ? 'Transcrição da sua fala ou resposta escrita'
+                                  : (isOpenEnded
+                                        ? 'Sua resposta discursiva'
+                                        : 'Sua resposta')),
+                        border: const OutlineInputBorder(),
+                      ),
                     ),
                   ),
-                ),
-              for (final option in q.options)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: OutlinedButton(
-                    onPressed: () => setState(() {
-                      _selected[_index] = option;
-                      _text.clear();
-                    }),
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: _selected[_index] == option
-                          ? Theme.of(context).colorScheme.primaryContainer
-                          : Theme.of(context).colorScheme.surface,
-                      padding: const EdgeInsets.all(16),
-                    ),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(option),
+                for (var optIdx = 0; optIdx < q.options.length; optIdx++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: OutlinedButton(
+                      onPressed: () => setState(() {
+                        _selected[_index] = q.options[optIdx];
+                        _selectedOptionIndices[_index] = optIdx;
+                        _text.clear();
+                      }),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor:
+                            _selectedOptionIndices[_index] == optIdx ||
+                                (_selectedOptionIndices[_index] == null &&
+                                    _selected[_index] == q.options[optIdx])
+                            ? Theme.of(context).colorScheme.primaryContainer
+                            : Theme.of(context).colorScheme.surface,
+                        padding: const EdgeInsets.all(16),
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(q.options[optIdx]),
+                      ),
                     ),
                   ),
-                ),
+              ],
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: _saving ? null : _next,
@@ -4735,6 +6005,331 @@ class _ExerciseRunPageState extends State<_ExerciseRunPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildTrueFalseSelector(BuildContext context, _ExerciseQuestion q) {
+    final options = q.effectiveTrueFalseOptions;
+    final colors = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        for (var i = 0; i < options.length; i++) ...[
+          if (i > 0) const SizedBox(width: 12),
+          Expanded(
+            child: Builder(
+              builder: (context) {
+                final opt = options[i];
+                final isTrue = opt.trim().toLowerCase().startsWith('verdadeir');
+                final accent = isTrue
+                    ? const Color(0xFF16A34A)
+                    : const Color(0xFFDC2626);
+                final selected =
+                    _selectedOptionIndices[_index] == i ||
+                    (_selectedOptionIndices[_index] == null &&
+                        _selected[_index] == opt);
+                return InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => setState(() {
+                    _selected[_index] = opt;
+                    _selectedOptionIndices[_index] = i;
+                    _text.clear();
+                  }),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 22,
+                    ),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? accent.withValues(alpha: 0.14)
+                          : colors.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: selected ? accent : colors.outlineVariant,
+                        width: selected ? 2.2 : 1.2,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isTrue
+                              ? Icons.check_circle_rounded
+                              : Icons.cancel_rounded,
+                          size: 32,
+                          color: selected ? accent : colors.onSurfaceVariant,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          opt,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: selected ? accent : colors.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildMatchingBoard(BuildContext context, _ExerciseQuestion q) {
+    const pairPalette = <Color>[
+      Color(0xFF2563EB),
+      Color(0xFF16A34A),
+      Color(0xFFD97706),
+      Color(0xFF7C3AED),
+      Color(0xFFDB2777),
+      Color(0xFF0891B2),
+    ];
+    final colors = Theme.of(context).colorScheme;
+    final cols = q.matchingColumns;
+    final pairs = _matchingPairs[_index];
+
+    int? pairBadgeNumberForRight(String rightItem) {
+      for (var i = 0; i < cols.lefts.length; i++) {
+        if (pairs[cols.lefts[i]] == rightItem) return i + 1;
+      }
+      return null;
+    }
+
+    void tapLeft(String leftItem) {
+      setState(() {
+        if (pairs.containsKey(leftItem)) {
+          pairs.remove(leftItem);
+          _activeMatchingLeft = leftItem;
+        } else if (_activeMatchingRight != null) {
+          final targetRight = _activeMatchingRight!;
+          pairs.removeWhere((_, v) => v == targetRight);
+          pairs[leftItem] = targetRight;
+          _activeMatchingLeft = null;
+          _activeMatchingRight = null;
+          SystemSoundService.pop();
+        } else {
+          _activeMatchingLeft =
+              _activeMatchingLeft == leftItem ? null : leftItem;
+        }
+      });
+    }
+
+    void tapRight(String rightItem) {
+      setState(() {
+        final existingKey = pairs.entries
+            .where((e) => e.value == rightItem)
+            .map((e) => e.key)
+            .firstOrNull;
+        if (existingKey != null && _activeMatchingLeft == null) {
+          pairs.remove(existingKey);
+          _activeMatchingRight = rightItem;
+          return;
+        }
+        if (_activeMatchingLeft != null) {
+          final leftItem = _activeMatchingLeft!;
+          pairs.removeWhere((_, v) => v == rightItem);
+          pairs[leftItem] = rightItem;
+          _activeMatchingLeft = null;
+          _activeMatchingRight = null;
+          SystemSoundService.pop();
+        } else {
+          _activeMatchingRight =
+              _activeMatchingRight == rightItem ? null : rightItem;
+        }
+      });
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                'Toque em um item da esquerda e depois no par à direita (${pairs.length}/${cols.lefts.length}).',
+                style: TextStyle(fontSize: 12.5, color: colors.onSurfaceVariant),
+              ),
+            ),
+            if (pairs.isNotEmpty)
+              TextButton.icon(
+                onPressed: () => setState(() {
+                  pairs.clear();
+                  _activeMatchingLeft = null;
+                  _activeMatchingRight = null;
+                }),
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Limpar pares'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < cols.lefts.length; i++) ...[
+                    Builder(
+                      builder: (context) {
+                        final item = cols.lefts[i];
+                        final isPaired = pairs.containsKey(item);
+                        final isActive = _activeMatchingLeft == item;
+                        final accent =
+                            pairPalette[i % pairPalette.length];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () => tapLeft(item),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isPaired
+                                    ? accent.withValues(alpha: 0.14)
+                                    : (isActive
+                                          ? colors.primaryContainer
+                                          : colors.surface),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: isPaired
+                                      ? accent
+                                      : (isActive
+                                            ? colors.primary
+                                            : colors.outlineVariant),
+                                  width: isPaired || isActive ? 2 : 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 12,
+                                    backgroundColor: isPaired
+                                        ? accent
+                                        : colors.surfaceContainerHighest,
+                                    child: Text(
+                                      '${i + 1}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        color: isPaired
+                                            ? Colors.white
+                                            : colors.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      item,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final item in cols.rights) ...[
+                    Builder(
+                      builder: (context) {
+                        final badgeNum = pairBadgeNumberForRight(item);
+                        final isPaired = badgeNum != null;
+                        final isActive = _activeMatchingRight == item;
+                        final accent = isPaired
+                            ? pairPalette[(badgeNum - 1) % pairPalette.length]
+                            : colors.primary;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () => tapRight(item),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isPaired
+                                    ? accent.withValues(alpha: 0.14)
+                                    : (isActive
+                                          ? colors.primaryContainer
+                                          : colors.surface),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: isPaired
+                                      ? accent
+                                      : (isActive
+                                            ? colors.primary
+                                            : colors.outlineVariant),
+                                  width: isPaired || isActive ? 2 : 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      item,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13.5,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isPaired) ...[
+                                    const SizedBox(width: 8),
+                                    CircleAvatar(
+                                      radius: 12,
+                                      backgroundColor: accent,
+                                      child: Text(
+                                        '$badgeNum',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -5368,8 +6963,8 @@ class _ExerciseContentPageState extends State<_ExerciseContentPage> {
   }
 }
 
-class _Exercise {
-  const _Exercise({
+class LearningExerciseSessionData {
+  const LearningExerciseSessionData({
     required this.id,
     required this.title,
     required this.language,
@@ -5389,7 +6984,7 @@ class _Exercise {
   final String title, language, level, className, category, theme, teacher;
   final String? description, contentBody, mediaUrl, mascotHelpMessage;
   final DateTime? dueDate;
-  final List<_ExerciseQuestion> questions;
+  final List<LearningExerciseQuestionData> questions;
   bool get isContent =>
       questions.isEmpty &&
       ((contentBody?.trim().isNotEmpty ?? false) ||
@@ -5409,42 +7004,52 @@ class _Exercise {
       ? 'Sem prazo de entrega'
       : 'Entrega: ${dueDate!.day.toString().padLeft(2, '0')}/${dueDate!.month.toString().padLeft(2, '0')}/${dueDate!.year}';
 
-  factory _Exercise.fromJson(Map<String, dynamic> json) => _Exercise(
-    id: json['id'] as int,
-    title: json['title'] as String? ?? 'Atividade',
-    language: json['languageName'] as String? ?? '',
-    level: json['proficiencyLevel'] as String? ?? '',
-    className: json['schoolClassName'] as String? ?? '',
-    category: json['category'] as String? ?? '',
-    theme: json['theme'] as String? ?? '',
-    teacher: json['teacherName'] as String? ?? '',
-    description: json['description'] as String?,
-    contentBody: json['contentBody'] as String?,
-    mediaUrl: json['mediaUrl'] as String?,
-    mascotHelpMessage: json['mascotHelpMessage'] as String?,
-    dueDate: DateTime.tryParse(json['dueDate']?.toString() ?? ''),
-    questions: (json['questions'] as List? ?? [])
-        .map(
-          (item) => _ExerciseQuestion.fromJson(Map<String, dynamic>.from(item)),
-        )
-        .toList(),
-  );
+  factory LearningExerciseSessionData.fromJson(Map<String, dynamic> json) =>
+      LearningExerciseSessionData(
+        id: json['id'] as int,
+        title: json['title'] as String? ?? 'Atividade',
+        language: json['languageName'] as String? ?? '',
+        level: json['proficiencyLevel'] as String? ?? '',
+        className: json['schoolClassName'] as String? ?? '',
+        category: json['category'] as String? ?? '',
+        theme: json['theme'] as String? ?? '',
+        teacher: json['teacherName'] as String? ?? '',
+        description: json['description'] as String?,
+        contentBody: json['contentBody'] as String?,
+        mediaUrl: json['mediaUrl'] as String?,
+        mascotHelpMessage: json['mascotHelpMessage'] as String?,
+        dueDate: DateTime.tryParse(json['dueDate']?.toString() ?? ''),
+        questions: (json['questions'] as List? ?? [])
+            .map(
+              (item) => LearningExerciseQuestionData.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList(),
+      );
 }
 
-class _ExerciseQuestion {
-  const _ExerciseQuestion(
+class LearningExerciseQuestionData {
+  const LearningExerciseQuestionData(
     this.prompt,
     this.options, {
     this.style = 'Múltipla escolha',
     this.answer = '',
+    this.mascotHelpMessage,
+    this.audioText,
   });
   final String prompt;
   final List<String> options;
   final String style;
   final String answer;
+  final String? mascotHelpMessage;
+  final String? audioText;
 
-  String get spokenReference =>
-      answer.trim().isNotEmpty ? answer.trim() : prompt.trim();
+  String get spokenReference {
+    final spoken = audioText?.trim() ?? '';
+    if (spoken.isNotEmpty) return spoken;
+    return answer.trim().isNotEmpty ? answer.trim() : prompt.trim();
+  }
 
   bool get isOpenEnded {
     final s = style.trim().toLowerCase();
@@ -5454,12 +7059,84 @@ class _ExerciseQuestion {
         s.contains('livre');
   }
 
+  bool get isTrueFalse {
+    final s = style.trim().toLowerCase();
+    return s.contains('verdadeiro') ||
+        s.contains('falso') ||
+        s.contains('true_false') ||
+        s.contains('true/false');
+  }
+
+  bool get isMatching {
+    final s = style.trim().toLowerCase();
+    return s.contains('correspond') ||
+        s.contains('match') ||
+        s.contains('associ') ||
+        s.contains('ligar');
+  }
+
+  bool get isListeningStyle {
+    final s = style.trim().toLowerCase();
+    return s.contains('áudio') ||
+        s.contains('audio') ||
+        s.contains('escuta') ||
+        s.contains('listening');
+  }
+
+  List<String> get effectiveTrueFalseOptions =>
+      options.length >= 2 ? options.take(2).toList() : const ['Verdadeiro', 'Falso'];
+
+  ({List<String> lefts, List<String> rights}) get matchingColumns {
+    final tokenLefts = <String>[];
+    final tokenRights = <String>[];
+    for (final raw in options) {
+      if (raw.startsWith('LEFT::')) {
+        tokenLefts.add(raw.substring(6).trim());
+      } else if (raw.startsWith('RIGHT::')) {
+        tokenRights.add(raw.substring(7).trim());
+      }
+    }
+    if (tokenLefts.isNotEmpty && tokenRights.isNotEmpty) {
+      return (lefts: tokenLefts, rights: tokenRights);
+    }
+    final lefts = <String>[];
+    final rights = <String>[];
+    for (final raw in options) {
+      String? left;
+      String? right;
+      for (final sep in const ['=>', '->', '↔', '::', '=']) {
+        final idx = raw.indexOf(sep);
+        if (idx > 0 && idx + sep.length < raw.length) {
+          left = raw.substring(0, idx).trim();
+          right = raw.substring(idx + sep.length).trim();
+          break;
+        }
+      }
+      if (left != null && left.isNotEmpty && right != null && right.isNotEmpty) {
+        lefts.add(left);
+        rights.add(right);
+      }
+    }
+    final shuffledRights = List<String>.from(rights);
+    if (shuffledRights.length > 1) {
+      final original = List<String>.from(shuffledRights);
+      shuffledRights.shuffle(math.Random(prompt.hashCode));
+      if (shuffledRights.join('\u0000') == original.join('\u0000')) {
+        final first = shuffledRights.removeAt(0);
+        shuffledRights.add(first);
+      }
+    }
+    return (lefts: lefts, rights: shuffledRights);
+  }
+
   bool isAudioQuestion(String exerciseCategory) {
     final s = style.trim().toLowerCase();
     final c = exerciseCategory.trim().toLowerCase();
     final p = prompt.trim().toLowerCase();
     return s.contains('áudio') ||
         s.contains('audio') ||
+        s.contains('escuta') ||
+        s.contains('listening') ||
         s.contains('pronúncia') ||
         s.contains('pronuncia') ||
         c.contains('pronúncia') ||
@@ -5471,15 +7148,27 @@ class _ExerciseQuestion {
         p.contains('repita em voz alta');
   }
 
-  factory _ExerciseQuestion.fromJson(Map<String, dynamic> json) =>
-      _ExerciseQuestion(
-        json['question'] as String? ?? '',
-        (json['options'] as List? ?? [])
-            .map((item) => item.toString())
-            .toList(),
-        style: json['style'] as String? ?? 'Múltipla escolha',
-        answer: json['answer'] as String? ?? '',
-      );
+  factory LearningExerciseQuestionData.fromJson(Map<String, dynamic> json) {
+    final rawTip =
+        (json['mascotHelpMessage'] ?? json['mascot_help_message'])
+            ?.toString()
+            .trim();
+    final rawAudio =
+        (json['audioText'] ?? json['audio_text'])?.toString().trim();
+    final rawAns =
+        (json['answer'] ?? json['correctAnswer'] ?? json['expectedAnswer'])
+            ?.toString();
+    return LearningExerciseQuestionData(
+      json['question'] as String? ?? '',
+      (json['options'] as List? ?? [])
+          .map((item) => item.toString())
+          .toList(),
+      style: json['style'] as String? ?? 'Múltipla escolha',
+      answer: rawAns ?? '',
+      mascotHelpMessage: (rawTip == null || rawTip.isEmpty) ? null : rawTip,
+      audioText: (rawAudio == null || rawAudio.isEmpty) ? null : rawAudio,
+    );
+  }
 }
 
 class _Submission {
@@ -5711,13 +7400,20 @@ class _AchievementTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final earnedAccent = isDark
-        ? const Color(0xFF34D399)
-        : const Color(0xFF059669);
+    final brightness = Theme.of(context).brightness;
+    final isDark = brightness == Brightness.dark;
+    final semanticColor = VividIconPalette.colorFor(
+      achievement.icon,
+      brightness: brightness,
+    );
+    final earnedAccent = semanticColor;
+    final checkGreen = VividIconPalette.colorFor(
+      Icons.check_circle_rounded,
+      brightness: brightness,
+    );
     final iconColor = achievement.earned
-        ? earnedAccent
-        : colors.onSurfaceVariant;
+        ? semanticColor
+        : semanticColor.withValues(alpha: isDark ? 0.55 : 0.6);
     final date = achievement.earnedAt;
     final dateLabel = date == null
         ? null
@@ -5726,7 +7422,7 @@ class _AchievementTile extends StatelessWidget {
       margin: EdgeInsets.zero,
       elevation: achievement.earned ? 1 : 0,
       color: achievement.earned && isDark
-          ? const Color(0xFF102A22)
+          ? semanticColor.withValues(alpha: 0.1)
           : colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
@@ -5747,8 +7443,8 @@ class _AchievementTile extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: achievement.earned
-                    ? earnedAccent.withValues(alpha: isDark ? 0.22 : 0.14)
-                    : colors.surfaceContainerHighest,
+                    ? earnedAccent.withValues(alpha: isDark ? 0.24 : 0.16)
+                    : semanticColor.withValues(alpha: isDark ? 0.1 : 0.08),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(achievement.icon, color: iconColor, size: 24),
@@ -5774,7 +7470,7 @@ class _AchievementTile extends StatelessWidget {
                       if (achievement.earned)
                         Icon(
                           Icons.check_circle_rounded,
-                          color: earnedAccent,
+                          color: checkGreen,
                           size: 17,
                         ),
                     ],
@@ -5793,7 +7489,7 @@ class _AchievementTile extends StatelessWidget {
                       'Conquistado em $dateLabel',
                       style: TextStyle(
                         fontSize: 12,
-                        color: earnedAccent,
+                        color: checkGreen,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -5806,25 +7502,6 @@ class _AchievementTile extends StatelessWidget {
       ),
     );
   }
-}
-
-class _AchievementCard extends StatelessWidget {
-  const _AchievementCard({
-    required this.icon,
-    required this.title,
-    required this.detail,
-  });
-  final IconData icon;
-  final String title, detail;
-  @override
-  Widget build(BuildContext context) => Card(
-    margin: const EdgeInsets.only(bottom: 12),
-    child: ListTile(
-      leading: CircleAvatar(child: Icon(icon)),
-      title: Text(title),
-      subtitle: Text(detail),
-    ),
-  );
 }
 
 class _EmptyPanel extends StatelessWidget {
@@ -6194,11 +7871,15 @@ class StudentClassesView extends StatefulWidget {
     super.key,
     required this.data,
     required this.onRefresh,
+    this.onSilentRefresh,
     this.onSectionSelected,
+    this.dio,
   });
   final DashboardData data;
   final VoidCallback onRefresh;
+  final VoidCallback? onSilentRefresh;
   final ValueChanged<String>? onSectionSelected;
+  final Dio? dio;
 
   @override
   State<StudentClassesView> createState() => _StudentClassesViewState();
@@ -6206,14 +7887,35 @@ class StudentClassesView extends StatefulWidget {
 
 class _StudentClassesViewState extends State<StudentClassesView> {
   StudentEnrollment? _selectedEnrollment;
+  List<StudentEnrollment>? _sectionEnrollments;
   List<Map<String, dynamic>> _availableClasses = const [];
   bool _loadingAvailable = false;
+  bool _loadingSection = false;
   int? _joiningClassId;
+
+  Dio get _dio => widget.dio ?? ApiClient().dio;
+  bool get _canCallBackend =>
+      widget.dio != null || AppConfig.hasValidApiBaseUrl;
 
   @override
   void initState() {
     super.initState();
     unawaited(_loadAvailableClasses());
+  }
+
+  @override
+  void didUpdateWidget(covariant StudentClassesView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data.studentProfile?.id != widget.data.studentProfile?.id) {
+      _sectionEnrollments = null;
+      unawaited(_reloadClassesSection());
+      return;
+    }
+    if (oldWidget.data.studentEnrollments != widget.data.studentEnrollments &&
+        _joiningClassId == null &&
+        !_loadingSection) {
+      _sectionEnrollments = widget.data.studentEnrollments;
+    }
   }
 
   List<String> get _studentCanonicalLanguages {
@@ -6226,26 +7928,100 @@ class _StudentClassesViewState extends State<StudentClassesView> {
     return kSupportedLanguages.where(resolved.contains).toList();
   }
 
+  Future<List<StudentEnrollment>?> _fetchStudentEnrollments(
+    int studentId,
+  ) async {
+    Future<List<StudentEnrollment>> loadFrom(String url) async {
+      final response = await _dio.get<List<dynamic>>(url);
+      return (response.data ?? const [])
+          .whereType<Map>()
+          .map(
+            (e) => StudentEnrollmentModel.fromJson(
+              Map<String, dynamic>.from(e),
+            ).toEntity(),
+          )
+          .toList();
+    }
+
+    try {
+      final all = await loadFrom(
+        '${AppConfig.apiBaseUrl}/api/students/$studentId/enrollments',
+      );
+      if (all.isNotEmpty) return all;
+      return await loadFrom(
+        AppConfig.studentActiveEnrollmentsEndpoint(studentId).toString(),
+      );
+    } catch (_) {
+      try {
+        return await loadFrom(
+          AppConfig.studentActiveEnrollmentsEndpoint(studentId).toString(),
+        );
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  Future<List<Map<String, dynamic>>?> _fetchAvailableClasses() async {
+    try {
+      final response = await _dio.get<List<dynamic>>(
+        '${AppConfig.apiBaseUrl}/api/students/me/available-classes',
+        queryParameters: const {'includeIneligible': true},
+      );
+      return (response.data ?? const [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _loadAvailableClasses() async {
-    if (!AppConfig.hasValidApiBaseUrl || widget.data.studentProfile == null) {
+    if (!_canCallBackend || widget.data.studentProfile == null) {
       return;
     }
     setState(() => _loadingAvailable = true);
     try {
-      final response = await ApiClient().dio.get<List<dynamic>>(
-        '${AppConfig.apiBaseUrl}/api/students/me/available-classes',
-        queryParameters: const {'includeIneligible': true},
-      );
-      if (!mounted) return;
-      final list = (response.data ?? const [])
-          .whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList();
+      final list = await _fetchAvailableClasses();
+      if (!mounted || list == null) return;
       setState(() => _availableClasses = list);
-    } catch (_) {
-      // Silencioso em modo offline/teste sem servidor backend conectado.
     } finally {
       if (mounted) setState(() => _loadingAvailable = false);
+    }
+  }
+
+  Future<void> _reloadClassesSection({bool showSpinner = false}) async {
+    final studentId = widget.data.studentProfile?.id;
+    if (!_canCallBackend || studentId == null) {
+      return;
+    }
+    if (showSpinner && mounted) {
+      setState(() => _loadingSection = true);
+    }
+    try {
+      final results = await Future.wait<dynamic>([
+        _fetchStudentEnrollments(studentId),
+        _fetchAvailableClasses(),
+      ]);
+      if (!mounted) return;
+      final fetchedEnrollments = results[0] as List<StudentEnrollment>?;
+      final fetchedAvailable = results[1] as List<Map<String, dynamic>>?;
+      setState(() {
+        if (fetchedEnrollments != null) {
+          _sectionEnrollments = fetchedEnrollments;
+        }
+        if (fetchedAvailable != null) {
+          _availableClasses = fetchedAvailable;
+        }
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingSection = false;
+          _loadingAvailable = false;
+        });
+      }
     }
   }
 
@@ -6256,16 +8032,36 @@ class _StudentClassesViewState extends State<StudentClassesView> {
   ) async {
     setState(() => _joiningClassId = classId);
     try {
-      await ApiClient().dio.post(
+      final response = await _dio.post<dynamic>(
         '${AppConfig.apiBaseUrl}/api/students/me/enrollments',
         data: {'schoolClassId': classId},
       );
       SystemSoundService.success();
       if (!mounted) return;
+      StudentEnrollment? createdEnrollment;
+      final raw = response.data;
+      if (raw is Map) {
+        createdEnrollment = StudentEnrollmentModel.fromJson(
+          Map<String, dynamic>.from(raw),
+        ).toEntity();
+      }
       setState(() {
         _availableClasses = _availableClasses
             .where((c) => (c['id'] as num?)?.toInt() != classId)
             .toList();
+        if (createdEnrollment != null) {
+          final current = List<StudentEnrollment>.from(
+            _sectionEnrollments ?? widget.data.studentEnrollments,
+          );
+          current.removeWhere(
+            (e) =>
+                (createdEnrollment!.id != null &&
+                    e.id == createdEnrollment.id) ||
+                e.schoolClassId == classId,
+          );
+          current.insert(0, createdEnrollment);
+          _sectionEnrollments = current;
+        }
       });
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -6274,8 +8070,8 @@ class _StudentClassesViewState extends State<StudentClassesView> {
           ),
         );
       }
-      widget.onRefresh();
-      await _loadAvailableClasses();
+      await _reloadClassesSection();
+      widget.onSilentRefresh?.call();
     } catch (e) {
       SystemSoundService.defeat();
       if (context.mounted) showLearningError(context, e);
@@ -6296,10 +8092,12 @@ class _StudentClassesViewState extends State<StudentClassesView> {
       );
     }
 
-    final activeEnrollments = widget.data.studentEnrollments
+    final effectiveEnrollments =
+        _sectionEnrollments ?? widget.data.studentEnrollments;
+    final activeEnrollments = effectiveEnrollments
         .where((e) => e.isActive)
         .toList();
-    final pastEnrollments = widget.data.studentEnrollments
+    final pastEnrollments = effectiveEnrollments
         .where((e) => !e.isActive)
         .toList();
     final activeClassIds = activeEnrollments
@@ -6324,12 +8122,20 @@ class _StudentClassesViewState extends State<StudentClassesView> {
                 ),
               ),
               OutlinedButton.icon(
-                onPressed: () {
-                  widget.onRefresh();
-                  unawaited(_loadAvailableClasses());
-                },
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Atualizar'),
+                onPressed: _loadingSection
+                    ? null
+                    : () {
+                        unawaited(_reloadClassesSection(showSpinner: true));
+                        widget.onSilentRefresh?.call();
+                      },
+                icon: _loadingSection
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded, size: 18),
+                label: Text(_loadingSection ? 'Atualizando...' : 'Atualizar'),
               ),
             ],
           ),
@@ -6364,7 +8170,7 @@ class _StudentClassesViewState extends State<StudentClassesView> {
           ),
         ],
         const SizedBox(height: 20),
-        if (widget.data.studentEnrollments.isEmpty && discoverable.isEmpty)
+        if (effectiveEnrollments.isEmpty && discoverable.isEmpty)
           const Card(
             child: Padding(
               padding: EdgeInsets.all(24),
@@ -6385,7 +8191,10 @@ class _StudentClassesViewState extends State<StudentClassesView> {
               child: _DetailedEnrollmentCard(
                 enrollment: entry.value,
                 onTap: () => setState(() => _selectedEnrollment = entry.value),
-                onRefresh: widget.onRefresh,
+                onRefresh: () {
+                  unawaited(_reloadClassesSection(showSpinner: true));
+                  widget.onSilentRefresh?.call();
+                },
               ),
             ),
           ),
@@ -6584,7 +8393,10 @@ class _StudentClassesViewState extends State<StudentClassesView> {
             (e) => _DetailedEnrollmentCard(
               enrollment: e,
               onTap: () => setState(() => _selectedEnrollment = e),
-              onRefresh: widget.onRefresh,
+              onRefresh: () {
+                unawaited(_reloadClassesSection(showSpinner: true));
+                widget.onSilentRefresh?.call();
+              },
             ),
           ),
         ],
@@ -7148,7 +8960,7 @@ class _StudentClassDashboardViewState
                             value: '$myAccuracy%',
                             subtitle: 'Desempenho nesta turma',
                             icon: Icons.track_changes_rounded,
-                            accentColor: const Color(0xFF2563EB),
+                            accentColor: VividIconPalette.green,
                             onTap: () {
                               widget.onBack();
                               widget.onNavigateSection?.call('lesson');
@@ -7166,7 +8978,7 @@ class _StudentClassDashboardViewState
                             value: '$myXp XP',
                             subtitle: 'Total acumulado',
                             icon: Icons.bolt_rounded,
-                            accentColor: const Color(0xFFFFB800),
+                            accentColor: VividIconPalette.purple,
                             onTap: () {
                               widget.onBack();
                               widget.onNavigateSection?.call('ranking');
@@ -7184,7 +8996,7 @@ class _StudentClassDashboardViewState
                             value: '$mySubmissionsCount',
                             subtitle: 'Atividades submetidas',
                             icon: Icons.assignment_turned_in_rounded,
-                            accentColor: const Color(0xFF059669),
+                            accentColor: VividIconPalette.blue,
                             onTap: () {
                               widget.onBack();
                               widget.onNavigateSection?.call('history');
@@ -7198,6 +9010,8 @@ class _StudentClassDashboardViewState
             );
           },
         ),
+        const SizedBox(height: 20),
+        ClassPerformanceLineChartCard(dashboard: dash),
         const SizedBox(height: 20),
 
         // Tabs: Colegas de Turma / Atividades da Turma
@@ -7298,139 +9112,14 @@ class _StudentClassDashboardViewState
               final stSubs =
                   (student['submissionsCount'] as num?)?.toInt() ?? 0;
 
-              return Card(
-                elevation: 0,
-                margin: const EdgeInsets.only(bottom: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(
-                    color: isMe
-                        ? const Color(0xFF2563EB).withValues(alpha: 0.5)
-                        : Theme.of(
-                            context,
-                          ).colorScheme.outlineVariant.withValues(alpha: 0.7),
-                    width: isMe ? 2 : 1,
-                  ),
-                ),
-                color: isMe
-                    ? const Color(0xFF2563EB).withValues(alpha: 0.04)
-                    : null,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: rank == 1
-                              ? const Color(0xFFFFD700).withValues(alpha: 0.2)
-                              : (rank == 2
-                                    ? const Color(
-                                        0xFFC0C0C0,
-                                      ).withValues(alpha: 0.2)
-                                    : (rank == 3
-                                          ? const Color(
-                                              0xFFCD7F32,
-                                            ).withValues(alpha: 0.2)
-                                          : Colors.grey.withValues(
-                                              alpha: 0.1,
-                                            ))),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          '$rankº',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: rank == 1
-                                ? const Color(0xFFB45309)
-                                : Colors.grey[800],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  student['name']?.toString() ?? 'Estudante',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                if (isMe) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 1,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF2563EB),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Text(
-                                      'Você',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '$stSubs entregas realizadas',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '$stXp XP',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                              color: Color(0xFFD97706),
-                            ),
-                          ),
-                          Text(
-                            'Acertos: $stAccuracy%',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: stAccuracy >= 70
-                                  ? const Color(0xFF15803D)
-                                  : (stAccuracy >= 50
-                                        ? const Color(0xFFD97706)
-                                        : const Color(0xFFDC2626)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+              return ClassRankingStudentTile(
+                rank: rank,
+                name: student['name']?.toString() ?? 'Estudante',
+                profilePicture: student['profilePicture']?.toString(),
+                isMe: isMe,
+                submissionsCount: stSubs,
+                xpEarned: stXp,
+                accuracyPercent: stAccuracy,
               );
             }),
         ],
@@ -8129,6 +9818,7 @@ class _TeacherClassManagementViewState
         ? preferredLangs.first
         : kDefaultSupportedLanguage;
     final gradeCtrl = TextEditingController(text: 'Geral');
+    String? pictureUrl;
 
     final result = await showDialog<bool>(
       context: context,
@@ -8140,10 +9830,18 @@ class _TeacherClassManagementViewState
           title: const Text('Criar turma na instituição'),
           content: SizedBox(
             width: responsiveDialogWidth(ctx, maxWidth: 440),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FormEntityPhotoPicker(
+                    entityName: name.text,
+                    pictureUrl: pictureUrl,
+                    label: 'Foto / Ícone da Turma (opcional)',
+                    onChanged: (v) => setDialogState(() => pictureUrl = v),
+                  ),
+                  const SizedBox(height: 12),
                 if ((widget.data.teacherProfile?.institution ?? '')
                     .isNotEmpty) ...[
                   Container(
@@ -8185,12 +9883,11 @@ class _TeacherClassManagementViewState
                     labelText: 'Idioma oficial da turma *',
                   ),
                   items: kSupportedLanguages.map((lang) {
-                    final meta = SupportedLanguages.metaFor(lang);
                     return DropdownMenuItem(
                       value: lang,
                       child: Row(
                         children: [
-                          Icon(meta.icon, size: 16, color: meta.color),
+                          LanguageFlag.forLanguage(lang, width: 20),
                           const SizedBox(width: 8),
                           Text(lang),
                         ],
@@ -8226,6 +9923,7 @@ class _TeacherClassManagementViewState
                   decoration: const InputDecoration(labelText: 'Nível / Série'),
                 ),
               ],
+            ),
             ),
           ),
           actions: [
@@ -8268,6 +9966,8 @@ class _TeacherClassManagementViewState
           'gradeLevel': gradeLevel,
           'languageName': languageName,
           'active': true,
+          if (pictureUrl != null && pictureUrl!.isNotEmpty)
+            'pictureUrl': pictureUrl,
         },
       );
       widget.onRefresh();
@@ -8325,6 +10025,7 @@ class _TeacherClassManagementViewState
       final invitableUsers = (response.data ?? const [])
           .whereType<Map>()
           .map((e) => Map<String, dynamic>.from(e))
+          .where((u) => '${u['role'] ?? ''}'.toUpperCase() != 'TEACHER')
           .toList();
 
       if (!context.mounted) return;
@@ -8349,7 +10050,7 @@ class _TeacherClassManagementViewState
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(22),
               ),
-              title: const Text('Convidar usuário para a turma'),
+              title: const Text('Convidar aluno para a turma'),
               content: SizedBox(
                 width: responsiveDialogWidth(ctx, maxWidth: 520),
                 child: Column(
@@ -8370,7 +10071,7 @@ class _TeacherClassManagementViewState
                           const SizedBox(width: 10),
                           const Expanded(
                             child: Text(
-                              'Convide alunos ou professores da mesma instituição (administradores externos e seu próprio usuário não aparecem).',
+                              'Convide alunos elegíveis da mesma instituição para esta turma.',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -8395,7 +10096,7 @@ class _TeacherClassManagementViewState
                       child: filtered.isEmpty
                           ? const Center(
                               child: Text(
-                                'Nenhum aluno ou professor disponível para convite nesta instituição.',
+                                'Nenhum aluno elegível disponível nesta instituição.',
                                 textAlign: TextAlign.center,
                               ),
                             )
@@ -8559,7 +10260,16 @@ class _TeacherClassManagementViewState
                   }),
                   icon: const Icon(Icons.arrow_back_rounded),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 6),
+                AppUserAvatar(
+                  name: dash?['name']?.toString() ??
+                      _selectedClassName ??
+                      'Turma',
+                  pictureUrl: dash?['pictureUrl']?.toString(),
+                  radius: 20,
+                  backgroundColor: const Color(0xFF7651C8),
+                ),
+                const SizedBox(width: 10),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -8614,6 +10324,28 @@ class _TeacherClassManagementViewState
                   onPressed: () => _addStudentToClass(context, classId),
                   icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
                   label: const Text('Adicionar Estudante'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    final currentName =
+                        dash?['name']?.toString() ??
+                        _selectedClassName ??
+                        'Turma';
+                    EntityPicturePickerDialog.show(
+                      context,
+                      title: 'Foto da Turma',
+                      entityName: currentName,
+                      endpointPath:
+                          '${AppConfig.apiBaseUrl}/api/classes/$classId/picture',
+                      initialPictureUrl: dash?['pictureUrl']?.toString(),
+                      onSaved: (_) {
+                        _openClassDashboard(classId, currentName);
+                        widget.onRefresh();
+                      },
+                    );
+                  },
+                  icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                  label: const Text('Foto da Turma'),
                 ),
                 OutlinedButton.icon(
                   onPressed: () {
@@ -8675,7 +10407,7 @@ class _TeacherClassManagementViewState
                       subtitle:
                           'Média: ${avgCorrect.toStringAsFixed(1)} / ${avgQuestions.toStringAsFixed(1)} questões',
                       icon: Icons.gps_fixed_rounded,
-                      accentColor: const Color(0xFF059669),
+                      accentColor: VividIconPalette.green,
                     ),
                   ),
                   SizedBox(
@@ -8685,7 +10417,7 @@ class _TeacherClassManagementViewState
                       value: '$totalStudents',
                       subtitle: 'Estudantes vinculados à turma',
                       icon: Icons.groups_rounded,
-                      accentColor: const Color(0xFF2563EB),
+                      accentColor: VividIconPalette.indigo,
                     ),
                   ),
                   SizedBox(
@@ -8695,7 +10427,7 @@ class _TeacherClassManagementViewState
                       value: '$totalSubmissions',
                       subtitle: '$totalExercises atividade(s) publicada(s)',
                       icon: Icons.assignment_turned_in_rounded,
-                      accentColor: const Color(0xFF7C3AED),
+                      accentColor: VividIconPalette.blue,
                     ),
                   ),
                   SizedBox(
@@ -8705,12 +10437,16 @@ class _TeacherClassManagementViewState
                       value: '$totalXp XP',
                       subtitle: 'Soma de XP das entregas',
                       icon: Icons.bolt_rounded,
-                      accentColor: const Color(0xFFD97706),
+                      accentColor: VividIconPalette.purple,
                     ),
                   ),
                 ],
               );
             },
+          ),
+          const SizedBox(height: 24),
+          ClassPerformanceLineChartCard(
+            dashboard: _classDashboard ?? const {},
           ),
           const SizedBox(height: 24),
           Text(
@@ -8872,6 +10608,72 @@ class _TeacherClassManagementViewState
     return ListView(
       padding: responsivePagePadding(context),
       children: [
+        if (widget.data.teacherProfile?.institutionId != null) ...[
+          Card(
+            margin: const EdgeInsets.only(bottom: 14),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  AppUserAvatar(
+                    name: widget.data.teacherProfile!.institution.isNotEmpty
+                        ? widget.data.teacherProfile!.institution
+                        : 'Instituição',
+                    pictureUrl:
+                        widget.data.teacherProfile!.institutionPictureUrl,
+                    radius: 22,
+                    backgroundColor: const Color(0xFF7651C8),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.data.teacherProfile!.institution.isNotEmpty
+                              ? widget.data.teacherProfile!.institution
+                              : 'Minha Instituição',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          'Foto / Brasão da Instituição',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      final instId = widget.data.teacherProfile!.institutionId!;
+                      EntityPicturePickerDialog.show(
+                        context,
+                        title: 'Foto da Instituição',
+                        entityName: widget.data.teacherProfile!.institution,
+                        endpointPath:
+                            '${AppConfig.apiBaseUrl}/api/institutions/$instId/picture',
+                        initialPictureUrl: widget
+                            .data
+                            .teacherProfile!
+                            .institutionPictureUrl,
+                        onSaved: (_) => widget.onRefresh(),
+                      );
+                    },
+                    icon: const Icon(Icons.photo_camera_rounded, size: 17),
+                    label: const Text('Foto da Instituição'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
         Row(
           children: [
             const Expanded(
@@ -8929,7 +10731,12 @@ class _TeacherClassManagementViewState
                         a.schoolClassId!,
                         a.schoolClassName,
                       ),
-                leading: const CircleAvatar(child: Icon(Icons.class_rounded)),
+                leading: AppUserAvatar(
+                  name: a.schoolClassName,
+                  pictureUrl: a.schoolClassPictureUrl,
+                  radius: 20,
+                  backgroundColor: const Color(0xFF7651C8),
+                ),
                 title: Wrap(
                   spacing: 8,
                   runSpacing: 4,
@@ -8948,20 +10755,466 @@ class _TeacherClassManagementViewState
                 subtitle: Text(
                   'Desde ${a.startDate} • Toque para abrir o Dashboard da Turma',
                 ),
-                trailing: FilledButton.tonalIcon(
-                  onPressed: a.schoolClassId == null
-                      ? null
-                      : () => _openClassDashboard(
-                          a.schoolClassId!,
-                          a.schoolClassName,
+                trailing: Wrap(
+                  spacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (a.schoolClassId != null)
+                      IconButton(
+                        tooltip: 'Alterar foto da turma',
+                        onPressed: () => EntityPicturePickerDialog.show(
+                          context,
+                          title: 'Foto da Turma',
+                          entityName: a.schoolClassName,
+                          endpointPath:
+                              '${AppConfig.apiBaseUrl}/api/classes/${a.schoolClassId}/picture',
+                          initialPictureUrl: a.schoolClassPictureUrl,
+                          onSaved: (_) => widget.onRefresh(),
                         ),
-                  icon: const Icon(Icons.analytics_outlined, size: 18),
-                  label: const Text('Dashboard'),
+                        icon: const Icon(Icons.add_a_photo_outlined, size: 20),
+                      ),
+                    FilledButton.tonalIcon(
+                      onPressed: a.schoolClassId == null
+                          ? null
+                          : () => _openClassDashboard(
+                              a.schoolClassId!,
+                              a.schoolClassName,
+                            ),
+                      icon: const Icon(Icons.analytics_outlined, size: 18),
+                      label: const Text('Dashboard'),
+                    ),
+                  ],
                 ),
               ),
             ),
           );
         }),
+      ],
+    );
+  }
+}
+
+class ClassRankingStudentTile extends StatelessWidget {
+  const ClassRankingStudentTile({
+    super.key,
+    required this.rank,
+    required this.name,
+    this.profilePicture,
+    this.isMe = false,
+    required this.submissionsCount,
+    required this.xpEarned,
+    required this.accuracyPercent,
+  });
+
+  final int rank;
+  final String name;
+  final String? profilePicture;
+  final bool isMe;
+  final int submissionsCount;
+  final int xpEarned;
+  final double accuracyPercent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: isMe
+              ? const Color(0xFF2563EB).withValues(alpha: 0.5)
+              : Theme.of(
+                  context,
+                ).colorScheme.outlineVariant.withValues(alpha: 0.7),
+          width: isMe ? 2 : 1,
+        ),
+      ),
+      color: isMe ? const Color(0xFF2563EB).withValues(alpha: 0.04) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              decoration: (isMe || rank <= 3)
+                  ? BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        width: 2,
+                        color: rank == 1
+                            ? const Color(0xFFF59E0B)
+                            : (rank == 2
+                                  ? const Color(0xFF94A3B8)
+                                  : (rank == 3
+                                        ? const Color(0xFFCD7F32)
+                                        : const Color(0xFF2563EB))),
+                      ),
+                    )
+                  : null,
+              child: AppUserAvatar(
+                name: name,
+                pictureUrl: profilePicture,
+                radius: 18,
+                backgroundColor: rank == 1
+                    ? const Color(0xFFFFD700).withValues(alpha: 0.22)
+                    : (rank == 2
+                          ? const Color(0xFFC0C0C0).withValues(alpha: 0.22)
+                          : (rank == 3
+                                ? const Color(
+                                    0xFFCD7F32,
+                                  ).withValues(alpha: 0.22)
+                                : null)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _ClassRankMedalBadge(rank: rank),
+                      if (isMe) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            'Você',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$submissionsCount entregas realizadas',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '$xpEarned XP',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    color: Color(0xFFD97706),
+                  ),
+                ),
+                Text(
+                  'Acertos: $accuracyPercent%',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: accuracyPercent >= 70
+                        ? const Color(0xFF15803D)
+                        : (accuracyPercent >= 50
+                              ? const Color(0xFFD97706)
+                              : const Color(0xFFDC2626)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ClassRankMedalBadge extends StatelessWidget {
+  const _ClassRankMedalBadge({required this.rank});
+
+  final int rank;
+
+  @override
+  Widget build(BuildContext context) {
+    if (rank > 3) {
+      return Semantics(
+        label: 'Posição #$rank',
+        child: Tooltip(
+          message: 'Posição #$rank',
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFF22C55E).withValues(alpha: 0.75),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.eco_rounded,
+                  size: 13,
+                  color: Color(0xFF16A34A),
+                ),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                '#$rank',
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF15803D),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final (
+      String label,
+      String semanticLabel,
+      Color accent,
+      Color bg,
+      Color border,
+    ) = switch (rank) {
+      1 => (
+        '🥇 Ouro',
+        'Medalha de Ouro - 1º lugar',
+        const Color(0xFFB45309),
+        const Color(0xFFFEF3C7),
+        const Color(0xFFF59E0B),
+      ),
+      2 => (
+        '🥈 Prata',
+        'Medalha de Prata - 2º lugar',
+        const Color(0xFF475569),
+        const Color(0xFFF1F5F9),
+        const Color(0xFF94A3B8),
+      ),
+      _ => (
+        '🥉 Bronze',
+        'Medalha de Bronze - 3º lugar',
+        const Color(0xFF9A3412),
+        const Color(0xFFFFEDD5),
+        const Color(0xFFCD7F32),
+      ),
+    };
+
+    return Semantics(
+      label: semanticLabel,
+      child: Tooltip(
+        message: semanticLabel,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: border.withValues(alpha: 0.7)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.workspace_premium_rounded, size: 13, color: border),
+              const SizedBox(width: 3),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  color: accent,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PerfStudentSummary {
+  _PerfStudentSummary({
+    required this.name,
+    this.profilePicture,
+    required this.xp,
+    required this.correct,
+    required this.questions,
+    required this.submissions,
+  });
+
+  final String name;
+  String? profilePicture;
+  int xp;
+  int correct;
+  int questions;
+  int submissions;
+
+  double get accuracyPercent =>
+      questions > 0 ? (correct * 100.0) / questions : 0.0;
+}
+
+class _PerfTelemetryPoint {
+  const _PerfTelemetryPoint({
+    required this.label,
+    required this.studentName,
+    required this.exerciseTitle,
+    required this.accuracyPercent,
+    required this.cumulativeXpPercent,
+    required this.xpEarned,
+    required this.cumulativeXp,
+  });
+
+  final String label;
+  final String studentName;
+  final String exerciseTitle;
+  final double accuracyPercent;
+  final double cumulativeXpPercent;
+  final int xpEarned;
+  final int cumulativeXp;
+}
+
+class _PerformanceTelemetryGaugeCard extends StatelessWidget {
+  const _PerformanceTelemetryGaugeCard({
+    required this.title,
+    required this.metricValue,
+    required this.metricSuffix,
+    required this.subtitle,
+    required this.percent,
+    required this.centerText,
+    required this.centerSub,
+    required this.color,
+    required this.icon,
+    this.metricDecimals = 0,
+  });
+
+  final String title;
+  final num metricValue;
+  final int metricDecimals;
+  final String metricSuffix;
+  final String subtitle;
+  final double percent;
+  final String centerText;
+  final String centerSub;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return InteractiveMotionCard(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          AnimatedRadialGauge(
+            percent: percent,
+            color: color,
+            centerLabel: centerText,
+            subtitle: centerSub,
+            radius: 34,
+            lineWidth: 7,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(icon, size: 16, color: color),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                AnimatedMetricCounter(
+                  value: metricValue,
+                  decimals: metricDecimals,
+                  suffix: metricSuffix,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityChartLegendDot extends StatelessWidget {
+  const _ActivityChartLegendDot({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }

@@ -6,12 +6,17 @@ import 'package:frontend/core/constants/supported_languages.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/ui/language_flag.dart';
 import 'package:frontend/core/ui/mascot/mascot.dart';
+import 'package:frontend/core/ui/vivid_icon_palette.dart';
 import 'package:frontend/core/xp/xp_animation_controller.dart';
 
 class _AddSrsCardDialog extends StatefulWidget {
-  const _AddSrsCardDialog({required this.onSave});
+  const _AddSrsCardDialog({
+    required this.onSave,
+    this.initialLanguage = kDefaultSupportedLanguage,
+  });
 
   final Future<void> Function(Map<String, dynamic> payload) onSave;
+  final String initialLanguage;
 
   @override
   State<_AddSrsCardDialog> createState() => _AddSrsCardDialogState();
@@ -22,7 +27,7 @@ class _AddSrsCardDialogState extends State<_AddSrsCardDialog> {
   final TextEditingController _translationCtrl = TextEditingController();
   final TextEditingController _exampleCtrl = TextEditingController();
   final TextEditingController _exampleTranslationCtrl = TextEditingController();
-  String _language = kDefaultSupportedLanguage;
+  late String _language = widget.initialLanguage;
   String _category = 'geral';
   String _cefrLevel = 'B1';
   bool _saving = false;
@@ -159,7 +164,14 @@ class _AddSrsCardDialogState extends State<_AddSrsCardDialog> {
                       border: OutlineInputBorder(),
                     ),
                     items: ['A1', 'A2', 'B1', 'B2', 'C1']
-                        .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+                        .map(
+                          (l) => DropdownMenuItem(
+                            value: l,
+                            child: Text(
+                              SupportedLanguages.formatLevelWithEmoji(l),
+                            ),
+                          ),
+                        )
                         .toList(),
                     onChanged: (v) => setState(() => _cefrLevel = v ?? 'B1'),
                   ),
@@ -227,20 +239,31 @@ class _AddSrsCardDialogState extends State<_AddSrsCardDialog> {
 }
 
 class SrsReviewView extends StatefulWidget {
-  const SrsReviewView({super.key, required this.onBack});
+  const SrsReviewView({
+    super.key,
+    required this.onBack,
+    this.dio,
+    this.initialLanguage = kDefaultSupportedLanguage,
+  });
 
   final VoidCallback onBack;
+  final Dio? dio;
+  final String initialLanguage;
 
   @override
   State<SrsReviewView> createState() => _SrsReviewViewState();
 }
 
 class _SrsReviewViewState extends State<SrsReviewView> {
-  final Dio _dio = ApiClient().dio;
+  late final Dio _dio = widget.dio ?? ApiClient().dio;
   late Future<void> _loadFuture;
 
   List<Map<String, dynamic>> _items = [];
   Map<String, dynamic>? _stats;
+  late String _selectedLanguage = SupportedLanguages.normalizeOrDefault(
+    widget.initialLanguage,
+    kDefaultSupportedLanguage,
+  );
   int _currentIndex = 0;
   bool _isFlipped = false;
   bool _submitting = false;
@@ -288,22 +311,29 @@ class _SrsReviewViewState extends State<SrsReviewView> {
       );
     }
     try {
-      final responses = await Future.wait([
-        _dio.get('/api/srs/session'),
-        _dio.get('/api/srs/stats'),
-      ]);
+      final sessionRes = await _dio.get(
+        '/api/srs/session',
+        queryParameters: {'language': _selectedLanguage},
+      );
+      final statsRes = await _dio.get(
+        '/api/srs/stats',
+        queryParameters: {'language': _selectedLanguage},
+      );
 
       if (!mounted) return;
       setState(() {
-        _items = (responses[0].data as List)
+        _items = (sessionRes.data as List)
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
-        _stats = responses[1].data is Map
-            ? Map<String, dynamic>.from(responses[1].data as Map)
+        _stats = statsRes.data is Map
+            ? Map<String, dynamic>.from(statsRes.data as Map)
             : null;
         _currentIndex = 0;
         _isFlipped = false;
       });
+      MascotController.instance.updateNavigationContext(
+        languageCode: _selectedLanguage,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -366,7 +396,10 @@ class _SrsReviewViewState extends State<SrsReviewView> {
           MascotController.instance.markActivityCompleted(_mascotToken!);
         }
         // Refresh stats
-        final statsRes = await _dio.get('/api/srs/stats');
+        final statsRes = await _dio.get(
+          '/api/srs/stats',
+          queryParameters: {'language': _selectedLanguage},
+        );
         if (mounted) {
           setState(() {
             _stats = Map<String, dynamic>.from(statsRes.data as Map);
@@ -391,6 +424,7 @@ class _SrsReviewViewState extends State<SrsReviewView> {
     final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => _AddSrsCardDialog(
+        initialLanguage: _selectedLanguage,
         onSave: (payload) => _dio.post('/api/srs/items', data: payload),
       ),
     );
@@ -468,46 +502,93 @@ class _SrsReviewViewState extends State<SrsReviewView> {
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: kSupportedLanguages.map((lang) {
+                  return ChoiceChip(
+                    selected: _selectedLanguage == lang,
+                    avatar: LanguageFlag.forLanguage(lang, width: 18),
+                    label: Text(lang),
+                    onSelected: (selected) {
+                      if (selected && _selectedLanguage != lang) {
+                        setState(() {
+                          _selectedLanguage = lang;
+                          _items = [];
+                          _currentIndex = 0;
+                          _isFlipped = false;
+                          _loadFuture = _loadData();
+                        });
+                      }
+                    },
+                  );
+                }).toList(),
+              ),
               const SizedBox(height: 20),
 
               // Stats Row
               if (_stats != null) ...[
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _buildStatPill(
-                      Icons.pending_actions_rounded,
-                      '${_stats!['dueTodayCount'] ?? 0}',
-                      'Para hoje',
-                      colors.primary,
-                    ),
-                    _buildStatPill(
-                      Icons.schedule_rounded,
-                      '${_stats!['upcomingCount'] ?? 0}',
-                      'Próximos dias',
-                      Colors.purple,
-                    ),
-                    _buildStatPill(
-                      Icons.verified_rounded,
-                      '${_stats!['masteredCount'] ?? 0}',
-                      'Dominados',
-                      Colors.green,
-                    ),
-                    _buildStatPill(
-                      Icons.trending_up_rounded,
-                      '${_stats!['retentionRate'] ?? 0}%',
-                      'Taxa de Retenção',
-                      Colors.teal,
-                    ),
-                    if (_sessionXp > 0)
-                      _buildStatPill(
-                        Icons.bolt_rounded,
-                        '+$_sessionXp XP',
-                        'Ganhos na sessão',
-                        Colors.amber[800]!,
-                      ),
-                  ],
+                Builder(
+                  builder: (context) {
+                    final brightness = Theme.of(context).brightness;
+                    final dueCount =
+                        (_stats!['dueToday'] ?? _stats!['dueTodayCount'] ?? 0)
+                            as num;
+                    final totalCards = (_stats!['totalCards'] ?? 0) as num;
+                    final rawUpcoming = _stats!['upcomingCount'];
+                    final upcoming = rawUpcoming is num
+                        ? rawUpcoming.toInt()
+                        : (totalCards - dueCount).toInt().clamp(0, 999999);
+                    final mastered = (_stats!['masteredCount'] ?? 0);
+                    final retention = (_stats!['retentionRate'] ?? 100);
+                    return Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        _buildStatPill(
+                          Icons.pending_actions_rounded,
+                          '${dueCount.toInt()}',
+                          'Para hoje',
+                          VividIconPalette.blue,
+                        ),
+                        _buildStatPill(
+                          Icons.schedule_rounded,
+                          '$upcoming',
+                          'Próximos dias',
+                          VividIconPalette.purple,
+                        ),
+                        _buildStatPill(
+                          Icons.verified_rounded,
+                          '$mastered',
+                          'Dominados',
+                          VividIconPalette.colorFor(
+                            Icons.verified_rounded,
+                            brightness: brightness,
+                          ),
+                        ),
+                        _buildStatPill(
+                          Icons.trending_up_rounded,
+                          '$retention%',
+                          'Taxa de Retenção',
+                          VividIconPalette.colorFor(
+                            Icons.trending_up_rounded,
+                            brightness: brightness,
+                          ),
+                        ),
+                        if (_sessionXp > 0)
+                          _buildStatPill(
+                            Icons.bolt_rounded,
+                            '+$_sessionXp XP',
+                            'Ganhos na sessão',
+                            VividIconPalette.colorFor(
+                              Icons.bolt_rounded,
+                              brightness: brightness,
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 24),
               ],

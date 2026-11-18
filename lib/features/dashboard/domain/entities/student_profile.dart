@@ -9,6 +9,7 @@ class StudentProfile {
     this.gender,
     this.institutionId,
     this.institutionName,
+    this.institutionPictureUrl,
   });
 
   final int? id;
@@ -20,6 +21,7 @@ class StudentProfile {
   final String? gender;
   final int? institutionId;
   final String? institutionName;
+  final String? institutionPictureUrl;
 
   bool get isFemale =>
       gender?.trim().toUpperCase() == 'FEMININO' ||

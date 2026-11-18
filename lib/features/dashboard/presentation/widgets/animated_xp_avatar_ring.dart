@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/audio/system_sound_service.dart';
 import '../../../../core/ui/motion_kit.dart';
 import '../../../../core/xp/xp_animation_controller.dart';
+import '../../../../core/xp/xp_level_progression.dart';
 import 'app_user_avatar.dart';
 
 /// Profile avatar framed by an XP progress ring that listens for queued XP
@@ -18,6 +19,7 @@ class AnimatedXpAvatarRing extends StatefulWidget {
     required this.pictureUrl,
     required this.dailyXp,
     required this.dailyGoalXp,
+    this.totalXp,
     this.radius = 41,
     this.ringSize = 98,
     this.onAnimatingChanged,
@@ -28,6 +30,7 @@ class AnimatedXpAvatarRing extends StatefulWidget {
   final String? pictureUrl;
   final int dailyXp;
   final int dailyGoalXp;
+  final int? totalXp;
   final double radius;
   final double ringSize;
   final ValueChanged<bool>? onAnimatingChanged;
@@ -43,6 +46,8 @@ class _AnimatedXpAvatarRingState extends State<AnimatedXpAvatarRing>
   int _gainedXp = 0;
   int _fromXp = 0;
   int _toXp = 0;
+  int _fromTotalXp = 0;
+  int _toTotalXp = 0;
   bool _consuming = false;
   Timer? _startDelayTimer;
 
@@ -51,6 +56,8 @@ class _AnimatedXpAvatarRingState extends State<AnimatedXpAvatarRing>
     super.initState();
     _toXp = widget.dailyXp;
     _fromXp = widget.dailyXp;
+    _toTotalXp = widget.totalXp ?? 0;
+    _fromTotalXp = widget.totalXp ?? 0;
     _controller =
         AnimationController(
           vsync: this,
@@ -60,6 +67,7 @@ class _AnimatedXpAvatarRingState extends State<AnimatedXpAvatarRing>
             setState(() {
               _gainedXp = 0;
               _fromXp = _toXp;
+              _fromTotalXp = _toTotalXp;
             });
             widget.onAnimatingChanged?.call(false);
           }
@@ -74,9 +82,15 @@ class _AnimatedXpAvatarRingState extends State<AnimatedXpAvatarRing>
   @override
   void didUpdateWidget(covariant AnimatedXpAvatarRing oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.dailyXp != widget.dailyXp && !_controller.isAnimating) {
+    final dailyChanged = oldWidget.dailyXp != widget.dailyXp;
+    final totalChanged = oldWidget.totalXp != widget.totalXp;
+    if ((dailyChanged || totalChanged) && !_controller.isAnimating) {
       _toXp = math.max(widget.dailyXp, _toXp);
       _fromXp = _toXp;
+      if (widget.totalXp != null) {
+        _toTotalXp = math.max(widget.totalXp!, _toTotalXp);
+        _fromTotalXp = _toTotalXp;
+      }
       _scheduleConsumeCheck();
     }
   }
@@ -122,10 +136,16 @@ class _AnimatedXpAvatarRingState extends State<AnimatedXpAvatarRing>
           : (widget.dailyXp + earned);
       final startXp = math.max(0, targetXp - earned);
 
+      final rawTotal = widget.totalXp ?? 0;
+      final targetTotal = rawTotal >= earned ? rawTotal : (rawTotal + earned);
+      final startTotal = math.max(0, targetTotal - earned);
+
       if (isWidgetTestEnvironment && !widget.forceAnimateInTest) {
         setState(() {
           _toXp = targetXp;
           _fromXp = targetXp;
+          _toTotalXp = targetTotal;
+          _fromTotalXp = targetTotal;
           _gainedXp = 0;
         });
         return;
@@ -137,6 +157,8 @@ class _AnimatedXpAvatarRingState extends State<AnimatedXpAvatarRing>
         _gainedXp = earned;
         _fromXp = startXp;
         _toXp = targetXp;
+        _fromTotalXp = startTotal;
+        _toTotalXp = targetTotal;
       });
       _controller.forward(from: 0.0);
     } finally {
@@ -188,7 +210,21 @@ class _AnimatedXpAvatarRingState extends State<AnimatedXpAvatarRing>
         final endXp = isActive ? _toXp : widget.dailyXp;
         final displayedXp =
             (baseXp + ((endXp - baseXp) * roll).round()).clamp(0, 9999999);
-        final progress = (displayedXp / safeGoal).clamp(0.08, 1.0);
+
+        final hasTotalXp = widget.totalXp != null;
+        final baseTotal = isActive ? _fromTotalXp : (widget.totalXp ?? 0);
+        final endTotal = isActive ? _toTotalXp : (widget.totalXp ?? 0);
+        final displayedTotal = (baseTotal + ((endTotal - baseTotal) * roll).round())
+            .clamp(0, 99999999);
+        final levelInfo = hasTotalXp
+            ? XpLevelProgression.fromXp(displayedTotal)
+            : null;
+        final progress = levelInfo != null
+            ? levelInfo.progress.clamp(0.06, 1.0)
+            : (displayedXp / safeGoal).clamp(0.08, 1.0);
+        final badgeText = levelInfo != null
+            ? 'Nível ${levelInfo.level} • ${levelInfo.currentLevelXp}/${levelInfo.xpRequiredForNextLevel} XP'
+            : '$displayedXp / $safeGoal XP hoje';
 
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -316,7 +352,7 @@ class _AnimatedXpAvatarRingState extends State<AnimatedXpAvatarRing>
                 ),
               ),
               child: Text(
-                '$displayedXp / $safeGoal XP hoje',
+                badgeText,
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 11,
