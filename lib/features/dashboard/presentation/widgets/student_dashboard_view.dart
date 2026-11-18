@@ -1265,7 +1265,7 @@ class _StudentInstitutionMembersViewState
                   pictureUrl:
                       widget.data.studentProfile!.institutionPictureUrl,
                   radius: 24,
-                  backgroundColor: _blue,
+                  backgroundColor: const Color(0xFF3579E8),
                 ),
                 const SizedBox(width: 12),
               ],

@@ -2,9 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/network/api_client.dart';
-import '../../../../core/utils/local_image_picker_helper.dart';
 import 'app_user_avatar.dart';
 import 'edit_profile_dialogs.dart';
+import 'local_image_picker_helper.dart';
 
 /// Compact reusable photo selector widget used inside Institution & Class creation/edit forms.
 class FormEntityPhotoPicker extends StatelessWidget {

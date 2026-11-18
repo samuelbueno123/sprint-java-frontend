@@ -359,8 +359,9 @@ class _PersonalizedLearningPathViewState
                       onChanged: saving || reloadingLang
                           ? null
                           : (newLang) async {
-                              if (newLang == null || newLang == diagLang)
+                              if (newLang == null || newLang == diagLang) {
                                 return;
+                              }
                               setDialogState(() => reloadingLang = true);
                               try {
                                 final r = await _dio.get(
