@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/constants/brand_assets.dart';
 import 'package:frontend/core/ui/mascot/mascot.dart';
 import 'package:frontend/core/ui/motion_kit.dart';
 import 'package:frontend/features/access/presentation/pages/access_selection_page.dart';
@@ -274,7 +275,7 @@ void main() {
     });
 
     testWidgets(
-      'Auth screens display BANNER/ICONE cleanly without goat mascot',
+      'Auth screens display ICONE cleanly without banner or goat mascot',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(1280, 820));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -284,17 +285,35 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.byType(MascotSprite), findsNothing);
+        expect(find.byType(AppBrandBanner), findsNothing);
+        expect(find.byType(AppBrandIcon), findsOneWidget);
         expect(find.text('ENTRAR COMO ALUNO'), findsOneWidget);
 
         await tester.tap(find.text('ENTRAR COMO ALUNO'));
         await tester.pumpAndSettle();
         expect(find.byType(LoginPage), findsOneWidget);
         expect(find.byType(InteractiveMascotStage), findsNothing);
+        expect(find.byType(AppBrandBanner), findsNothing);
+        expect(find.byType(AppBrandIcon), findsOneWidget);
 
+        // Mobile & compact viewports should also render only the brand icon.
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        await tester.pumpAndSettle();
+        expect(find.byType(AppBrandBanner), findsNothing);
+        expect(find.byType(AppBrandIcon), findsOneWidget);
+
+        await tester.binding.setSurfaceSize(const Size(390, 620));
+        await tester.pumpAndSettle();
+        expect(find.byType(AppBrandBanner), findsNothing);
+        expect(find.byType(AppBrandIcon), findsOneWidget);
+
+        await tester.binding.setSurfaceSize(const Size(1280, 820));
         await tester.pumpWidget(
           MaterialApp(key: UniqueKey(), home: const RegistrationChoicePage()),
         );
         await tester.pumpAndSettle();
+        expect(find.byType(AppBrandBanner), findsNothing);
+        expect(find.byType(AppBrandIcon), findsOneWidget);
         expect(find.text('Sou estudante'), findsOneWidget);
 
         await tester.pumpWidget(

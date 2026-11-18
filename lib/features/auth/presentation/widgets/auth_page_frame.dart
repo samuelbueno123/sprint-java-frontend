@@ -171,8 +171,6 @@ class AuthPageFrame extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const AppBrandBanner(height: 82, maxWidth: 340),
-        const SizedBox(height: 16),
         const AppBrandIcon(size: 64),
         const SizedBox(height: 20),
         Text(
@@ -288,20 +286,7 @@ class AuthPageFrame extends StatelessWidget {
               style: TextButton.styleFrom(foregroundColor: accentColor),
             ),
           ),
-        if (compactHeight)
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AppBrandBanner(height: 50, maxWidth: 210),
-              SizedBox(width: 10),
-              AppBrandIcon(size: 40),
-            ],
-          )
-        else ...[
-          const AppBrandBanner(height: 68, maxWidth: 280),
-          const SizedBox(height: 10),
-          const AppBrandIcon(size: 48),
-        ],
+        AppBrandIcon(size: compactHeight ? 40 : 48),
         SizedBox(height: compactHeight ? 4 : 6),
         Text(
           'Aprenda idiomas com inteligência artificial',

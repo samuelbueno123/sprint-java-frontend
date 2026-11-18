@@ -20,8 +20,6 @@ class AccessSelectionPage extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const AppBrandBanner(height: 88, maxWidth: 320),
-                const SizedBox(height: 16),
                 const AppBrandIcon(size: 72),
                 const SizedBox(height: 12),
                 const Text(
